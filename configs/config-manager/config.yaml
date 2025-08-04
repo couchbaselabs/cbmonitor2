@@ -1,0 +1,11 @@
+# Config Manager Service Configuration
+server:
+  port: 8080
+  host: "0.0.0.0"
+
+agent:
+  type: "prometheus"  # or "alloy" or "vm"
+  directory: "/agent/targets/path/"
+
+logging:
+  level: "info"

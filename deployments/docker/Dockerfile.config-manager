@@ -1,0 +1,19 @@
+FROM golang:1.24-alpine AS builder
+
+WORKDIR /app
+COPY . .
+
+# Build the config-manager service
+RUN go build -o config-manager ./cmd/config-manager
+
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+
+COPY --from=builder /app/config-manager .
+COPY --from=builder /app/configs/config-manager/config.yaml ./config.yaml
+
+EXPOSE 8080
+
+CMD ["./config-manager"] 

@@ -1,0 +1,9 @@
+go 1.24
+
+use (
+	./cmd/config-manager
+	./cmd/grafana-app
+	./pkg/config
+	./pkg/couchbase
+	./pkg/grafana
+)
