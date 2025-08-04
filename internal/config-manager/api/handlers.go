@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/couchbase/cbmonitor/internal/config-manager/models"
 	"github.com/couchbase/cbmonitor/internal/config-manager/storage"
@@ -62,10 +61,7 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 
 	// Create response
 	response := models.SnapshotResponse{
-		ID:        id,
-		CreatedAt: time.Now(),
-		AgentType: h.agentType,
-		Status:    "created",
+		ID: id,
 	}
 
 	// Set response headers

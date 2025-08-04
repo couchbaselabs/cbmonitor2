@@ -70,14 +70,6 @@ func TestCreateSnapshot(t *testing.T) {
 		t.Error("Expected non-empty ID in response")
 	}
 
-	if response.AgentType != "vmagent" {
-		t.Errorf("Expected agent type 'vmagent', got '%s'", response.AgentType)
-	}
-
-	if response.Status != "created" {
-		t.Errorf("Expected status 'created', got '%s'", response.Status)
-	}
-
 	// Check if file was created
 	expectedFile := filepath.Join(tempDir, fmt.Sprintf("%s.yml", response.ID))
 	if _, err := os.Stat(expectedFile); os.IsNotExist(err) {
@@ -132,7 +124,6 @@ func TestCreateSnapshotInvalidRequest(t *testing.T) {
 			name: "missing hostname",
 			request: models.SnapshotRequest{
 				ClusterInfo: models.ClusterInfo{
-					Name:     "test-cluster",
 					Hostname: "",
 					Port:     8091,
 				},
@@ -143,7 +134,6 @@ func TestCreateSnapshotInvalidRequest(t *testing.T) {
 			name: "missing credentials",
 			request: models.SnapshotRequest{
 				ClusterInfo: models.ClusterInfo{
-					Name:     "test-cluster",
 					Hostname: "localhost",
 					Port:     8091,
 					Credentials: models.Credentials{

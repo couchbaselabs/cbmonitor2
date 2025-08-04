@@ -1,9 +1,5 @@
 package models
 
-import (
-	"time"
-)
-
 // SnapshotRequest represents the payload for creating a snapshot
 type SnapshotRequest struct {
 	ClusterInfo ClusterInfo `json:"cluster_info"`
@@ -27,7 +23,4 @@ type Credentials struct {
 // SnapshotResponse represents the response after creating a snapshot
 type SnapshotResponse struct {
 	ID        string    `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	AgentType string    `json:"agent_type"`
-	Status    string    `json:"status"`
 }
