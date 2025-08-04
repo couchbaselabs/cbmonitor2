@@ -22,7 +22,7 @@ clean:
 # Run tests
 test:
 	@echo "Running tests..."
-	@go test ./...
+	@cd test && go test -v .
 
 help:
 	@echo "Available targets:"

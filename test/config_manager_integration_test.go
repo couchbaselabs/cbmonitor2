@@ -31,13 +31,9 @@ func TestCreateSnapshot(t *testing.T) {
 			Name:     "test-cluster",
 			Hostname: "localhost",
 			Port:     8091,
-			Services: []string{"kv", "query", "index"},
 			Credentials: models.Credentials{
 				Username: "admin",
 				Password: "password",
-			},
-			Metadata: map[string]string{
-				"environment": "test",
 			},
 		},
 	}
