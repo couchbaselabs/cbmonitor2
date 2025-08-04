@@ -45,7 +45,6 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 
 	// Convert cluster info to map for storage
 	clusterMap := map[string]interface{}{
-		"name":        req.ClusterInfo.Name,
 		"hostname":    req.ClusterInfo.Hostname,
 		"port":        req.ClusterInfo.Port,
 		"credentials": map[string]interface{}{
@@ -82,10 +81,6 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 
 // validateSnapshotRequest validates the snapshot request
 func (h *Handler) validateSnapshotRequest(req *models.SnapshotRequest) error {
-	if req.ClusterInfo.Name == "" {
-		return &ValidationError{Field: "cluster_info.name", Message: "cluster name is required"}
-	}
-
 	if req.ClusterInfo.Hostname == "" {
 		return &ValidationError{Field: "cluster_info.hostname", Message: "hostname is required"}
 	}

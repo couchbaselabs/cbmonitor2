@@ -28,7 +28,6 @@ func TestCreateSnapshot(t *testing.T) {
 	// Create test request
 	request := models.SnapshotRequest{
 		ClusterInfo: models.ClusterInfo{
-			Name:     "test-cluster",
 			Hostname: "localhost",
 			Port:     8091,
 			Credentials: models.Credentials{
@@ -129,17 +128,6 @@ func TestCreateSnapshotInvalidRequest(t *testing.T) {
 		request      models.SnapshotRequest
 		expectedCode int
 	}{
-		{
-			name: "missing cluster name",
-			request: models.SnapshotRequest{
-				ClusterInfo: models.ClusterInfo{
-					Name:     "",
-					Hostname: "localhost",
-					Port:     8091,
-				},
-			},
-			expectedCode: http.StatusBadRequest,
-		},
 		{
 			name: "missing hostname",
 			request: models.SnapshotRequest{
