@@ -1,78 +1,200 @@
 package test
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/couchbase/cbmonitor/internal/config-manager/api"
+	"github.com/couchbase/cbmonitor/internal/config-manager/models"
+	"github.com/couchbase/cbmonitor/internal/config-manager/storage"
 )
 
-func TestConfigManagerServiceIntegration(t *testing.T) {
-	// TODO: Integration tests for config-manager service
-	// - Test full service startup
-	// - Test API endpoints
-	// - Test file storage operations
-	// - Test configuration management
-	
-	t.Run("should start config manager service", func(t *testing.T) {
-		// TODO: Start config-manager service
-		// TODO: Verify service is running
-		// TODO: Check health endpoint
-		t.Skip("Integration test not implemented yet")
-	})
-	
-	t.Run("should handle scrape target lifecycle", func(t *testing.T) {
-		// TODO: Create scrape target
-		// TODO: List scrape targets
-		// TODO: Update scrape target
-		// TODO: Delete scrape target
-		t.Skip("Integration test not implemented yet")
-	})
-	
-	t.Run("should persist configurations to file", func(t *testing.T) {
-		// TODO: Create configuration
-		// TODO: Restart service
-		// TODO: Verify configuration persists
-		t.Skip("Integration test not implemented yet")
-	})
-	
-	t.Run("should handle concurrent requests", func(t *testing.T) {
-		// TODO: Send concurrent requests
-		// TODO: Verify no data corruption
-		// TODO: Check response consistency
-		t.Skip("Integration test not implemented yet")
-	})
+func TestCreateSnapshot(t *testing.T) {
+	// Create temporary directory for test files
+	tempDir := t.TempDir()
+
+	// Initialize storage
+	fileStorage := storage.NewFileStorage(tempDir)
+
+	// Initialize handler
+	handler := api.NewHandler(fileStorage, "vmagent")
+
+	// Create test request
+	request := models.SnapshotRequest{
+		ClusterInfo: models.ClusterInfo{
+			Name:     "test-cluster",
+			Hostname: "localhost",
+			Port:     8091,
+			Services: []string{"kv", "query", "index"},
+			Credentials: models.Credentials{
+				Username: "admin",
+				Password: "password",
+			},
+			Metadata: map[string]string{
+				"environment": "test",
+			},
+		},
+	}
+
+	// Convert request to JSON
+	requestBody, err := json.Marshal(request)
+	if err != nil {
+		t.Fatalf("Failed to marshal request: %v", err)
+	}
+
+	// Create HTTP request
+	req := httptest.NewRequest("POST", "/api/v1/snapshot", bytes.NewBuffer(requestBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	// Create response recorder
+	w := httptest.NewRecorder()
+
+	// Call handler
+	handler.CreateSnapshot(w, req)
+
+	// Check response status
+	if w.Code != http.StatusCreated {
+		t.Errorf("Expected status %d, got %d", http.StatusCreated, w.Code)
+		t.Logf("Response body: %s", w.Body.String())
+	}
+
+	// Parse response
+	var response models.SnapshotResponse
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	// Verify response fields
+	if response.ID == "" {
+		t.Error("Expected non-empty ID in response")
+	}
+
+	if response.AgentType != "vmagent" {
+		t.Errorf("Expected agent type 'vmagent', got '%s'", response.AgentType)
+	}
+
+	if response.Status != "created" {
+		t.Errorf("Expected status 'created', got '%s'", response.Status)
+	}
+
+	// Check if file was created
+	expectedFile := filepath.Join(tempDir, fmt.Sprintf("%s.yml", response.ID))
+	if _, err := os.Stat(expectedFile); os.IsNotExist(err) {
+		t.Errorf("Expected file %s to be created", expectedFile)
+	}
+
+	// Verify file content
+	content, err := os.ReadFile(expectedFile)
+	if err != nil {
+		t.Fatalf("Failed to read created file: %v", err)
+	}
+
+	if len(content) == 0 {
+		t.Error("Created file is empty")
+	}
+
+	// Verify the content contains expected structure
+	contentStr := string(content)
+	if !bytes.Contains(content, []byte("job_name:")) {
+		t.Error("Expected file to contain 'job_name:'")
+	}
+	if !bytes.Contains(content, []byte("basic_auth:")) {
+		t.Error("Expected file to contain 'basic_auth:'")
+	}
+	if !bytes.Contains(content, []byte("http_sd_configs:")) {
+		t.Error("Expected file to contain 'http_sd_configs:'")
+	}
+	if !bytes.Contains(content, []byte("http://localhost:8091/prometheus_sd_config?port=insecure")) {
+		t.Error("Expected file to contain the correct URL")
+	}
+
+	t.Logf("Created file content: %s", contentStr)
 }
 
-func TestConfigManagerAPIIntegration(t *testing.T) {
-	// TODO: API integration tests
-	// - Test REST endpoints
-	// - Test request/response formats
-	// - Test error handling
-	// - Test authentication
-	
-	t.Run("should respond to health check", func(t *testing.T) {
-		// TODO: Send GET /health
-		// TODO: Verify 200 response
-		// TODO: Check response format
-		t.Skip("Integration test not implemented yet")
-	})
-	
-	t.Run("should create scrape target via API", func(t *testing.T) {
-		// TODO: Send POST /targets
-		// TODO: Verify 201 response
-		// TODO: Check target creation
-		t.Skip("Integration test not implemented yet")
-	})
-	
-	t.Run("should list scrape targets via API", func(t *testing.T) {
-		// TODO: Send GET /targets
-		// TODO: Verify 200 response
-		// TODO: Check response format
-		t.Skip("Integration test not implemented yet")
-	})
-	
-	t.Run("should handle invalid requests", func(t *testing.T) {
-		// TODO: Send invalid requests
-		// TODO: Verify 400 responses
-		// TODO: Check error messages
-		t.Skip("Integration test not implemented yet")
-	})
-} 
+func TestCreateSnapshotInvalidRequest(t *testing.T) {
+	// Create temporary directory for test files
+	tempDir := t.TempDir()
+
+	// Initialize storage
+	fileStorage := storage.NewFileStorage(tempDir)
+
+	// Initialize handler
+	handler := api.NewHandler(fileStorage, "vmagent")
+
+	// Test cases
+	testCases := []struct {
+		name         string
+		request      models.SnapshotRequest
+		expectedCode int
+	}{
+		{
+			name: "missing cluster name",
+			request: models.SnapshotRequest{
+				ClusterInfo: models.ClusterInfo{
+					Name:     "",
+					Hostname: "localhost",
+					Port:     8091,
+				},
+			},
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name: "missing hostname",
+			request: models.SnapshotRequest{
+				ClusterInfo: models.ClusterInfo{
+					Name:     "test-cluster",
+					Hostname: "",
+					Port:     8091,
+				},
+			},
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name: "missing credentials",
+			request: models.SnapshotRequest{
+				ClusterInfo: models.ClusterInfo{
+					Name:     "test-cluster",
+					Hostname: "localhost",
+					Port:     8091,
+					Credentials: models.Credentials{
+						Username: "",
+						Password: "",
+					},
+				},
+			},
+			expectedCode: http.StatusBadRequest,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Convert request to JSON
+			requestBody, err := json.Marshal(tc.request)
+			if err != nil {
+				t.Fatalf("Failed to marshal request: %v", err)
+			}
+
+			// Create HTTP request
+			req := httptest.NewRequest("POST", "/api/v1/snapshot", bytes.NewBuffer(requestBody))
+			req.Header.Set("Content-Type", "application/json")
+
+			// Create response recorder
+			w := httptest.NewRecorder()
+
+			// Call handler
+			handler.CreateSnapshot(w, req)
+
+			// Check response status
+			if w.Code != tc.expectedCode {
+				t.Errorf("Expected status %d, got %d", tc.expectedCode, w.Code)
+				t.Logf("Response body: %s", w.Body.String())
+			}
+		})
+	}
+}

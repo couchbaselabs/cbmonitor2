@@ -4,8 +4,8 @@ server:
   host: "0.0.0.0"
 
 agent:
-  type: "prometheus"  # or "alloy" or "vm"
-  directory: "/agent/targets/path/"
+  type: "vmagent"  # or "alloy" or "prometheus"
+  directory: "./temp_path"
 
 logging:
   level: "info"
