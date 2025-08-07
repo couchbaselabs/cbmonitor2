@@ -13,6 +13,14 @@ build-ga:
 	@echo "Building grafana-app service..."
 	@cd cmd/grafana-app && go build -o ../../bin/grafana-app .
 
+# Build grafana-app plugin
+build-plugin:
+	@echo "Building cbmonitor grafana-app plugin..."
+	@cd couchbase-monitor-app && npm install && npm run dev
+
+build-plugin-docker:
+	@build-plugin && mage -v build:linuxARM64 # TODO: add platform detection
+
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
