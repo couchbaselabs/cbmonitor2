@@ -3,23 +3,24 @@
 # Default target: Build all services
 build: build-cm build-ga
 
-# Build config-manager service
+# Build the config-manager service
 build-cm:
 	@echo "Building config-manager service..."
 	@cd cmd/config-manager && go build -o ../../bin/config-manager .
 
-# Build grafana-app service
+# Build the grafana-app service
 build-ga:
 	@echo "Building grafana-app service..."
 	@cd cmd/grafana-app && go build -o ../../bin/grafana-app .
 
-# Build grafana-app plugin
+# Build the grafana-app plugin
 build-plugin:
 	@echo "Building cbmonitor grafana-app plugin..."
 	@cd couchbase-monitor-app && npm install && npm run dev
 
-build-plugin-docker:
-	@build-plugin && mage -v build:linuxARM64 # TODO: add platform detection
+# Build the grafana-app plugin docker image
+build-plugin-docker: build-plugin
+	@cd couchbase-monitor-app && GOWORK=off mage -v build:linuxARM64 # TODO: add platform detection
 
 # Clean build artifacts
 clean:
