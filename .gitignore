@@ -36,9 +36,9 @@ Thumbs.db
 # Logs
 *.log
 
-# Data files
+# Data and testing files
 data/
-*.json
+test_data/
 
 # Environment files
 .env
