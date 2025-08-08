@@ -44,11 +44,11 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 
 	// Convert cluster info to map for storage
 	clusterMap := map[string]interface{}{
-		"hostname":    req.ClusterInfo.Hostname,
-		"port":        req.ClusterInfo.Port,
+		"hostname":    req.Hostname,
+		"port":        req.Port,
 		"credentials": map[string]interface{}{
-			"username": req.ClusterInfo.Credentials.Username,
-			"password": req.ClusterInfo.Credentials.Password,
+			"username": req.Credentials.Username,
+			"password": req.Credentials.Password,
 		},
 	}
 
@@ -77,20 +77,20 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 
 // validateSnapshotRequest validates the snapshot request
 func (h *Handler) validateSnapshotRequest(req *models.SnapshotRequest) error {
-	if req.ClusterInfo.Hostname == "" {
-		return &ValidationError{Field: "cluster_info.hostname", Message: "hostname is required"}
+	if req.Hostname == "" {
+		return &ValidationError{Field: "hostname", Message: "hostname is required"}
 	}
 
-	if req.ClusterInfo.Port == 0 {
-		return &ValidationError{Field: "cluster_info.port", Message: "port is required"}
+	if req.Port == 0 {
+		return &ValidationError{Field: "port", Message: "port is required"}
 	}
 
-	if req.ClusterInfo.Credentials.Username == "" {
-		return &ValidationError{Field: "cluster_info.credentials.username", Message: "username is required"}
+	if req.Credentials.Username == "" {
+		return &ValidationError{Field: "credentials.username", Message: "username is required"}
 	}
 
-	if req.ClusterInfo.Credentials.Password == "" {
-		return &ValidationError{Field: "cluster_info.credentials.password", Message: "password is required"}
+	if req.Credentials.Password == "" {
+		return &ValidationError{Field: "credentials.password", Message: "password is required"}
 	}
 
 	return nil

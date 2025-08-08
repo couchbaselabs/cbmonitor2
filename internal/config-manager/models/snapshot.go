@@ -1,12 +1,8 @@
 package models
 
 // SnapshotRequest represents the payload for creating a snapshot
+// Contains information about the cluster to be monitored
 type SnapshotRequest struct {
-	ClusterInfo ClusterInfo `json:"cluster_info"`
-}
-
-// ClusterInfo contains information about the Couchbase cluster
-type ClusterInfo struct {
 	Name        string            `json:"name"`
 	Hostname    string            `json:"hostname"`
 	Port        int               `json:"port"`
