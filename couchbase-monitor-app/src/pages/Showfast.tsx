@@ -4,11 +4,13 @@ import { GrafanaTheme2 } from '@grafana/data';
 import { useStyles2, TabsBar, Tab, TabContent } from '@grafana/ui';
 import { testIds } from '../components/testIds';
 import { PluginPage } from '@grafana/runtime';
+import { useMetrics } from '../hooks/useMetrics';
+import { MetricsDisplay } from '../components/MetricsDisplay/MetricsDisplay';
 
 // Define the available components as tabs
 const COMPONENTS = [
   { id: 'kv', label: 'KV', icon: 'database' },
-  {id: 'hidd', label: 'HiDD', icon: 'hdd'},
+  { id: 'hidd', label: 'HiDD', icon: 'database'},
   { id: 'rebalance', label: 'Rebalance', icon: 'repeat' },
   { id: 'xdcr', label: 'XDCR', icon: 'sync' },
   { id: 'query', label: 'Query', icon: 'table' },
@@ -28,33 +30,20 @@ function Showfast() {
   const s = useStyles2(getStyles);
   const [activeTab, setActiveTab] = useState<ComponentId>('kv');
 
+  // Fetch metrics for the currently active tab
+  const { metrics, loading, error, refetch } = useMetrics(activeTab);
+
   const renderTabContent = (componentId: ComponentId) => {
-    const component = COMPONENTS.find(c => c.id === componentId);
 
     return (
       <div className={s.tabContent}>
-        <div className={s.contentHeader}>
-          <h2>{component?.label} Dashboard</h2>
-          <p>Monitor and analyze {component?.label.toLowerCase()} performance and metrics.</p>
-        </div>
-
-        <div className={s.placeholder}>
-          <h3>{component?.label} Metrics</h3>
-          <div className={s.metricsGrid}>
-            <div className={s.metricCard}>
-              <h4>Metrics 1</h4>
-              <p>performance data will be displayed here</p>
-            </div>
-            <div className={s.metricCard}>
-              <h4>Metrics 2</h4>
-              <p>performance data will be displayed here</p>
-            </div>
-            <div className={s.metricCard}>
-              <h4>Metrics 3</h4>
-              <p>performance data will be displayed here</p>
-            </div>
-          </div>
-        </div>
+        {/* Real metrics display */}
+        <MetricsDisplay
+          metrics={metrics}
+          loading={loading}
+          error={error}
+          onRefetch={refetch}
+        />
       </div>
     );
   };
@@ -62,10 +51,6 @@ function Showfast() {
   return (
     <PluginPage>
       <div data-testid={testIds.showfast.container} className={s.dashboard}>
-        <div className={s.header}>
-          <h2 className={s.title}>Showfast Dashboard</h2>
-        </div>
-
         <div className={s.tabsContainer}>
           <TabsBar className={s.tabsBar}>
             {COMPONENTS.map((component) => (
@@ -73,7 +58,10 @@ function Showfast() {
                 key={component.id}
                 label={component.label}
                 active={activeTab === component.id}
-                onChangeTab={() => setActiveTab(component.id)}
+                onChangeTab={() => {
+                  setActiveTab(component.id);
+                  // Data will be automatically fetched by the useMetrics hook
+                }}
                 icon={component.icon}
               />
             ))}
@@ -142,43 +130,5 @@ const getStyles = (theme: GrafanaTheme2) => ({
       font-size: 14px;
     }
   `,
-  placeholder: css`
-    padding: 24px;
-    background-color: ${theme.colors.background.secondary};
-    border: 1px solid ${theme.colors.border.weak};
-    border-radius: 8px;
 
-    h3 {
-      margin: 0 0 20px 0;
-      color: ${theme.colors.text.primary};
-      font-size: 18px;
-      text-align: center;
-    }
-  `,
-  metricsGrid: css`
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 16px;
-    margin-top: 16px;
-  `,
-  metricCard: css`
-    padding: 16px;
-    background-color: ${theme.colors.background.primary};
-    border: 1px solid ${theme.colors.border.weak};
-    border-radius: 6px;
-
-    h4 {
-      margin: 0 0 8px 0;
-      color: ${theme.colors.text.primary};
-      font-size: 16px;
-      font-weight: 500;
-    }
-
-    p {
-      margin: 0;
-      color: ${theme.colors.text.secondary};
-      font-size: 14px;
-      line-height: 1.4;
-    }
-  `,
 });
