@@ -3,9 +3,9 @@ go 1.24.1
 toolchain go1.24.5
 
 use (
+	./cbmonitor
 	./cmd/config-manager
 	./cmd/grafana-app
-	./couchbase-monitor-app
 	./internal/config-manager
 	./pkg/config
 	./pkg/couchbase

@@ -16,11 +16,11 @@ build-ga:
 # Build the grafana-app plugin
 build-plugin:
 	@echo "Building cbmonitor grafana-app plugin..."
-	@cd couchbase-monitor-app && npm install && npm run dev
+	@cd cbmonitor && npm install && npm run dev
 
 # Build the grafana-app plugin docker image
 build-plugin-docker: build-plugin
-	@cd couchbase-monitor-app && GOWORK=off mage -v build:linuxARM64 # TODO: add platform detection
+	@cd cbmonitor && GOWORK=off mage -v build:linuxARM64 # TODO: add platform detection
 
 # Clean build artifacts
 clean:
