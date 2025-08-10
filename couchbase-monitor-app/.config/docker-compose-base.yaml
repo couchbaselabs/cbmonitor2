@@ -29,3 +29,14 @@ services:
       GF_LOG_LEVEL: debug
       GF_DATAPROXY_LOGGING: 1
       GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: couchbase-monitor-app
+
+      # Couchbase Configuration
+      COUCHBASE_CONNECTION_STRING: ${COUCHBASE_CONNECTION_STRING:-couchbase://host.docker.internal:8091}
+      COUCHBASE_USERNAME: ${COUCHBASE_USERNAME:-Administrator}
+      COUCHBASE_PASSWORD: ${COUCHBASE_PASSWORD:-password}
+      COUCHBASE_BUCKET: ${COUCHBASE_BUCKET:-showfast}
+
+      # Plugin Configuration
+      DEFAULT_METRIC_LIMIT: ${DEFAULT_METRIC_LIMIT:-50}
+      ENABLE_MOCK_DATA: ${ENABLE_MOCK_DATA:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
