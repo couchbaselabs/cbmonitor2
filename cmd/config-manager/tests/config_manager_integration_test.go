@@ -1,4 +1,4 @@
-package test
+package tests
 
 import (
 	"bytes"
@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/couchbase/cbmonitor/internal/config-manager/api"
-	"github.com/couchbase/cbmonitor/internal/config-manager/models"
-	"github.com/couchbase/cbmonitor/internal/config-manager/storage"
+	"github.com/couchbase/config-manager/internal/api"
+	"github.com/couchbase/config-manager/internal/models"
+	"github.com/couchbase/config-manager/internal/storage"
 )
 
 func TestCreateSnapshot(t *testing.T) {
@@ -32,7 +32,6 @@ func TestCreateSnapshot(t *testing.T) {
 		Credentials: models.Credentials{
 			Username: "admin",
 			Password: "password",
-
 		},
 	}
 

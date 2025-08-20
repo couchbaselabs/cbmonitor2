@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/couchbase/cbmonitor/internal/config-manager/models"
-	"github.com/couchbase/cbmonitor/internal/config-manager/storage"
+	"github.com/couchbase/config-manager/internal/models"
+	"github.com/couchbase/config-manager/internal/storage"
 )
 
 // Handler handles HTTP requests for the config-manager service

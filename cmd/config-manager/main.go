@@ -10,9 +10,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/couchbase/cbmonitor/internal/config-manager/api"
-	"github.com/couchbase/cbmonitor/internal/config-manager/config"
-	"github.com/couchbase/cbmonitor/internal/config-manager/storage"
+	"github.com/couchbase/config-manager/internal/api"
+	"github.com/couchbase/config-manager/internal/config"
+	"github.com/couchbase/config-manager/internal/storage"
 )
 
 func main() {

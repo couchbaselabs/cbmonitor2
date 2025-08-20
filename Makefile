@@ -28,10 +28,10 @@ clean:
 	@rm -rf bin/
 	@go clean -cache
 
-# Run tests
-test:
-	@echo "Running tests..."
-	@cd test && go test -v .
+# Run config-manager tests
+test-cm:
+	@echo "Running config-manager tests..."
+	@cd cmd/config-manager/tests && go test -v .
 
 help:
 	@echo "Available targets:"
@@ -39,5 +39,5 @@ help:
 	@echo "  build-cm    - Build config-manager service"
 	@echo "  build-ga    - Build grafana-app service"
 	@echo "  clean       - Clean build artifacts"
-	@echo "  test        - Run tests"
+	@echo "  test-cm     - Run config-manager tests"
 	@echo "  help        - Show this help message"
