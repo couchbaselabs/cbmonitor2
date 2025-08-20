@@ -1,14 +1,14 @@
 # cbmonitor v2
-cbmonitor build with Grafana for Couchbase Server Prometheus Metrics
+cbmonitor build with Grafana for Couchbase Server Prometheus Metrics.
 
 ## Project Structure
 
-This repo contains two main services:
+This repo contains two main services organized as independent projects:
 
-### 1. Grafana App (`cmd/grafana-app`)
+### 1. Grafana App (`cbmonitor/`)
 The main cbmonitor implementation. It is built as a Grafana app plugin containing multiple dashboards and backend services.
 
-### 2. Config Manager Service (`cmd/config-manager`)
+### 2. Config Manager Service (`config-manager/`)
 A REST server responsible for creating and managing scrape target configurations for metrics collection agents such as the Grafana Alloy. It provides APIs to:
 - Create scrape target configurations
 - List existing configurations
@@ -18,30 +18,26 @@ A REST server responsible for creating and managing scrape target configurations
 ## Directory Structure
 
 ```
-├── cmd/
-│   ├── config-manager/           # Config manager service
-│   └── grafana-app/             # Grafana app extension
-├── internal/
-│   ├── config-manager/           # Config manager implementation
+├── config-manager/              # Config manager service
+│   ├── internal/
 │   │   ├── api/                 # REST API handlers
 │   │   ├── config/              # Configuration management
 │   │   ├── storage/             # File storage for scrape targets
 │   │   └── models/              # Data models
-│   └── grafana-app/             # Grafana app implementation
-│       ├── dashboards/          # Dashboard definitions
-│       ├── backend/             # Backend services
-│       └── plugin/              # Couchbase plugin integration
-├── pkg/
-│   ├── couchbase/               # Couchbase utilities
-│   ├── grafana/                 # Grafana integration utilities
-│   └── config/                  # Shared configuration utilities
+│   ├── tests/                   # Service-specific tests
+│   ├── go.mod
+│   └── main.go
+├── cbmonitor/                   # Grafana app extension (mixed Go/Node.js)
+│   ├── src/                     # Frontend source code
+│   ├── pkg/                     # Go backend packages
+│   ├── package.json
+│   └── go.mod
+├── pkg/                         # Shared packages
 ├── configs/                     # Configuration files
 ├── deployments/                 # Deployment configurations
 │   └── docker/                  # Docker files
 ├── docs/                        # Documentation
 ├── scripts/                     # Build and utility scripts
-├── test/                        # Integration tests
-├── web/                         # Frontend assets
 ```
 
 ## Quick Start
@@ -56,41 +52,59 @@ A REST server responsible for creating and managing scrape target configurations
 2. **Build individual services:**
    ```bash
    make build-cm    # Config manager
-   make build-ga    # Grafana app
+   make build-plugin # Grafana app plugin
    ```
 
 3. **Run tests:**
    ```bash
-   make test
+   make test-cm     # Config manager tests
    ```
 
 ### Docker Development
 
 1. **Build and run with Docker Compose:**
    ```bash
-   cd deployments/docker
-   docker compose up --build
+   make build-cm-docker
    ```
+
+For more make commands see: `make help`
 
 ## Configuration
 
 - Config Manager: `configs/config-manager/config.yaml`
-- Grafana App: `configs/grafana-app/config.yaml`
 
 ## Development
 
-This project uses Go workspaces for managing the monorepo. Each service has its own module, and shared code is organized in the `pkg/` directory. Add dependencies to the appropriate service's `go.mod` file.
+This project uses **independent Go modules** for each service. Each service manages its own dependencies and can be built independently.
 
-Note: This project uses `github.com/couchbase/cbmonitor` as the module although it is hosted at `cbmonitor2` repo.
+### Module Structure
+
+- **config-manager**: `github.com/couchbase/config-manager`
+- **cbmonitor**: `github.com/couchbase/cbmonitor`
 
 ### Running Services
 
 ```bash
 # Config Manager
-cd cmd/config-manager
-go run .
+./bin/config-manager -config /path/to/config # config path is optional
+```
+Recomennded to run the Grafana app with docker compose.
 
-# Grafana App
-cd cmd/grafana-app
-go run .
+## Testing
+
+### Service Tests
+Each service has its own tests located in the service directory:
+- **config-manager**: `config-manager/tests/`
+- **cbmonitor**: `cbmonitor/tests/` (when implemented)
+
+## Docker
+
+Each service can be built and deployed independently using Docker:
+
+```bash
+# Build config-manager Docker image
+make build-cm-docker
+
+# Build cbmonitor plugin
+make build-plugin-docker
 ```

@@ -11,7 +11,7 @@ build-cm:
 # Build the config-manager service docker image
 build-cm-docker: build-cm
 	@echo "Building config-manager service docker image..."
-	@cd deployments/docker && docker compose up --build
+	@cd deployments/docker && docker compose up --build -d
 
 # Build the grafana-app plugin
 build-plugin:
@@ -35,8 +35,11 @@ test-cm:
 
 help:
 	@echo "Available targets:"
-	@echo "  build       - Build all services"
-	@echo "  build-cm    - Build config-manager service"
-	@echo "  test-cm     - Run config-manager tests"
-	@echo "  clean       - Clean build artifacts"
-	@echo "  help        - Show this help message"
+	@echo "  build       		- Build all services"
+	@echo "  build-cm    		- Build config-manager service"
+	@echo "  build-cm-docker 	- Build config-manager service docker image"
+	@echo "  build-plugin 		- Build cbmonitor grafana-app plugin"
+	@echo "  build-plugin-docker 	- Build cbmonitor grafana-app plugin docker image"
+	@echo "  test-cm     		- Run config-manager tests"
+	@echo "  clean       		- Clean build artifacts"
+	@echo "  help        		- Show this help message"
