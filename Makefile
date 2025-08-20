@@ -6,7 +6,7 @@ build: build-cm
 # Build the config-manager service
 build-cm:
 	@echo "Building config-manager service..."
-	@cd cmd/config-manager && go build -o ../../bin/config-manager .
+	@cd config-manager && go build -o ../bin/config-manager .
 
 # Build the config-manager service docker image
 build-cm-docker: build-cm
@@ -31,7 +31,7 @@ clean:
 # Run config-manager tests
 test-cm:
 	@echo "Running config-manager tests..."
-	@cd cmd/config-manager/tests && go test -v .
+	@cd config-manager/tests && go test -v .
 
 help:
 	@echo "Available targets:"
