@@ -8,6 +8,11 @@ build-cm:
 	@echo "Building config-manager service..."
 	@cd cmd/config-manager && go build -o ../../bin/config-manager .
 
+# Build the config-manager service docker image
+build-cm-docker: build-cm
+	@echo "Building config-manager service docker image..."
+	@cd deployments/docker && docker compose up --build
+
 # Build the grafana-app plugin
 build-plugin:
 	@echo "Building cbmonitor grafana-app plugin..."

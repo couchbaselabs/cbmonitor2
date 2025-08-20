@@ -1,19 +1,26 @@
 FROM golang:1.24-alpine AS builder
 
+# Install make for building
+RUN apk add --no-cache make
+
+# Set working directory to the project root
 WORKDIR /app
+
+# Copy the entire project
 COPY . .
 
-# Build the config-manager service
-RUN go build -o config-manager ./cmd/config-manager
+# Build the config-manager service using the Makefile
+RUN make build-cm
 
 FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 
-COPY --from=builder /app/config-manager .
+# Copy the built binary from the bin directory
+COPY --from=builder /app/bin/config-manager .
 COPY --from=builder /app/configs/config-manager/config.yaml ./config.yaml
 
 EXPOSE 8080
 
-CMD ["./config-manager"] 
+CMD ["./config-manager", "-config", "/root/config.yaml"]

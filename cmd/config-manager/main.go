@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -16,12 +17,18 @@ import (
 )
 
 func main() {
+	var configPath string
+	// If config is not provided, assume we are running in a dev mode and use the default config
+	flag.StringVar(&configPath, "config", "configs/config-manager/config.yaml", "Path to the configuration file")
+	flag.Parse()
+
 	log.Println("Config Manager Service Starting...")
 
 	// Load configuration
-	cfg, err := config.LoadConfig("configs/config-manager/config.yaml")
+	log.Printf("Loading configurations from %s", configPath)
+	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		log.Fatalf("Failed to load configurations: %v", err)
 	}
 
 	// Validate agent type is vmagent
