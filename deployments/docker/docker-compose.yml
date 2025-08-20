@@ -9,14 +9,3 @@ services:
       - ../../data:/root/data
     environment:
       - LOG_LEVEL=info
-
-  grafana-app:
-    build:
-      context: ../..
-      dockerfile: deployments/docker/Dockerfile.grafana-app
-    ports:
-      - "3001:3001"
-    depends_on:
-      - config-manager
-    environment:
-      - LOG_LEVEL=info 

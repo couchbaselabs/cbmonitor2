@@ -1,17 +1,12 @@
 .PHONY: build clean test lint help
 
 # Default target: Build all services
-build: build-cm build-ga
+build: build-cm
 
 # Build the config-manager service
 build-cm:
 	@echo "Building config-manager service..."
 	@cd cmd/config-manager && go build -o ../../bin/config-manager .
-
-# Build the grafana-app service
-build-ga:
-	@echo "Building grafana-app service..."
-	@cd cmd/grafana-app && go build -o ../../bin/grafana-app .
 
 # Build the grafana-app plugin
 build-plugin:
@@ -37,7 +32,6 @@ help:
 	@echo "Available targets:"
 	@echo "  build       - Build all services"
 	@echo "  build-cm    - Build config-manager service"
-	@echo "  build-ga    - Build grafana-app service"
-	@echo "  clean       - Clean build artifacts"
 	@echo "  test-cm     - Run config-manager tests"
+	@echo "  clean       - Clean build artifacts"
 	@echo "  help        - Show this help message"
