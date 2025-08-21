@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/couchbase/config-manager/internal/models"
 	"github.com/google/uuid"
@@ -56,7 +57,6 @@ func (fs *FileStorage) generateConfigContent(clusterInfo interface{}, agentType 
 	}
 	return fs.generateVMAgentConfig(clusterInfo)
 }
-
 
 // generateVMAgentConfig creates VM Agent scrape configuration
 func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}) ([]byte, error) {
@@ -184,4 +184,10 @@ func (fs *FileStorage) DeleteSnapshot(id string) error {
 	}
 
 	return nil
+}
+
+func (fs *FileStorage) PatchSnapshot(id string) error {
+	filePath := filepath.Join(fs.baseDirectory, fmt.Sprintf("%s.yml", id))
+	now := time.Now()
+	return os.Chtimes(filePath, now, now)
 }
