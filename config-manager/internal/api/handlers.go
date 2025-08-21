@@ -2,8 +2,8 @@ package api
 
 import (
 	"encoding/json"
-	"net/http"
 	"log"
+	"net/http"
 	"strings"
 
 	"github.com/couchbase/config-manager/internal/models"
@@ -46,8 +46,8 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 
 	// Convert cluster info to map for storage
 	clusterMap := map[string]interface{}{
-		"hostname":    req.Hostname,
-		"port":        req.Port,
+		"hostname": req.Hostname,
+		"port":     req.Port,
 		"credentials": map[string]interface{}{
 			"username": req.Credentials.Username,
 			"password": req.Credentials.Password,
@@ -112,8 +112,8 @@ func (h *Handler) Manager(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		h.GetSnapshotRequest(w, r)
-	// case http.MethodDelete:
-	// 	h.DeleteSnapshotRequest(w, r)
+	case http.MethodDelete:
+		h.DeleteSnapshotRequest(w, r)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -144,4 +144,28 @@ func (h *Handler) GetSnapshotRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+func (h *Handler) DeleteSnapshotRequest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	segments := strings.Split(r.URL.Path, "/")
+	if len(segments) < 4 || segments[3] == "" {
+		http.Error(w, "Missing snapshot ID", http.StatusBadRequest)
+		return
+	}
+
+	snapshotID := segments[len(segments)-1]
+	if err := h.storage.DeleteSnapshot(snapshotID); err != nil {
+		http.Error(w, "Failed to delete snapshot", http.StatusInternalServerError)
+		// http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Set response headers
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNoContent)
 }

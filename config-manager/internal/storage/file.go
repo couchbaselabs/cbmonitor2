@@ -166,3 +166,22 @@ func ExtractFromURL(url string) (string, int) {
 	port, _ := strconv.Atoi(extractee[1])
 	return hostname, port
 }
+
+func (fs *FileStorage) DeleteSnapshot(id string) error {
+	// Creates the file path to the snapshot file
+	filePath := filepath.Join(fs.baseDirectory, fmt.Sprintf("%s.yml", id))
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return fmt.Errorf("config file does not exist: %s", filePath)
+	} else if err != nil {
+		return fmt.Errorf("error checking config file: %w", err)
+	}
+
+	// Removes the file
+	if err := os.Remove(filePath); err != nil {
+		return fmt.Errorf("failed to delete config file: %w", err)
+	}
+
+	return nil
+}
