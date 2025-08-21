@@ -187,6 +187,7 @@ func (fs *FileStorage) DeleteSnapshot(id string) error {
 }
 
 func (fs *FileStorage) PatchSnapshot(id string) error {
+	// TO DO: update this, in the future, to also update other configs
 	filePath := filepath.Join(fs.baseDirectory, fmt.Sprintf("%s.yml", id))
 	now := time.Now()
 	return os.Chtimes(filePath, now, now)
