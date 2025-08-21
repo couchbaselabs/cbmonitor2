@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"strconv"
 
+	"github.com/couchbase/config-manager/internal/models"
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
 )
@@ -96,4 +98,71 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}) ([]byte, e
 	}
 
 	return yaml.Marshal(config)
+}
+
+func (fs *FileStorage) GetSnapshot(id string) (models.SnapshotRequest, error) {
+	filePath := filepath.Join(fs.baseDirectory, fmt.Sprintf("%s.yml", id))
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return models.SnapshotRequest{}, fmt.Errorf("config file does not exist: %s", filePath)
+	} else if err != nil {
+		return models.SnapshotRequest{}, fmt.Errorf("error checking config file: %w", err)
+	}
+
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return models.SnapshotRequest{}, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	// this will need to be changed depending on the config format or agent
+	var snapshot []map[string]interface{}
+	if err := yaml.Unmarshal(content, &snapshot); err != nil {
+		return models.SnapshotRequest{}, fmt.Errorf("failed to unmarshal config file: %w", err)
+	}
+
+	var name string
+	if v, ok := snapshot[0]["job_name"].(string); ok {
+		name = v
+	}
+
+	var url string
+	if sdConfigs, ok := snapshot[0]["http_sd_configs"].([]interface{}); ok && len(sdConfigs) > 0 {
+		if sdConfig, ok := sdConfigs[0].(map[string]interface{}); ok {
+			if placeholder, ok := sdConfig["url"].(string); ok {
+				url = placeholder
+			}
+		}
+	}
+	hostname, port := ExtractFromURL(url)
+	if hostname == "" || port == 0 {
+		return models.SnapshotRequest{}, fmt.Errorf("invalid URL format: %s", url)
+	}
+
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return models.SnapshotRequest{}, fmt.Errorf("error getting file info: %w", err)
+	}
+	timestamp := info.ModTime()
+
+	snapshotData := models.SnapshotRequest{
+		Name:      name,
+		Hostname:  hostname,
+		Port:      port,
+		TimeStamp: timestamp,
+	}
+
+	return snapshotData, nil
+}
+
+func ExtractFromURL(url string) (string, int) {
+	segments := strings.Split(url, "/")
+
+	extractee := strings.Split(segments[2], ":")
+	if len(extractee) != 2 {
+		// add error managemenyt here
+		return "", 0
+	}
+	hostname := extractee[0]
+	port, _ := strconv.Atoi(extractee[1])
+	return hostname, port
 }

@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 // SnapshotRequest represents the payload for creating a snapshot
 // Contains information about the cluster to be monitored
 type SnapshotRequest struct {
@@ -7,6 +9,7 @@ type SnapshotRequest struct {
 	Hostname    string            `json:"hostname"`
 	Port        int               `json:"port"`
 	Credentials Credentials       `json:"credentials"`
+	TimeStamp   time.Time         `json:"timestamp,omitempty"`
 }
 
 // Credentials for cluster authentication
