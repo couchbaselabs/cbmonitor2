@@ -114,17 +114,14 @@ func (h *Handler) Manager(w http.ResponseWriter, r *http.Request) {
 		h.GetSnapshotRequest(w, r)
 	case http.MethodDelete:
 		h.DeleteSnapshotRequest(w, r)
+	case http.MethodPatch:
+		h.PatchSnapshotRequest(w, r)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
 func (h *Handler) GetSnapshotRequest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	segments := strings.Split(r.URL.Path, "/")
 	if len(segments) < 4 || segments[3] == "" {
 		http.Error(w, "Missing snapshot ID", http.StatusBadRequest)
@@ -147,11 +144,6 @@ func (h *Handler) GetSnapshotRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteSnapshotRequest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	segments := strings.Split(r.URL.Path, "/")
 	if len(segments) < 4 || segments[3] == "" {
 		http.Error(w, "Missing snapshot ID", http.StatusBadRequest)
@@ -168,4 +160,22 @@ func (h *Handler) DeleteSnapshotRequest(w http.ResponseWriter, r *http.Request) 
 	// Set response headers
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNoContent)
+}
+	
+func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request) {
+	segments := strings.Split(r.URL.Path, "/")
+	if len(segments) < 4 || segments[3] == "" {
+		http.Error(w, "Missing snapshot ID", http.StatusBadRequest)
+		return
+	}
+
+	snapshotID := segments[len(segments)-1]
+	if err := h.storage.PatchSnapshot(snapshotID); err != nil {
+		http.Error(w, "Failed to patch snapshot", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
 }
