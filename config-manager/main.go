@@ -53,6 +53,7 @@ func main() {
 
 	// Register routes
 	mux.HandleFunc("/api/v1/snapshot", handler.CreateSnapshot)
+	mux.HandleFunc("/api/v1/snapshot/", handler.Manager)
 
 	// Create server
 	server := &http.Server{
