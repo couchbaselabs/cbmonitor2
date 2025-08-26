@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 
@@ -108,7 +107,6 @@ func (e *ValidationError) Error() string {
 	return e.Message
 }
 func (h *Handler) Manager(w http.ResponseWriter, r *http.Request) {
-	log.Print("got inside the manager handler")
 	switch r.Method {
 	case http.MethodGet:
 		h.GetSnapshotRequest(w, r)

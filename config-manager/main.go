@@ -20,18 +20,38 @@ import (
 
 func main() {
 	var configPath string
-	// If config is not provided, assume we are running in a dev mode and use the default config
-	flag.StringVar(&configPath, "config", "configs/config-manager/config.yaml", "Path to the configuration file")
+	// If config is not provided, use the defaults with any of the flag overrides
+	flag.StringVar(&configPath, "config", "", "Path to the configuration file")
+
+	// Parse all flags first to get any dot-notation overrides
 	flag.Parse()
+
+	// Collect any remaining arguments that might be dot-notation overrides
+	flagOverrides := make(map[string]string)
+	for _, arg := range flag.Args() {
+		if strings.Contains(arg, "=") {
+			parts := strings.SplitN(arg, "=", 2)
+			if len(parts) == 2 {
+				// Remove leading dashes if present
+				flagName := strings.TrimLeft(parts[0], "-")
+				flagOverrides[flagName] = parts[1]
+			}
+		}
+	}
 
 	log.Println("Config Manager Service Starting...")
 
-	// Load configuration
-	log.Printf("Loading configurations from %s", configPath)
-	cfg, err := config.LoadConfig(configPath)
+	// Load configuration with potential overrides
+	if len(configPath) > 0 {
+		log.Printf("Loading configurations from %s", configPath)
+	}
+
+	cfg, err := config.LoadConfig(configPath, flagOverrides)
 	if err != nil {
 		log.Fatalf("Failed to load configurations: %v", err)
 	}
+
+	log.Printf("Configuration: %+v", cfg)
 
 	// Validate agent type is vmagent
 	if strings.ToLower(cfg.Agent.Type) != "vmagent" {

@@ -33,7 +33,7 @@ func StartManagerWithInterval(interval int, directory string) {
 						}
 					}
 				}
-			}	
+			}
 		}
 		time.Sleep(time.Duration(interval) * time.Minute)
 	}
