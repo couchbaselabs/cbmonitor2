@@ -131,6 +131,10 @@ func (h *Handler) GetSnapshotRequest(w http.ResponseWriter, r *http.Request) {
 	snapshotID := segments[len(segments)-1]
 	snapshot, err := h.storage.GetSnapshot(snapshotID)
 	if err != nil {
+		if strings.Contains(err.Error(), "config file does not exist") {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
