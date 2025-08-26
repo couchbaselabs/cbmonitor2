@@ -8,11 +8,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 
 	"github.com/couchbase/config-manager/internal/api"
 	"github.com/couchbase/config-manager/internal/config"
+	"github.com/couchbase/config-manager/internal/manager"
 	"github.com/couchbase/config-manager/internal/storage"
 )
 
@@ -45,6 +47,17 @@ func main() {
 
 	fileStorage := storage.NewFileStorage(cfg.Agent.Directory)
 
+	interval, err := strconv.Atoi(cfg.Manager.Interval)
+	if err != nil {
+		log.Fatalf("Invalid manager interval format: %v", err)
+	}
+
+	// Validate manager interval
+	if interval > 30 || interval < 5 {
+		log.Printf("Manager interval %d minutes is out of bounds, setting to default 5 minutes", interval)
+		interval = 5 // Default to 5 minutes if invalid
+	}
+
 	// Initialize API handler
 	handler := api.NewHandler(fileStorage, cfg.Agent.Type)
 
@@ -70,6 +83,11 @@ func main() {
 	}()
 
 	log.Println("Config Manager Service Started")
+
+	go func() {
+		manager.StartManagerWithInterval(interval, cfg.Agent.Directory)
+	}()
+	log.Println("Manager Service Started")
 
 	// Wait for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)

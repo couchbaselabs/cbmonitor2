@@ -9,3 +9,6 @@ agent:
 
 logging:
   level: "info"
+
+manager:
+  interval: 2

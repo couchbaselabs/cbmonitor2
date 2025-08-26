@@ -19,6 +19,9 @@ type Config struct {
 	Logging struct {
 		Level string `yaml:"level"`
 	} `yaml:"logging"`
+	Manager struct {
+		Interval string `yaml:"interval"`
+	} `yaml:"manager"`
 }
 
 func LoadConfig(configPath string) (*Config, error) {
