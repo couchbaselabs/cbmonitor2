@@ -88,7 +88,17 @@ This project uses **independent Go modules** for each service. Each service mana
 # Config Manager
 ./bin/config-manager -config /path/to/config # config path is optional
 ```
-Recomennded to run the Grafana app with docker compose.
+
+### Running with overrides
+Configurations can be overriden as startup flags. Flag overrides take precedence over config file values. The format is: `section.field=value`. The section and field should match the yaml values of the `Config` struct.
+Examples:
+```
+config-manager server.port=8081
+config-manager server.port=8081 agent.directory=/custom/path
+config-manager logging.level=debug
+```
+
+To run the Grafana app, follow the instructions at [cbmonitor/README.md](cbmonitor/README.md).
 
 ## Testing
 
