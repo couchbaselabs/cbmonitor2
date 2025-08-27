@@ -14,6 +14,10 @@ RUN make build-cm
 
 FROM alpine:latest
 
+ARG CM_SERVER_PORT=8080
+ARG CM_LOG_LEVEL=info
+ARG CM_AGENT_DIRECTORY=/root/data
+
 RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 
@@ -21,6 +25,6 @@ WORKDIR /root/
 COPY --from=builder /app/bin/config-manager .
 COPY --from=builder /app/configs/config-manager/config.yaml ./config.yaml
 
-EXPOSE 8080
+EXPOSE ${CM_SERVER_PORT}
 
-CMD ["./config-manager", "-config", "/root/config.yaml"]
+CMD ["./config-manager", "agent.directory=${CM_AGENT_DIRECTORY}", "server.port=${CM_SERVER_PORT}", "logging.level=${CM_LOG_LEVEL}"]
