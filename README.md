@@ -62,16 +62,22 @@ A REST server responsible for creating and managing scrape target configurations
 
 ### Docker Development
 
-1. **Build and run with Docker Compose:**
+1. **Build and run config-manager with docker:**
    ```bash
    make build-cm-docker
    ```
+2. **Build and run the Grafana plugin with docker:**
+   ```
+   make build-plugin-docker
+   ```
+
 
 For more make commands see: `make help`
 
 ## Configuration
 
 - Config Manager: `configs/config-manager/config.yaml`
+- Grafana extension: `cbmonitor/example.env`
 
 ## Development
 
@@ -98,7 +104,7 @@ config-manager server.port=8081 agent.directory=/custom/path
 config-manager logging.level=debug
 ```
 
-To run the Grafana app, follow the instructions at [cbmonitor/README.md](cbmonitor/README.md).
+To run the Grafana app, use the docker command above or follow the instructions at [cbmonitor/README.md](cbmonitor/README.md).
 
 ## Testing
 
@@ -106,15 +112,3 @@ To run the Grafana app, follow the instructions at [cbmonitor/README.md](cbmonit
 Each service has its own tests located in the service directory:
 - **config-manager**: `config-manager/tests/`
 - **cbmonitor**: `cbmonitor/tests/` (when implemented)
-
-## Docker
-
-Each service can be built and deployed independently using Docker:
-
-```bash
-# Build config-manager Docker image
-make build-cm-docker
-
-# Build cbmonitor plugin
-make build-plugin-docker
-```

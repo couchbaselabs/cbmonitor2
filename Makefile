@@ -16,17 +16,23 @@ build-cm-docker: build-cm
 # Build the grafana-app plugin
 build-plugin:
 	@echo "Building cbmonitor grafana-app plugin..."
-	@cd cbmonitor && npm install && npm run dev
+	@cd cbmonitor && npm install && npm run build && mage
 
 # Build the grafana-app plugin docker image
 build-plugin-docker: build-plugin
-	@cd cbmonitor && GOWORK=off mage -v build:linuxARM64 # TODO: add platform detection
+	@cd cbmonitor && npm run server
 
 # Clean build artifacts
-clean:
-	@echo "Cleaning build artifacts..."
+clean-cm:
+	@echo "Cleaning config-manager service build artifacts..."
 	@rm -rf bin/
-	@go clean -cache
+	@cd config-manager && go clean -cache
+
+clean-plugin:
+	@echo "Cleaning cbmonitor grafana-app plugin build artifacts..."
+	@cd cbmonitor && mage clean
+
+clean: clean-cm clean-plugin
 
 # Run config-manager tests
 test-cm:
@@ -41,5 +47,7 @@ help:
 	@echo "  build-plugin 		- Build cbmonitor grafana-app plugin"
 	@echo "  build-plugin-docker 	- Build cbmonitor grafana-app plugin docker image"
 	@echo "  test-cm     		- Run config-manager tests"
-	@echo "  clean       		- Clean build artifacts"
+	@echo "  clean       		- Clean all build artifacts"
+	@echo "  clean-cm    		- Clean config-manager service build artifacts"
+	@echo "  clean-plugin  		- Clean cbmonitor grafana-app plugin build artifacts"
 	@echo "  help        		- Show this help message"
