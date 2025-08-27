@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/couchbase/config-manager/internal/api"
 	"github.com/couchbase/config-manager/internal/config"
+	"github.com/couchbase/config-manager/internal/logger"
 	"github.com/couchbase/config-manager/internal/manager"
 	"github.com/couchbase/config-manager/internal/storage"
 )
@@ -39,29 +39,40 @@ func main() {
 		}
 	}
 
-	log.Println("Config Manager Service Starting...")
-
-	// Load configuration with potential overrides
+	// Load configuration with potential overrides first
 	if len(configPath) > 0 {
-		log.Printf("Loading configurations from %s", configPath)
+		logger.GetLogger().Info("Loading configurations from file", "path", configPath)
 	}
 
 	cfg, err := config.LoadConfig(configPath, flagOverrides)
 	if err != nil {
-		log.Fatalf("Failed to load configurations: %v", err)
+		logger.GetLogger().Error("Failed to load configurations", "error", err)
+		os.Exit(1)
 	}
 
-	log.Printf("Configuration: %+v", cfg)
+	// Initialize logger with the configured log level
+	logger.InitLogger(cfg.Logging.Level)
+
+	logger.Info("Config Manager Service Starting...")
+	logger.Info("Configuration loaded",
+		"server_port", cfg.Server.Port,
+		"server_host", cfg.Server.Host,
+		"agent_type", cfg.Agent.Type,
+		"agent_directory", cfg.Agent.Directory,
+		"logging_level", cfg.Logging.Level,
+		"manager_interval", cfg.Manager.Interval)
 
 	// Validate agent type is vmagent
 	if strings.ToLower(cfg.Agent.Type) != "vmagent" {
-		log.Fatalf("Unsupported agent type: %s. Only vmagent is supported", cfg.Agent.Type)
+		logger.Error("Unsupported agent type", "type", cfg.Agent.Type, "supported", "vmagent")
+		os.Exit(1)
 	}
 
 	// Validate if the base directory exists before initializing storage
 	if _, err := os.Stat(cfg.Agent.Directory); os.IsNotExist(err) {
 		if err := os.MkdirAll(cfg.Agent.Directory, 0755); err != nil {
-			log.Fatalf("Failed to create directory: %s, error: %v", cfg.Agent.Directory, err)
+			logger.Error("Failed to create directory", "directory", cfg.Agent.Directory, "error", err)
+			os.Exit(1)
 		}
 	}
 
@@ -69,12 +80,13 @@ func main() {
 
 	interval, err := strconv.Atoi(cfg.Manager.Interval)
 	if err != nil {
-		log.Fatalf("Invalid manager interval format: %v", err)
+		logger.Error("Invalid manager interval format", "interval", cfg.Manager.Interval, "error", err)
+		os.Exit(1)
 	}
 
 	// Validate manager interval
 	if interval > 30 || interval < 5 {
-		log.Printf("Manager interval %d minutes is out of bounds, setting to default 5 minutes", interval)
+		logger.Warn("Manager interval should be between 5 and 30 minutes", "interval", interval, "default", 5)
 		interval = 5 // Default to 5 minutes if invalid
 	}
 
@@ -96,30 +108,32 @@ func main() {
 
 	// Start server
 	go func() {
-		log.Printf("Starting server on %s:%d", cfg.Server.Host, cfg.Server.Port)
+		logger.Info("Starting server", "address", fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port))
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
+			logger.Error("Failed to start server", "error", err)
+			os.Exit(1)
 		}
 	}()
 
-	log.Println("Config Manager Service Started")
+	logger.Info("Config Manager REST Service Started")
 
 	go func() {
 		manager.StartManagerWithInterval(interval, cfg.Agent.Directory)
 	}()
-	log.Println("Manager Service Started")
+	logger.Info("Manager Service Started")
 
 	// Wait for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down server...")
+	logger.Info("Shutting down server...")
 
 	// Graceful shutdown
 	if err := server.Shutdown(context.Background()); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		logger.Error("Server forced to shutdown", "error", err)
+		os.Exit(1)
 	}
 
-	log.Println("Server exited")
+	logger.Info("Server exited")
 }
