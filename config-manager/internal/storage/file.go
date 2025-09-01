@@ -37,7 +37,7 @@ func (fs *FileStorage) SaveSnapshot(clusterInfo interface{}, agentType string) (
 	filePath := filepath.Join(fs.baseDirectory, filename)
 
 	// Generate configuration content based on agent type
-	content, err := fs.generateConfigContent(clusterInfo, agentType)
+	content, err := fs.generateConfigContent(clusterInfo, agentType, id)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate config content: %w", err)
 	}
@@ -51,15 +51,15 @@ func (fs *FileStorage) SaveSnapshot(clusterInfo interface{}, agentType string) (
 }
 
 // generateConfigContent creates vmagent configuration format
-func (fs *FileStorage) generateConfigContent(clusterInfo interface{}, agentType string) ([]byte, error) {
+func (fs *FileStorage) generateConfigContent(clusterInfo interface{}, agentType string, id string) ([]byte, error) {
 	if strings.ToLower(agentType) != "vmagent" {
 		return nil, fmt.Errorf("unsupported agent type: %s, only vmagent is supported", agentType)
 	}
-	return fs.generateVMAgentConfig(clusterInfo)
+	return fs.generateVMAgentConfig(clusterInfo, id)
 }
 
 // generateVMAgentConfig creates VM Agent scrape configuration
-func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}) ([]byte, error) {
+func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string) ([]byte, error) {
 	clusterMap, ok := clusterInfo.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("invalid cluster info format")
@@ -75,7 +75,7 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}) ([]byte, e
 	password := credentials["password"].(string)
 
 	// Generate UUID for job_name
-	jobName := uuid.New().String()
+	jobName := id
 
 	config := []map[string]interface{}{
 		{

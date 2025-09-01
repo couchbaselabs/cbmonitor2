@@ -9,3 +9,4 @@ apps:
       apiUrl: http://default-url.com
     secureJsonData:
       apiKey: secret-key
+
