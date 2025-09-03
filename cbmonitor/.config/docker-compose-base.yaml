@@ -22,6 +22,8 @@ services:
       - ../dist:/var/lib/grafana/plugins/cbmonitor
       - ../provisioning:/etc/grafana/provisioning
       - ..:/root/cbmonitor
+      - ../dist:/var/lib/grafana/plugins/couchbase-datasource
+      - ../provisioning:/etc/grafana/provisioning
 
     environment:
       NODE_ENV: development
