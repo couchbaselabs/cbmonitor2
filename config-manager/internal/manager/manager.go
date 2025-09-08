@@ -8,7 +8,13 @@ import (
 	"github.com/couchbase/config-manager/internal/logger"
 )
 
-func StartManagerWithInterval(interval int, directory string) {
+type Information struct {
+		Interval     time.Duration  
+		MinInterval  time.Duration  
+		StaleThreshold time.Duration  
+	}
+
+func StartManagerWithInterval(information Information, directory string) {
 	for {
 		// Manager logic goes here
 		logger.Debug("Manager is checking the directory", "directory", directory)
@@ -17,7 +23,7 @@ func StartManagerWithInterval(interval int, directory string) {
 			logger.Error("Failed to read directory", "directory", directory, "error", err)
 			return
 		}
-		logger.Debug("Scrape files found", "count", len(files))
+		logger.Info("Scrape files found", "count", len(files))
 		for _, file := range files {
 			if filepath.Ext(file.Name()) == ".yml" {
 				filepath := filepath.Join(directory, file.Name())
@@ -29,7 +35,7 @@ func StartManagerWithInterval(interval int, directory string) {
 				// Process the file
 				logger.Debug("Processing file", "filepath", filepath)
 
-				if time.Since(info.ModTime()) > time.Duration(interval)*time.Minute {
+				if time.Since(info.ModTime()) > information.StaleThreshold {
 					if err := os.Remove(filepath); err != nil {
 						logger.Error("Failed to delete stale file", "filepath", filepath, "error", err)
 					} else {
@@ -38,6 +44,6 @@ func StartManagerWithInterval(interval int, directory string) {
 				}
 			}
 		}
-		time.Sleep(time.Duration(interval) * time.Minute)
+		time.Sleep(information.Interval)
 	}
 }

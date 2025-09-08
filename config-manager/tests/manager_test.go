@@ -30,7 +30,11 @@ func TestStaleConfigRemoval(t *testing.T) {
 		t.Fatalf("Failed to set modified time for stale file: %v", err)
 	}
 
-	go manager.StartManagerWithInterval(1, tempDir)
+	go manager.StartManagerWithInterval(manager.Information{
+		Interval:     1 * time.Minute,
+		MinInterval:  5 * time.Minute,
+		StaleThreshold: 5 * time.Minute,
+	}, tempDir)
 
 	time.Sleep(5 * time.Second)
 
