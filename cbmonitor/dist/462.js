@@ -1,0 +1,2 @@
+"use strict";(self.webpackChunkcbmonitor=self.webpackChunkcbmonitor||[]).push([[462],{462:(e,t,n)=>{n.r(t),n.d(t,{default:()=>a});var l=n(959),c=n.n(l),u=n(159);const r=c().lazy(()=>n.e(519).then(n.bind(n,519)));const a=function(e){return c().createElement(u.Routes,null,c().createElement(u.Route,{path:"*",element:c().createElement(r,null)}))}}}]);
+//# sourceMappingURL=462.js.map?_cache=584f4393445def220674

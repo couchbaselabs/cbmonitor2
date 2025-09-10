@@ -1,0 +1,52 @@
+{
+    "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
+    "type": "app",
+    "name": "CBMonitor",
+    "id": "cbmonitor",
+    "backend": true,
+    "executable": "cbmonitor",
+    "info": {
+        "keywords": [
+            "app"
+        ],
+        "description": "",
+        "author": {
+            "name": "Couchbase"
+        },
+        "logos": {
+            "small": "img/logo.svg",
+            "large": "img/logo.svg"
+        },
+        "screenshots": [],
+        "version": "0.0.1",
+        "updated": "2025-09-10"
+    },
+    "includes": [
+        {
+            "type": "page",
+            "name": "Showfast",
+            "path": "/a/cbmonitor/showfast",
+            "addToNav": true,
+            "defaultNav": true,
+            "icon": "apps"
+        },
+        {
+            "type": "page",
+            "icon": "cog",
+            "name": "Configuration",
+            "path": "/plugins/cbmonitor",
+            "role": "Admin",
+            "addToNav": true
+        },
+        {
+            "type": "datasource",
+            "name": "couchbase-datasource",
+            "path": "couchbase-datasource/plugin.json"
+        }
+    ],
+    "dependencies": {
+        "grafanaDependency": ">=10.4.0",
+        "plugins": []
+    },
+    "buildMode": "production"
+}
