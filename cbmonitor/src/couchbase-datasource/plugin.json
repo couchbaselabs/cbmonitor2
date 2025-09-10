@@ -15,6 +15,7 @@
       "url": "https://couchbase.com"
     },
     "keywords": [
+      "datasource",
       "database",
       "json",
       "sql++",

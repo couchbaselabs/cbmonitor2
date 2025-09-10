@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/couchbase/config-manager/internal/api"
@@ -13,6 +14,7 @@ import (
 
 func TestGetSnapshotRequest(t *testing.T) {
 	tempDir := t.TempDir()
+	t.Logf("Using temporary directory: %s", tempDir)
 
 	// Initialize storage and handler
 	fileStorage := storage.NewFileStorage(tempDir)
@@ -46,6 +48,12 @@ func TestGetSnapshotRequest(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	handler.GetSnapshotRequest(w, req)
+	
+	// checking that the file actually exists
+    filepath := tempDir + "/" + id + ".yml"
+    if _, err := os.Stat(filepath); err != nil {
+        t.Errorf("Expected file %s to exist, but got error: %v", filepath, err)
+    }
 
 	// Check response status
 	if w.Code != http.StatusOK {
@@ -88,4 +96,5 @@ func TestGetSnapshotRequest(t *testing.T) {
 	if wNotFound.Code != http.StatusNotFound {
 		t.Errorf("Expected status %d for not found, got %d", http.StatusNotFound, wNotFound.Code)
 	}
+
 }

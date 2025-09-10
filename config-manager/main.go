@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/couchbase/config-manager/internal/api"
 	"github.com/couchbase/config-manager/internal/config"
@@ -60,7 +60,10 @@ func main() {
 		"agent_type", cfg.Agent.Type,
 		"agent_directory", cfg.Agent.Directory,
 		"logging_level", cfg.Logging.Level,
-		"manager_interval", cfg.Manager.Interval)
+		"manager_interval", cfg.Manager.Interval,
+		"manager_min_interval", cfg.Manager.MinInterval,
+		"manager_stale_threshold", cfg.Manager.StaleThreshold,
+	)
 
 	// Validate agent type is vmagent
 	if strings.ToLower(cfg.Agent.Type) != "vmagent" {
@@ -78,16 +81,20 @@ func main() {
 
 	fileStorage := storage.NewFileStorage(cfg.Agent.Directory)
 
-	interval, err := strconv.Atoi(cfg.Manager.Interval)
-	if err != nil {
-		logger.Error("Invalid manager interval format", "interval", cfg.Manager.Interval, "error", err)
-		os.Exit(1)
-	}
+	interval := cfg.Manager.Interval
+	mininterval := cfg.Manager.MinInterval
 
 	// Validate manager interval
-	if interval > 30 || interval < 5 {
-		logger.Warn("Manager interval should be between 5 and 30 minutes", "interval", interval, "default", 5)
-		interval = 5 // Default to 5 minutes if invalid
+	if interval > 30*time.Minute || interval < mininterval{
+		logger.Warn("Manager interval should be between 5 and 30 minutes", "interval", interval, "default", 5*time.Minute)
+		interval = mininterval // Default to 5 minutes if invalid
+	}
+
+	staleThreshold := cfg.Manager.StaleThreshold
+	// Validate manager stale threshold
+	if staleThreshold > 30*time.Minute || staleThreshold < 5*time.Minute {
+		logger.Warn("Manager stale threshold should be between 5 and 30 minutes", "stale_threshold", staleThreshold, "default", 5*time.Minute)
+		staleThreshold = 5 * time.Minute // Default to 5 minutes if invalid
 	}
 
 	// Initialize API handler
@@ -114,11 +121,22 @@ func main() {
 			os.Exit(1)
 		}
 	}()
+	logger.Debug(
+    "interval, mininterval and stale threshold",
+    "interval", interval.String(),
+    "mininterval", mininterval.String(),
+    "stale_threshold", staleThreshold.String(),
+)
 
 	logger.Info("Config Manager REST Service Started")
 
 	go func() {
-		manager.StartManagerWithInterval(interval, cfg.Agent.Directory)
+		
+		manager.StartManagerWithInterval(manager.Information{
+			Interval:     interval,
+			MinInterval:  mininterval,
+			StaleThreshold: staleThreshold,
+		}, cfg.Agent.Directory)
 	}()
 	logger.Info("Manager Service Started")
 

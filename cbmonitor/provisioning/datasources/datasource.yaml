@@ -1,1 +1,19 @@
 apiVersion: 1
+
+datasources:
+- name: Capella Db1
+  type: couchbase-datasource
+  access: proxy
+  jsonData:
+    host: 172.23.96.97
+    username: Administrator
+  secureJsonData:
+    password: password
+- name: Capella Db2
+  type: couchbase-datasource
+  access: proxy
+  jsonData:
+    host: 172.23.96.223
+    username: Administrator
+  secureJsonData:
+    password: password

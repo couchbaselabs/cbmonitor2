@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -23,7 +24,9 @@ type Config struct {
 		Level string `yaml:"level"`
 	} `yaml:"logging"`
 	Manager struct {
-		Interval string `yaml:"interval"`
+		Interval     time.Duration  `yaml:"interval"`
+		MinInterval  time.Duration  `yaml:"min_interval"`
+		StaleThreshold time.Duration   `yaml:"stale_threshold"`
 	} `yaml:"manager"`
 }
 
@@ -112,6 +115,14 @@ func setConfigValue(config *Config, path, value string) error {
 
 // setFieldValue sets a field value with proper type conversion
 func setFieldValue(field reflect.Value, value string) error {
+	 if field.Type() == reflect.TypeOf(time.Duration(0)) {
+        dur, err := time.ParseDuration(value)
+        if err != nil {
+            return fmt.Errorf("invalid duration value: %s", value)
+        }
+        field.Set(reflect.ValueOf(dur))
+        return nil
+    }
 	switch field.Kind() {
 	case reflect.String:
 		field.SetString(value)
@@ -159,5 +170,7 @@ func setDefaults(config *Config) {
 	config.Logging.Level = "info"
 
 	// Manager defaults
-	config.Manager.Interval = "5"
+	config.Manager.Interval = 5 * time.Minute
+	config.Manager.StaleThreshold = 5 * time.Minute
+	config.Manager.MinInterval = 5 * time.Minute
 }

@@ -3,6 +3,7 @@ package tests
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/couchbase/config-manager/internal/api"
@@ -50,5 +51,13 @@ func TestDeleteSnapshotRequest(t *testing.T) {
 	if w.Code != http.StatusNoContent {
 		t.Errorf("Expected status %d, got %d", http.StatusNoContent, w.Code)
 		t.Logf("Response body: %s", w.Body.String())
+	}
+
+	// checking that the file is gone
+	filepath := tempDir + "/" + id + ".yml"
+	if _, err := os.Stat(filepath); err == nil {
+		t.Errorf("Expected file %s to be deleted", filepath)
+	} else if !os.IsNotExist(err) {
+		t.Fatalf("Failed to stat file %s: %v", filepath, err)
 	}
 }

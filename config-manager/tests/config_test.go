@@ -3,6 +3,7 @@ package tests
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/couchbase/config-manager/internal/config"
 )
@@ -31,7 +32,9 @@ func TestApplyFlagOverrides(t *testing.T) {
 				cfg.Agent.Type = "vmagent"
 				cfg.Agent.Directory = "./temp_path"
 				cfg.Logging.Level = "info"
-				cfg.Manager.Interval = "2"
+				cfg.Manager.Interval = 2 * time.Minute
+				cfg.Manager.MinInterval = 5 * time.Minute
+				cfg.Manager.StaleThreshold = 5 * time.Minute
 				return cfg
 			}(),
 		},
@@ -48,7 +51,9 @@ func TestApplyFlagOverrides(t *testing.T) {
 				cfg.Agent.Type = "prometheus"
 				cfg.Agent.Directory = "./temp_path"
 				cfg.Logging.Level = "debug"
-				cfg.Manager.Interval = "2"
+				cfg.Manager.Interval = 2 * time.Minute
+				cfg.Manager.MinInterval = 5 * time.Minute
+				cfg.Manager.StaleThreshold = 5 * time.Minute
 				return cfg
 			}(),
 		},
@@ -116,7 +121,9 @@ agent:
 logging:
   level: "info"
 manager:
-  interval: "2"
+  interval: "2m"
+  min_interval: "5m"
+  stale_threshold: "5m"
 `
 
 	tmpfile, err := os.CreateTemp("", "config_*.yaml")
