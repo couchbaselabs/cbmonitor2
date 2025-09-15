@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+- name: dashboards
+  type: file
+  # <bool> disable dashboard deletion
+  disableDeletion: true
+  # <bool> allow updating provisioned dashboards from the UI
+  allowUiUpdates: true
+  options:
+    path: e
+    foldersFromFilesStructure: true
