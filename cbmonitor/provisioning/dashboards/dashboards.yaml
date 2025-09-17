@@ -8,5 +8,5 @@ providers:
   # <bool> allow updating provisioned dashboards from the UI
   allowUiUpdates: true
   options:
-    path: e
+    path: /var/lib/grafana/dashboards
     foldersFromFilesStructure: true
