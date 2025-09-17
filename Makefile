@@ -19,8 +19,19 @@ build-plugin:
 	@cd cbmonitor && npm install && npm run build && mage
 
 # Build the grafana-app plugin docker image
-build-plugin-docker: build-plugin
+build-plugin-docker: build-couchbase-datasource build-plugin
+	@echo "Building cbmonitor grafana-app plugin docker image..."
 	@cd cbmonitor && npm run server
+
+build-couchbase-datasource:
+	@cd couchbase-datasource && \
+    pushd couchbase-datasource && \
+    set -e && \
+    yarn upgrade && \
+    yarn install && \
+    yarn build && \
+    mage -v && \
+    popd
 
 # Clean build artifacts
 clean-cm:
