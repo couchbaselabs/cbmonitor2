@@ -25,13 +25,11 @@ build-plugin-docker: build-couchbase-datasource build-plugin
 
 build-couchbase-datasource:
 	@cd couchbase-datasource && \
-    pushd couchbase-datasource && \
     set -e && \
     yarn upgrade && \
     yarn install && \
     yarn build && \
-    mage -v && \
-    popd
+    mage -v
 
 # Clean build artifacts
 clean-cm:
