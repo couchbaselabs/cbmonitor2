@@ -19,8 +19,23 @@ build-plugin:
 	@cd cbmonitor && npm install && npm run build && mage
 
 # Build the grafana-app plugin docker image
-build-plugin-docker: build-plugin
+build-plugin-docker: build-plugin move-datasource-build-artifacts
+	@echo "Building cbmonitor grafana-app plugin docker image..."
 	@cd cbmonitor && npm run server
+
+# Build the datasource plugin
+build-couchbase-datasource:
+	@cd couchbase-datasource && cd couchbase-datasource && \
+    yarn upgrade && \
+    yarn install && \
+    yarn build && \
+    mage -v
+
+# Move the datasource build artifacts to the cbmonitor dist directory
+move-datasource-build-artifacts:
+	@echo "Moving datasource build artifacts..."
+	@mkdir -p cbmonitor/dist/couchbase-datasource/
+	@cp -r couchbase-datasource/couchbase-datasource/dist/* cbmonitor/dist/couchbase-datasource/
 
 # Clean build artifacts
 clean-cm:

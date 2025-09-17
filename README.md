@@ -112,3 +112,13 @@ To run the Grafana app, use the docker command above or follow the instructions 
 Each service has its own tests located in the service directory:
 - **config-manager**: `config-manager/tests/`
 - **cbmonitor**: `cbmonitor/tests/` (when implemented)
+
+
+## Steps to build with the datasource
+1. git clone the repo
+2. cd cbmonitor2
+3. git submodule init 
+4. git submodule update 
+
+or, just do 
+1. git clone --recurse-submodules <repo-link>
