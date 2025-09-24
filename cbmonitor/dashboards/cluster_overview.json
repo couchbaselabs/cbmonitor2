@@ -110,6 +110,7 @@
             "uid": "P71E105C5A2E708ED"
           },
           "query": "SELECT\n  MILLIS_TO_STR(t._t) AS `time`,\n  (t._v0 - LAG(t._v0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) /\n  ((t._t - LAG(t._t) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) / 1000) AS `irate_n1ql_requests`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [0, 9223372036854775807]}) AS t\nWHERE d.metric_name = \"n1ql_requests\"\n  AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n  AND time_range(t._t)",
+          "query": "SELECT\n  MILLIS_TO_STR(t._t) AS `time`,\n  (t._v0 - LAG(t._v0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) /\n  ((t._t - LAG(t._t) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) / 1000) AS `irate_n1ql_requests`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [0, 9223372036854775807]}) AS t\nWHERE d.metric_name = \"n1ql_requests\"\n  AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n  AND time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -633,7 +634,7 @@
         "includeAll": true,
         "allText": "All",
         "allValue": "All",
-        "label": "Snapshot",
+        "label": "Job",
         "multi": false,
         "name": "snapshot",
         "options": [],
