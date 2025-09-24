@@ -25,7 +25,7 @@ build-plugin-docker: build-plugin move-datasource-build-artifacts
 
 # Build the datasource plugin
 build-couchbase-datasource:
-	@cd couchbase-datasource && cd couchbase-datasource && \
+	@cd mfork-grafana-plugin && cd couchbase-datasource && \
     yarn upgrade && \
     yarn install && \
     yarn build && \
@@ -35,7 +35,7 @@ build-couchbase-datasource:
 move-datasource-build-artifacts:
 	@echo "Moving datasource build artifacts..."
 	@mkdir -p cbmonitor/dist/couchbase-datasource/
-	@cp -r couchbase-datasource/couchbase-datasource/dist/* cbmonitor/dist/couchbase-datasource/
+	@cp -r mfork-grafana-plugin/couchbase-datasource/dist/* cbmonitor/dist/couchbase-datasource/
 
 # Clean build artifacts
 clean-cm:
