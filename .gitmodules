@@ -1,4 +1,0 @@
-[submodule "couchbase-datasource"]
-	path = couchbase-datasource
-	url = https://github.com/Couchbase-Ecosystem/grafana-plugin.git
-	ignore = dirty
