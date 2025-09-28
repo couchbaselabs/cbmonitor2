@@ -63,6 +63,9 @@ func main() {
 		"manager_interval", cfg.Manager.Interval,
 		"manager_min_interval", cfg.Manager.MinInterval,
 		"manager_stale_threshold", cfg.Manager.StaleThreshold,
+		"metadata_enabled", cfg.Metadata.Enabled,
+		"metadata_host", cfg.Metadata.Host,
+		"metadata_bucket", cfg.Metadata.Bucket,
 	)
 
 	// Validate agent type is vmagent
@@ -97,8 +100,16 @@ func main() {
 		staleThreshold = 5 * time.Minute // Default to 5 minutes if invalid
 	}
 
+	// Initialize metadata storage
+	metadataStorage, err := storage.NewMetadataStorage(cfg)
+	if err != nil {
+		logger.Error("Failed to initialize metadata storage. Metadata will not be collected.", "error", err)
+	}else{
+		logger.Info("Metadata storage initialized", "type", metadataStorage.Type())
+	}
+
 	// Initialize API handler
-	handler := api.NewHandler(fileStorage, cfg.Agent.Type)
+	handler := api.NewHandler(fileStorage, metadataStorage, cfg.Agent.Type)
 
 	// Setup HTTP server
 	mux := http.NewServeMux()

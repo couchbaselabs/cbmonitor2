@@ -23,7 +23,7 @@ func TestCreateSnapshot(t *testing.T) {
 	fileStorage := storage.NewFileStorage(tempDir)
 
 	// Initialize handler
-	handler := api.NewHandler(fileStorage, "vmagent")
+	handler := api.NewHandler(fileStorage, storage.NewFileMetadataStorage(tempDir), "vmagent")
 
 	// Create test request
 	request := models.SnapshotRequest{
@@ -110,7 +110,7 @@ func TestCreateSnapshotInvalidRequest(t *testing.T) {
 	fileStorage := storage.NewFileStorage(tempDir)
 
 	// Initialize handler
-	handler := api.NewHandler(fileStorage, "vmagent")
+	handler := api.NewHandler(fileStorage,storage.NewFileMetadataStorage(tempDir), "vmagent")
 
 	// Test cases
 	testCases := []struct {

@@ -50,6 +50,7 @@ func (fs *FileStorage) SaveSnapshot(clusterInfo interface{}, agentType string) (
 	return id, nil
 }
 
+
 // generateConfigContent creates vmagent configuration format
 func (fs *FileStorage) generateConfigContent(clusterInfo interface{}, agentType string, id string) ([]byte, error) {
 	if strings.ToLower(agentType) != "vmagent" {

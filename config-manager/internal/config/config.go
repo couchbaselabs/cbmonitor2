@@ -28,6 +28,14 @@ type Config struct {
 		MinInterval  time.Duration  `yaml:"min_interval"`
 		StaleThreshold time.Duration   `yaml:"stale_threshold"`
 	} `yaml:"manager"`
+	Metadata struct {
+		Enabled     bool   `yaml:"enabled"`
+		Host        string `yaml:"host"`
+		Username    string `yaml:"username"`
+		Password    string `yaml:"password"`
+		Bucket      string `yaml:"bucket"`
+		Timeout     time.Duration `yaml:"timeout"`
+	} `yaml:"metadata"`
 }
 
 // LoadConfig loads configuration from file and optionally applies flag overrides
@@ -173,4 +181,12 @@ func setDefaults(config *Config) {
 	config.Manager.Interval = 5 * time.Minute
 	config.Manager.StaleThreshold = 5 * time.Minute
 	config.Manager.MinInterval = 5 * time.Minute
+
+	// Metadata defaults
+	config.Metadata.Enabled = true
+	config.Metadata.Host = "localhost"
+	config.Metadata.Username = "Administrator"
+	config.Metadata.Password = "password"
+	config.Metadata.Bucket = "metadata"
+	config.Metadata.Timeout = 30 * time.Second
 }

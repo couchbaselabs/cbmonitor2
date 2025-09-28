@@ -14,7 +14,7 @@ func TestPatchSnapshot(t *testing.T) {
 	tempDir := t.TempDir()
 
 	fileStorage := storage.NewFileStorage(tempDir)
-	handler := api.NewHandler(fileStorage, "vmagent")
+	handler := api.NewHandler(fileStorage, storage.NewFileMetadataStorage(tempDir), "vmagent")
 
 	request := models.SnapshotRequest{
 		Hostname: "localhost",

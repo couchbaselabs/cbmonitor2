@@ -5,21 +5,25 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/couchbase/config-manager/internal/logger"
 	"github.com/couchbase/config-manager/internal/models"
+	"github.com/couchbase/config-manager/internal/services"
 	"github.com/couchbase/config-manager/internal/storage"
 )
 
 // Handler handles HTTP requests for the config-manager service
 type Handler struct {
-	storage   *storage.FileStorage
-	agentType string
+	storage         *storage.FileStorage
+	metadataStorage storage.MetadataStorage
+	agentType       string
 }
 
 // NewHandler creates a new API handler
-func NewHandler(storage *storage.FileStorage, agentType string) *Handler {
+func NewHandler(storage *storage.FileStorage, metadataStorage storage.MetadataStorage, agentType string) *Handler {
 	return &Handler{
-		storage:   storage,
-		agentType: agentType,
+		storage:         storage,
+		metadataStorage: metadataStorage,
+		agentType:       agentType,
 	}
 }
 
@@ -58,6 +62,28 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Failed to save snapshot", http.StatusInternalServerError)
 		return
+	}
+
+	// Collect cluster metadata
+	metadataService := services.NewMetadataService()
+	metadata, err := metadataService.CollectClusterMetadata(
+		req.Hostname,
+		req.Port,
+		req.Credentials.Username,
+		req.Credentials.Password,
+	)
+
+	if err != nil {
+		logger.Warn("Warning: Failed to collect cluster metadata", "error", err)
+		// Continue without metadata - don't fail the snapshot creation
+	} else {
+		// Set the snapshot ID and save metadata
+		metadata.SnapshotID = id
+		if err := h.metadataStorage.SaveMetadata(metadata); err != nil {
+			logger.Warn("Warning: Failed to save metadata", "error", err)
+		} else {
+			logger.Info("Successfully collected and saved metadata for snapshot", "id", id)
+		}
 	}
 
 	// Create response

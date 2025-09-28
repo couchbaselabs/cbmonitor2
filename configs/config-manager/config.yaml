@@ -14,4 +14,10 @@ manager:
   interval: 2m
   min_interval: 5m
   stale_threshold: 5m
-  
+
+# Metadata configuration for storing cluster metadata in Couchbase
+metadata:
+  enabled: true
+  host: "localhost"
+  bucket: "metadata"
+  timeout: 30s

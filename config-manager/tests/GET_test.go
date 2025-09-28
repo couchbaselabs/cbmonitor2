@@ -18,7 +18,7 @@ func TestGetSnapshotRequest(t *testing.T) {
 
 	// Initialize storage and handler
 	fileStorage := storage.NewFileStorage(tempDir)
-	handler := api.NewHandler(fileStorage, "vmagent")
+	handler := api.NewHandler(fileStorage, storage.NewFileMetadataStorage(tempDir), "vmagent")
 
 	// Create a snapshot to retrieve
 	request := models.SnapshotRequest{
