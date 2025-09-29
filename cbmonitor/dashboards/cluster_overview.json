@@ -109,7 +109,7 @@
             "type": "couchbase-datasource",
             "uid": "P71E105C5A2E708ED"
           },
-          "query": "SELECT\n  MILLIS_TO_STR(t._t) AS `time`,\n  (t._v0 - LAG(t._v0, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) /\n  ((t._t - LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) / 1000) AS `irate_n1ql_requests`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [0, 9223372036854775807]}) AS t\nWHERE d.metric_name = \"n1ql_requests\"\n  AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n  AND time_range(t._t)",
+          "query": "SELECT\n  MILLIS_TO_STR(t._t) AS `time`,\n  (t._v0 - LAG(t._v0, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) /\n  ((t._t - LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) / 1000) AS `irate_n1ql_requests`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\nWHERE d.metric_name = \"n1ql_requests\"\n  AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n  AND time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -230,7 +230,7 @@
             "type": "couchbase-datasource",
             "uid": "P71E105C5A2E708ED"
           },
-          "query": "SELECT\n  MILLIS_TO_STR(t._t) AS `time`,\n  t._v0 AS `kv_mem_used_bytes 172.23.96.97`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [0, 9223372036854775807]}) AS t\nWHERE d.metric_name = \"kv_mem_used_bytes\"\n  AND d.labels.instance = \"172.23.96.97:8091\"\n  AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n  AND time_range(t._t)",
+          "query": "SELECT\n  MILLIS_TO_STR(t._t) AS `time`,\n  t._v0 AS `kv_mem_used_bytes 172.23.96.97`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\nWHERE d.metric_name = \"kv_mem_used_bytes\"\n  AND d.labels.instance = \"172.23.96.97:8091\"\n  AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n  AND time_range(t._t)",
           "refId": "A"
         },
         {
@@ -240,7 +240,7 @@
             "uid": "PE43222976ED53D25"
           },
           "hide": false,
-          "query": "SELECT\n  MILLIS_TO_STR(t._t) AS `time`,\n  t._v0 AS `kv_mem_used_bytes 172.23.96.223`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [0, 9223372036854775807]}) AS t\nWHERE d.metric_name = \"kv_mem_used_bytes\"\n  AND d.labels.instance = \"172.23.96.223:8091\"\n  AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n  AND time_range(t._t)",
+          "query": "SELECT\n  MILLIS_TO_STR(t._t) AS `time`,\n  t._v0 AS `kv_mem_used_bytes 172.23.96.223`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\nWHERE d.metric_name = \"kv_mem_used_bytes\"\n  AND d.labels.instance = \"172.23.96.223:8091\"\n  AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n  AND time_range(t._t)",
           "refId": "B"
         }
       ],
@@ -336,7 +336,7 @@
             "type": "couchbase-datasource",
             "uid": "P71E105C5A2E708ED"
           },
-          "query": "SELECT MILLIS_TO_STR(t._t) as `time`, t._v0 as `sys_mem_free 172.23.96.97`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [0, 9223372036854775807]}) AS t\nWHERE d.metric_name=\"sys_mem_free\" \nAND d.labels.instance = \"172.23.96.97:8091\"\nAND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\nAND t._v0 IS NOT NULL\nAND t._t IS NOT NULL\nANd time_range(t._t)\n",
+          "query": "SELECT MILLIS_TO_STR(t._t) as `time`, t._v0 as `sys_mem_free 172.23.96.97`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\nWHERE d.metric_name=\"sys_mem_free\" \nAND d.labels.instance = \"172.23.96.97:8091\"\nAND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\nAND t._v0 IS NOT NULL\nAND t._t IS NOT NULL\nANd time_range(t._t)\n",
           "refId": "A"
         },
         {
@@ -346,7 +346,7 @@
             "uid": "P71E105C5A2E708ED"
           },
           "hide": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) as `time`, t._v0 as `sys_mem_free 172.23.96.223`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [0, 9223372036854775807]}) AS t\nWHERE d.metric_name=\"sys_mem_free\" \nAND d.labels.instance = \"172.23.96.223:8091\"\nAND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\nAND t._v0 IS NOT NULL\nAND t._t IS NOT NULL\nANd time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) as `time`, t._v0 as `sys_mem_free 172.23.96.223`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\nWHERE d.metric_name=\"sys_mem_free\" \nAND d.labels.instance = \"172.23.96.223:8091\"\nAND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\nAND t._v0 IS NOT NULL\nAND t._t IS NOT NULL\nANd time_range(t._t)",
           "refId": "B"
         }
       ],
@@ -442,7 +442,7 @@
             "type": "couchbase-datasource",
             "uid": "P71E105C5A2E708ED"
           },
-          "query": "SELECT MILLIS_TO_STR(t._t) as `time`, t._v0 as `sys_mem_limit 172.23.96.97`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [0, 9223372036854775807]}) AS t\nWHERE d.metric_name=\"sys_mem_limit\" \nAND d.labels.instance = \"172.23.96.97:8091\"\nAND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\nAND t._v0 IS NOT NULL\nAND t._t IS NOT NULL\nANd time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) as `time`, t._v0 as `sys_mem_limit 172.23.96.97`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\nWHERE d.metric_name=\"sys_mem_limit\" \nAND d.labels.instance = \"172.23.96.97:8091\"\nAND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\nAND t._v0 IS NOT NULL\nAND t._t IS NOT NULL\nANd time_range(t._t)",
           "refId": "A"
         },
         {
@@ -452,7 +452,7 @@
             "uid": "P71E105C5A2E708ED"
           },
           "hide": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) as `time`, t._v0 as `sys_mem_actual_used 172.23.96.97`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [0, 9223372036854775807]}) AS t\nWHERE d.metric_name=\"sys_mem_actual_used\" \nAND d.labels.instance = \"172.23.96.97:8091\"\nAND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\nAND t._v0 IS NOT NULL\nAND t._t IS NOT NULL\nANd time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) as `time`, t._v0 as `sys_mem_actual_used 172.23.96.97`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\nWHERE d.metric_name=\"sys_mem_actual_used\" \nAND d.labels.instance = \"172.23.96.97:8091\"\nAND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\nAND t._v0 IS NOT NULL\nAND t._t IS NOT NULL\nANd time_range(t._t)",
           "refId": "B"
         },
         {
@@ -462,7 +462,7 @@
             "uid": "PE43222976ED53D25"
           },
           "hide": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) as `time`, t._v0 as `sys_mem_limit 172.23.96.223`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [0, 9223372036854775807]}) AS t\nWHERE d.metric_name=\"sys_mem_limit\" \nAND d.labels.instance = \"172.23.96.223:8091\"\nAND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\nANd time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) as `time`, t._v0 as `sys_mem_limit 172.23.96.223`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\nWHERE d.metric_name=\"sys_mem_limit\" \nAND d.labels.instance = \"172.23.96.223:8091\"\nAND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\nANd time_range(t._t)",
           "refId": "C"
         },
         {
@@ -472,7 +472,7 @@
             "uid": "PE43222976ED53D25"
           },
           "hide": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) as `time`, t._v0 as `sys_mem_actual_used 172.23.96.223`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [0, 9223372036854775807]}) AS t\nWHERE d.metric_name=\"sys_mem_actual_used\" \nAND d.labels.instance = \"172.23.96.223:8091\"\nAND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\nANd time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) as `time`, t._v0 as `sys_mem_actual_used 172.23.96.223`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\nWHERE d.metric_name=\"sys_mem_actual_used\" \nAND d.labels.instance = \"172.23.96.223:8091\"\nAND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\nANd time_range(t._t)",
           "refId": "D"
         }
       ],
@@ -594,7 +594,7 @@
             "type": "couchbase-datasource",
             "uid": "P71E105C5A2E708ED"
           },
-          "query": "SELECT MILLIS_TO_STR(t._t) as `time`, t._v0 as `sys_cpu_utilization_rate 172.23.96.97`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [0, 9223372036854775807]}) AS t\nWHERE d.metric_name=\"sys_cpu_utilization_rate\" \nAND d.labels.instance = \"172.23.96.97:8091\"\nAND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\nAND t._v0 IS NOT NULL\nAND t._t IS NOT NULL\nANd time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) as `time`, t._v0 as `sys_cpu_utilization_rate 172.23.96.97`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\nWHERE d.metric_name=\"sys_cpu_utilization_rate\" \nAND d.labels.instance = \"172.23.96.97:8091\"\nAND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\nAND t._v0 IS NOT NULL\nAND t._t IS NOT NULL\nANd time_range(t._t)",
           "refId": "A"
         },
         {
@@ -604,7 +604,7 @@
             "uid": "PE43222976ED53D25"
           },
           "hide": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) as `time`, t._v0 as `sys_cpu_utilization_rate 172.23.96.223`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [0, 9223372036854775807]}) AS t\nWHERE d.metric_name=\"sys_cpu_utilization_rate\" \nAND d.labels.instance = \"172.23.96.223:8091\"\nAND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\nAND t._v0 IS NOT NULL\nAND t._t IS NOT NULL\nANd time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) as `time`, t._v0 as `sys_cpu_utilization_rate 172.23.96.223`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\nWHERE d.metric_name=\"sys_cpu_utilization_rate\" \nAND d.labels.instance = \"172.23.96.223:8091\"\nAND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\nAND t._v0 IS NOT NULL\nAND t._t IS NOT NULL\nANd time_range(t._t)",
           "refId": "B"
         }
       ],
@@ -685,7 +685,7 @@
         "type": "couchbase-datasource",
         "uid": "P71E105C5A2E708ED"
       },
-      "query": "select millis_to_str(t._t) as `time`,\n  sum(t._v0) as `kv_mem_used_bytes_sum`\nfrom cbmonitor._default._default as d\nUNNEST _timeseries(d, {\"ts_ranges\" : [0, 9223372036854775807]}) AS t\nWHERE d.metric_name = \"kv_mem_used_bytes\"\n  AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot') \n  AND time_range(t._t)\nGROUP BY t._t\n",
+      "query": "select millis_to_str(t._t) as `time`,\n  sum(t._v0) as `kv_mem_used_bytes_sum`\nfrom cbmonitor._default._default as d\nUNNEST _timeseries(d, {\"ts_ranges\" : [${__from}, ${__to}]}) AS t\nWHERE d.metric_name = \"kv_mem_used_bytes\"\n  AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot') \n  AND time_range(t._t)\nGROUP BY t._t\n",
       "refId": "A"
     }
   ],
@@ -781,7 +781,7 @@
         "uid": "P71E105C5A2E708ED",
         "type": "couchbase-datasource"
       },
-      "query": "SELECT\n  MILLIS_TO_STR(t._t) AS `time`,\n  (t._v0 - LAG(t._v0, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) /\n  ((t._t - LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) / 1000) AS `irate_n1ql_selects 97`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [0, 9223372036854775807]}) AS t\nWHERE d.metric_name = \"n1ql_selects\"\n  AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n  AND time_range(t._t)\n  AND d.labels.instance = \"172.23.96.97:8091\"",
+      "query": "SELECT\n  MILLIS_TO_STR(t._t) AS `time`,\n  (t._v0 - LAG(t._v0, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) /\n  ((t._t - LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) / 1000) AS `irate_n1ql_selects 97`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\nWHERE d.metric_name = \"n1ql_selects\"\n  AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n  AND time_range(t._t)\n  AND d.labels.instance = \"172.23.96.97:8091\"",
       "analytics": false
     },
     {
@@ -791,7 +791,7 @@
       },
       "refId": "B",
       "hide": false,
-      "query": "SELECT\n  MILLIS_TO_STR(t._t) AS `time`,\n  (t._v0 - LAG(t._v0, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) /\n  ((t._t - LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) / 1000) AS `irate_n1ql_selects 223`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [0, 9223372036854775807]}) AS t\nWHERE d.metric_name = \"n1ql_selects\"\n  AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n  AND time_range(t._t)\n  AND d.labels.instance = \"172.23.96.223:8091\"",
+      "query": "SELECT\n  MILLIS_TO_STR(t._t) AS `time`,\n  (t._v0 - LAG(t._v0, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) /\n  ((t._t - LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) / 1000) AS `irate_n1ql_selects 223`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\nWHERE d.metric_name = \"n1ql_selects\"\n  AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n  AND time_range(t._t)\n  AND d.labels.instance = \"172.23.96.223:8091\"",
       "analytics": false
     },
     {
@@ -801,7 +801,7 @@
       },
       "refId": "C",
       "hide": false,
-      "query": "SELECT\n  MILLIS_TO_STR(t._t) AS `time`,\n  (t._v0 - LAG(t._v0, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) /\n  ((t._t - LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) / 1000) AS `irate_n1ql_inserts`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [0, 9223372036854775807]}) AS t\nWHERE d.metric_name = \"n1ql_inserts\"\n  AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n  AND time_range(t._t)\n  AND d.labels.instance = \"172.23.96.97:8091\"",
+      "query": "SELECT\n  MILLIS_TO_STR(t._t) AS `time`,\n  (t._v0 - LAG(t._v0, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) /\n  ((t._t - LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) / 1000) AS `irate_n1ql_inserts`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\nWHERE d.metric_name = \"n1ql_inserts\"\n  AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n  AND time_range(t._t)\n  AND d.labels.instance = \"172.23.96.97:8091\"",
       "analytics": false
     },
     {
@@ -811,7 +811,7 @@
       },
       "refId": "D",
       "hide": false,
-      "query": "SELECT\n  MILLIS_TO_STR(t._t) AS `time`,\n  (t._v0 - LAG(t._v0, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) /\n  ((t._t - LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) / 1000) AS `irate_n1ql_updates`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [0, 9223372036854775807]}) AS t\nWHERE d.metric_name = \"n1ql_updates\"\n  AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n  AND time_range(t._t)",
+      "query": "SELECT\n  MILLIS_TO_STR(t._t) AS `time`,\n  (t._v0 - LAG(t._v0, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) /\n  ((t._t - LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) / 1000) AS `irate_n1ql_updates`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\nWHERE d.metric_name = \"n1ql_updates\"\n  AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n  AND time_range(t._t)",
       "analytics": false
     }
   ],
@@ -902,7 +902,7 @@
   "targets": [
     {
       "refId": "A",
-      "query": "WITH irate_data AS (\n  SELECT \n    t._t,\n    d.labels.instance,\n    CASE \n      WHEN LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t) IS NOT NULL \n           AND (t._t - LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) <= 60000\n           AND (t._t - LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) > 0\n      THEN (t._v0 - LAG(t._v0, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) / \n           ((t._t - LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) / 1000)\n      ELSE 0 \n    END AS irate_value\n  FROM cbmonitor._default._default AS d\n  UNNEST _timeseries(d, {\"ts_ranges\": [0, 9223372036854775807]}) AS t\n  WHERE d.metric_name = \"index_num_rows_scanned\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n    AND time_range(t._t)\n)\nSELECT \n  MILLIS_TO_STR(i._t) AS `time`,\n  SUM(i.irate_value) AS `sum_irate_index_num_rows_scanned`\nFROM irate_data i\nGROUP BY i._t\nORDER BY i._t",
+      "query": "WITH irate_data AS (\n  SELECT \n    t._t,\n    d.labels.instance,\n    CASE \n      WHEN LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t) IS NOT NULL \n           AND (t._t - LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) <= 60000\n           AND (t._t - LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) > 0\n      THEN (t._v0 - LAG(t._v0, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) / \n           ((t._t - LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t)) / 1000)\n      ELSE 0 \n    END AS irate_value\n  FROM cbmonitor._default._default AS d\n  UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n  WHERE d.metric_name = \"index_num_rows_scanned\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n    AND time_range(t._t)\n)\nSELECT \n  MILLIS_TO_STR(i._t) AS `time`,\n  SUM(i.irate_value) AS `sum_irate_index_num_rows_scanned`\nFROM irate_data i\nGROUP BY i._t\nORDER BY i._t",
       "analytics": false
     }
   ],
@@ -923,7 +923,98 @@
       "calcs": []
     }
   }
-}      
+},
+{
+  "id": 9,
+  "type": "timeseries",
+  "title": "irate_n1ql_requests - udf sql",
+  "gridPos": {
+    "x": 0,
+    "y": 0,
+    "h": 8,
+    "w": 12
+  },
+  "fieldConfig": {
+    "defaults": {
+      "custom": {
+        "drawStyle": "line",
+        "lineInterpolation": "linear",
+        "barAlignment": 0,
+        "barWidthFactor": 0.6,
+        "lineWidth": 1,
+        "fillOpacity": 0,
+        "gradientMode": "none",
+        "spanNulls": false,
+        "insertNulls": false,
+        "showPoints": "auto",
+        "pointSize": 5,
+        "stacking": {
+          "mode": "none",
+          "group": "A"
+        },
+        "axisPlacement": "auto",
+        "axisLabel": "",
+        "axisColorMode": "text",
+        "axisBorderShow": false,
+        "scaleDistribution": {
+          "type": "linear"
+        },
+        "axisCenteredZero": false,
+        "hideFrom": {
+          "tooltip": false,
+          "viz": false,
+          "legend": false
+        },
+        "thresholdsStyle": {
+          "mode": "off"
+        }
+      },
+      "color": {
+        "mode": "palette-classic"
+      },
+      "mappings": [],
+      "thresholds": {
+        "mode": "absolute",
+        "steps": [
+          {
+            "value": null,
+            "color": "green"
+          },
+          {
+            "value": 80,
+            "color": "red"
+          }
+        ]
+      }
+    },
+    "overrides": []
+  },
+  "pluginVersion": "12.1.0",
+  "targets": [
+    {
+      "refId": "A",
+      "query": "SELECT\n    MILLIS_TO_STR(t._t) AS `time`,\n    irate(t._v0,\n          LAG(t._v0, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t),\n          t._t,\n          LAG(t._t, 1, 0) OVER (PARTITION BY d.labels.instance ORDER BY t._t))\n           AS `irate_n1ql_requests`\n  FROM cbmonitor._default._default AS d\n  UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n  WHERE d.metric_name = \"n1ql_requests\"\n  AND time_range(t._t)",
+      "analytics": false
+    }
+  ],
+  "datasource": {
+    "uid": "P71E105C5A2E708ED",
+    "type": "couchbase-datasource"
+  },
+  "options": {
+    "tooltip": {
+      "mode": "single",
+      "sort": "none",
+      "hideZeros": false
+    },
+    "legend": {
+      "showLegend": true,
+      "displayMode": "list",
+      "placement": "bottom",
+      "calcs": []
+    }
+  }
+}
   ],
   "preload": false,
   "refresh": "5s",
