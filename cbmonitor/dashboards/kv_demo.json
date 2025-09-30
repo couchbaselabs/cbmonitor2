@@ -40,7 +40,7 @@
             "barAlignment": 0,
             "barWidthFactor": 0.6,
             "drawStyle": "line",
-            "fillOpacity": 0,
+            "fillOpacity": 20,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -49,7 +49,7 @@
             },
             "insertNulls": false,
             "lineInterpolation": "linear",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -82,8 +82,8 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 12,
+        "w": 24,
         "x": 0,
         "y": 0
       },
@@ -109,7 +109,7 @@
           "refId": "A"
         }
       ],
-      "title": "sys_cpu_utilization_rate",
+      "title": "System CPU Utilization Rate",
       "type": "timeseries"
     },
     {
@@ -131,7 +131,7 @@
             "barAlignment": 0,
             "barWidthFactor": 0.6,
             "drawStyle": "line",
-            "fillOpacity": 0,
+            "fillOpacity": 20,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -140,7 +140,7 @@
             },
             "insertNulls": false,
             "lineInterpolation": "linear",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -173,10 +173,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 12,
+        "w": 24,
         "x": 0,
-        "y": 8
+        "y": 12
       },
       "id": 7,
       "options": {
@@ -200,7 +200,7 @@
           "refId": "A"
         }
       ],
-      "title": "ep_queue_size",
+      "title": "KV Engine Queue Size",
       "type": "timeseries"
     },
     {
@@ -222,7 +222,7 @@
             "barAlignment": 0,
             "barWidthFactor": 0.6,
             "drawStyle": "line",
-            "fillOpacity": 0,
+            "fillOpacity": 20,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -231,7 +231,7 @@
             },
             "insertNulls": false,
             "lineInterpolation": "linear",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -264,10 +264,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 12,
+        "w": 24,
         "x": 0,
-        "y": 16
+        "y": 24
       },
       "id": 6,
       "options": {
@@ -291,7 +291,7 @@
           "refId": "A"
         }
       ],
-      "title": "ep_diskqueue_fill",
+      "title": "Disk Queue Fill Rate",
       "type": "timeseries"
     },
     {
@@ -313,7 +313,7 @@
             "barAlignment": 0,
             "barWidthFactor": 0.6,
             "drawStyle": "line",
-            "fillOpacity": 0,
+            "fillOpacity": 20,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -322,7 +322,7 @@
             },
             "insertNulls": false,
             "lineInterpolation": "linear",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -355,10 +355,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 12,
+        "w": 24,
         "x": 0,
-        "y": 24
+        "y": 36
       },
       "id": 5,
       "options": {
@@ -382,7 +382,7 @@
           "refId": "A"
         }
       ],
-      "title": "ep_diskqueue_drain",
+      "title": "Disk Queue Drain Rate",
       "type": "timeseries"
     },
     {
@@ -404,7 +404,7 @@
             "barAlignment": 0,
             "barWidthFactor": 0.6,
             "drawStyle": "line",
-            "fillOpacity": 0,
+            "fillOpacity": 20,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -413,7 +413,7 @@
             },
             "insertNulls": false,
             "lineInterpolation": "linear",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -446,10 +446,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 12,
+        "w": 24,
         "x": 0,
-        "y": 32
+        "y": 48
       },
       "id": 4,
       "options": {
@@ -473,7 +473,7 @@
           "refId": "A"
         }
       ],
-      "title": "ep-meta-data-mem-bytes",
+      "title": "Metadata Memory Usage (Bytes)",
       "type": "timeseries"
     },
     {
@@ -495,7 +495,7 @@
             "barAlignment": 0,
             "barWidthFactor": 0.6,
             "drawStyle": "line",
-            "fillOpacity": 0,
+            "fillOpacity": 20,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -504,7 +504,7 @@
             },
             "insertNulls": false,
             "lineInterpolation": "linear",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -537,10 +537,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 12,
+        "w": 24,
         "x": 0,
-        "y": 40
+        "y": 60
       },
       "id": 3,
       "options": {
@@ -564,7 +564,7 @@
           "refId": "A"
         }
       ],
-      "title": "curr_items",
+      "title": "Current Items Count",
       "type": "timeseries"
     },
     {
@@ -581,12 +581,12 @@
             "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "kv_curr_connections",
+            "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "barWidthFactor": 0.6,
             "drawStyle": "line",
-            "fillOpacity": 0,
+            "fillOpacity": 20,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -595,7 +595,7 @@
             },
             "insertNulls": false,
             "lineInterpolation": "linear",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -628,10 +628,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 12,
+        "w": 24,
         "x": 0,
-        "y": 48
+        "y": 72
       },
       "id": 2,
       "options": {
@@ -659,7 +659,7 @@
           "refId": "A"
         }
       ],
-      "title": "curr_connections",
+      "title": "Current Connections",
       "type": "timeseries"
     },
     {
@@ -681,7 +681,7 @@
             "barAlignment": 0,
             "barWidthFactor": 0.6,
             "drawStyle": "line",
-            "fillOpacity": 0,
+            "fillOpacity": 20,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -690,7 +690,7 @@
             },
             "insertNulls": false,
             "lineInterpolation": "linear",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -723,10 +723,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 12,
+        "w": 24,
         "x": 0,
-        "y": 56
+        "y": 84
       },
       "id": 1,
       "options": {
@@ -754,7 +754,7 @@
           "refId": "A"
         }
       ],
-      "title": "ops ",
+      "title": "Operations Per Second",
       "type": "timeseries"
     }
   ],
