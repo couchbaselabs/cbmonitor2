@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
+  "id": 2,
   "links": [],
   "panels": [
     {
@@ -77,7 +77,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "percent"
         },
         "overrides": []
       },
@@ -105,7 +106,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `value`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"sys_cpu_utilization_rate\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `cluster`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"sys_cpu_utilization_rate\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -168,7 +169,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "short"
         },
         "overrides": []
       },
@@ -196,8 +198,18 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `value`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_queue_size\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `cbmonitor`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_queue_size\"\n    AND d.labels.`bucket` = \"cbmonitor\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND time_range(t._t)",
           "refId": "A"
+        },
+        {
+          "analytics": false,
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "P71E105C5A2E708ED"
+          },
+          "hide": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `metadata`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_queue_size\"\n    AND d.labels.`bucket` = \"metadata\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND time_range(t._t)",
+          "refId": "B"
         }
       ],
       "title": "KV Engine Queue Size",
@@ -259,7 +271,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "reqps"
         },
         "overrides": []
       },
@@ -287,8 +300,18 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `value`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_diskqueue_fill\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `cbmonitor`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_diskqueue_fill\"\n    AND d.labels.`bucket` = \"cbmonitor\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND time_range(t._t)",
           "refId": "A"
+        },
+        {
+          "analytics": false,
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "P71E105C5A2E708ED"
+          },
+          "hide": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `metadata`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_diskqueue_fill\"\n    AND d.labels.`bucket` = \"metadata\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND time_range(t._t)",
+          "refId": "B"
         }
       ],
       "title": "Disk Queue Fill Rate",
@@ -350,7 +373,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "reqps"
         },
         "overrides": []
       },
@@ -378,8 +402,18 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `value`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_diskqueue_drain\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `cbmonitor`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_diskqueue_drain\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n    AND d.labels.`bucket` = \"cbmonitor\"\n      AND time_range(t._t)",
           "refId": "A"
+        },
+        {
+          "analytics": false,
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "P71E105C5A2E708ED"
+          },
+          "hide": true,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `metadata`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_diskqueue_drain\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n    AND d.labels.`bucket` = \"metadata\"\n      AND time_range(t._t)",
+          "refId": "B"
         }
       ],
       "title": "Disk Queue Drain Rate",
@@ -441,7 +475,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "bytes"
         },
         "overrides": []
       },
@@ -469,8 +504,19 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `value`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_meta_data_memory_bytes\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND time_range(t._t)",
+          "hide": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `cbmonitor`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_meta_data_memory_bytes\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n    AND d.labels.`bucket` = \"cbmonitor\"\n      AND time_range(t._t)",
           "refId": "A"
+        },
+        {
+          "analytics": false,
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "P71E105C5A2E708ED"
+          },
+          "hide": true,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `metadata`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_meta_data_memory_bytes\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n    AND d.labels.`bucket` = \"metadata\"\n      AND time_range(t._t)",
+          "refId": "B"
         }
       ],
       "title": "Metadata Memory Usage (Bytes)",
@@ -519,6 +565,7 @@
               "mode": "off"
             }
           },
+          "displayName": "cbmonitor",
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -532,9 +579,35 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "short"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "cbmonitor"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 12,
@@ -560,8 +633,18 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `value`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_curr_items\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `cbmonitor`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_curr_items\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n    AND d.labels.`bucket` = \"cbmonitor\"\n      AND time_range(t._t)",
           "refId": "A"
+        },
+        {
+          "analytics": false,
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "P71E105C5A2E708ED"
+          },
+          "hide": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `metadata`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_curr_items\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n    AND d.labels.`bucket` = \"metadata\"\n      AND time_range(t._t)",
+          "refId": "B"
         }
       ],
       "title": "Current Items Count",
@@ -623,7 +706,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "short"
         },
         "overrides": []
       },
@@ -655,8 +739,18 @@
             "type": "couchbase-datasource",
             "uid": "P71E105C5A2E708ED"
           },
-          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `value`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_curr_connections\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `172.23.96.97`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_curr_connections\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND d.labels.instance = \"172.23.96.97:8091\"\n      AND time_range(t._t)",
           "refId": "A"
+        },
+        {
+          "analytics": false,
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "P71E105C5A2E708ED"
+          },
+          "hide": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `172.23.96.223`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_curr_connections\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND d.labels.instance = \"172.23.96.223:8091\"\n      AND time_range(t._t)",
+          "refId": "B"
         }
       ],
       "title": "Current Connections",
@@ -676,7 +770,7 @@
             "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "",
+            "axisLabel": "cbmonitor",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "barWidthFactor": 0.6,
@@ -705,6 +799,7 @@
               "mode": "off"
             }
           },
+          "displayName": "cbmonitor",
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -718,7 +813,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "ops"
         },
         "overrides": []
       },
@@ -750,7 +846,7 @@
             "type": "couchbase-datasource",
             "uid": "P71E105C5A2E708ED"
           },
-          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `value`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ops\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `value`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ops\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n    AND d.labels.`bucket` = \"cbmonitor\"\n      AND time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -783,6 +879,23 @@
         "refresh": 1,
         "regex": "",
         "type": "query"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "datasource": {
+          "type": "couchbase-datasource",
+          "uid": "P71E105C5A2E708ED"
+        },
+        "definition": "",
+        "name": "query0",
+        "options": [],
+        "query": "",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
       }
     ]
   },
@@ -792,7 +905,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "kv_demo",
+  "title": "kv_basic",
   "uid": "12b2cb59-bdeb-4015-a7c6-7367a7ff3878",
-  "version": 15
+  "version": 12
 }
