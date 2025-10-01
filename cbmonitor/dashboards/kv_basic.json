@@ -1,0 +1,911 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 2,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "P71E105C5A2E708ED"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "analytics": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `cluster`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"sys_cpu_utilization_rate\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND time_range(t._t)",
+          "refId": "A"
+        }
+      ],
+      "title": "System CPU Utilization Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "P71E105C5A2E708ED"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "analytics": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `cbmonitor`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_queue_size\"\n    AND d.labels.`bucket` = \"cbmonitor\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND time_range(t._t)",
+          "refId": "A"
+        },
+        {
+          "analytics": false,
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "P71E105C5A2E708ED"
+          },
+          "hide": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `metadata`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_queue_size\"\n    AND d.labels.`bucket` = \"metadata\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND time_range(t._t)",
+          "refId": "B"
+        }
+      ],
+      "title": "KV Engine Queue Size",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "P71E105C5A2E708ED"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "analytics": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `cbmonitor`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_diskqueue_fill\"\n    AND d.labels.`bucket` = \"cbmonitor\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND time_range(t._t)",
+          "refId": "A"
+        },
+        {
+          "analytics": false,
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "P71E105C5A2E708ED"
+          },
+          "hide": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `metadata`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_diskqueue_fill\"\n    AND d.labels.`bucket` = \"metadata\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND time_range(t._t)",
+          "refId": "B"
+        }
+      ],
+      "title": "Disk Queue Fill Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "P71E105C5A2E708ED"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "analytics": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `cbmonitor`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_diskqueue_drain\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n    AND d.labels.`bucket` = \"cbmonitor\"\n      AND time_range(t._t)",
+          "refId": "A"
+        },
+        {
+          "analytics": false,
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "P71E105C5A2E708ED"
+          },
+          "hide": true,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `metadata`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_diskqueue_drain\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n    AND d.labels.`bucket` = \"metadata\"\n      AND time_range(t._t)",
+          "refId": "B"
+        }
+      ],
+      "title": "Disk Queue Drain Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "P71E105C5A2E708ED"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 48
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "analytics": false,
+          "hide": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `cbmonitor`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_meta_data_memory_bytes\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n    AND d.labels.`bucket` = \"cbmonitor\"\n      AND time_range(t._t)",
+          "refId": "A"
+        },
+        {
+          "analytics": false,
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "P71E105C5A2E708ED"
+          },
+          "hide": true,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `metadata`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ep_meta_data_memory_bytes\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n    AND d.labels.`bucket` = \"metadata\"\n      AND time_range(t._t)",
+          "refId": "B"
+        }
+      ],
+      "title": "Metadata Memory Usage (Bytes)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "P71E105C5A2E708ED"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "displayName": "cbmonitor",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "cbmonitor"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 60
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "analytics": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `cbmonitor`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_curr_items\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n    AND d.labels.`bucket` = \"cbmonitor\"\n      AND time_range(t._t)",
+          "refId": "A"
+        },
+        {
+          "analytics": false,
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "P71E105C5A2E708ED"
+          },
+          "hide": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `metadata`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_curr_items\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n    AND d.labels.`bucket` = \"metadata\"\n      AND time_range(t._t)",
+          "refId": "B"
+        }
+      ],
+      "title": "Current Items Count",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "P71E105C5A2E708ED"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 72
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "analytics": false,
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "P71E105C5A2E708ED"
+          },
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `172.23.96.97`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_curr_connections\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND d.labels.instance = \"172.23.96.97:8091\"\n      AND time_range(t._t)",
+          "refId": "A"
+        },
+        {
+          "analytics": false,
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "P71E105C5A2E708ED"
+          },
+          "hide": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `172.23.96.223`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_curr_connections\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n      AND d.labels.instance = \"172.23.96.223:8091\"\n      AND time_range(t._t)",
+          "refId": "B"
+        }
+      ],
+      "title": "Current Connections",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "cbmonitor",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "displayName": "cbmonitor",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 84
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "analytics": false,
+          "datasource": {
+            "type": "couchbase-datasource",
+            "uid": "P71E105C5A2E708ED"
+          },
+          "query": "SELECT MILLIS_TO_STR(t._t) AS `time`, \n           t._v0 AS `value`\n    FROM cbmonitor._default._default AS d\n    UNNEST _timeseries(d, {\"ts_ranges\": [${__from}, ${__to}]}) AS t\n    WHERE d.metric_name = \"kv_ops\"\n    AND ('$snapshot' = 'All' OR d.labels.job = '$snapshot')\n    AND d.labels.`bucket` = \"cbmonitor\"\n      AND time_range(t._t)",
+          "refId": "A"
+        }
+      ],
+      "title": "Operations Per Second",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "refresh": "5s",
+  "schemaVersion": 41,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "allValue": "All",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "couchbase-datasource",
+          "uid": "P71E105C5A2E708ED"
+        },
+        "definition": "SELECT DISTINCT d.labels.job FROM cbmonitor._default._default AS d WHERE d.labels.job IS NOT NULL",
+        "includeAll": true,
+        "label": "Job",
+        "name": "snapshot",
+        "options": [],
+        "query": "SELECT DISTINCT d.labels.job FROM cbmonitor._default._default AS d WHERE d.labels.job IS NOT NULL",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "datasource": {
+          "type": "couchbase-datasource",
+          "uid": "P71E105C5A2E708ED"
+        },
+        "definition": "",
+        "name": "query0",
+        "options": [],
+        "query": "",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "kv_basic",
+  "uid": "12b2cb59-bdeb-4015-a7c6-7367a7ff3878",
+  "version": 12
+}
