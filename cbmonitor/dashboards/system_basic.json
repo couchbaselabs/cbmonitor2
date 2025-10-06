@@ -3,10 +3,7 @@
     "list": [
       {
         "builtIn": 1,
-        "datasource": {
-          "type": "grafana",
-          "uid": "-- Grafana --"
-        },
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -18,1230 +15,366 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
+  "id": 3,
   "links": [],
   "panels": [
     {
-      "datasource": {
-        "type": "couchbase-datasource",
-        "uid": "P71E105C5A2E708ED"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 4,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "red",
-                "value": 90
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 0
-      },
       "id": 8,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.1.0",
-      "targets": [
-        {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `cluster`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"sys_cpu_utilization_rate\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND time_range(t._t)",
-          "refId": "A"
-        }
-      ],
       "title": "System CPU Utilization (%)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "couchbase-datasource",
-        "uid": "P71E105C5A2E708ED"
-      },
+      "type": "timeseries",
+      "pluginVersion": "12.1.0",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "couchbase-datasource", "uid": "P71E105C5A2E708ED" },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
+          "unit": "percent",
+          "color": { "mode": "palette-classic" },
           "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 4,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "drawStyle": "line","lineWidth": 2,"fillOpacity": 15,"showPoints": "auto",
+            "axisPlacement": "auto","axisColorMode": "text","axisBorderShow": false,
+            "axisCenteredZero": false,"pointSize": 4,"spanNulls": false,
+            "stacking": { "mode": "none","group": "A" },"thresholdsStyle": { "mode": "off" },
+            "lineInterpolation": "linear","insertNulls": false,"scaleDistribution": { "type": "linear" }
           },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "bytes"
+          "thresholds": { "mode":"absolute","steps":[{"color":"green","value":0},{"color":"red","value":90}] }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 0
+      "options": {
+        "legend": { "showLegend": true,"displayMode": "list","placement": "bottom" },
+        "tooltip": { "mode":"single","sort":"none","hideZeros":false }
       },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `cluster`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"sys_cpu_utilization_rate\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND time_range(t._t)"
+        }
+      ]
+    },
+    {
       "id": 17,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.1.0",
-      "targets": [
-        {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223`\nFROM metrics_filter(\"sys_mem_free\", '$snapshot', \"172.23.96.223:8091\", NULL) AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
-          "refId": "A"
-        },
-        {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97`\nFROM metrics_filter(\"sys_mem_free\", '$snapshot', \"172.23.96.97:8091\", NULL) AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
-          "refId": "B"
-        }
-      ],
       "title": "System Free Memory (Bytes)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "couchbase-datasource",
-        "uid": "P71E105C5A2E708ED"
-      },
+      "type": "timeseries",
+      "pluginVersion": "12.1.0",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type":"couchbase-datasource","uid":"P71E105C5A2E708ED" },
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
+          "unit": "bytes",
+          "color": { "mode": "palette-classic" },
           "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 4,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "drawStyle": "line","lineWidth": 2,"fillOpacity": 12,"showPoints": "auto",
+            "axisPlacement":"auto","axisColorMode":"text","axisBorderShow":false,
+            "axisCenteredZero":false,"pointSize":4,"spanNulls":false,
+            "stacking":{"mode":"none","group":"A"},"thresholdsStyle":{"mode":"off"},
+            "lineInterpolation":"linear","insertNulls":false,"scaleDistribution":{"type":"linear"}
           },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "red",
-                "value": 90
-              }
-            ]
-          },
-          "unit": "percent"
+          "thresholds": { "mode":"absolute","steps":[{"color":"green","value":0},{"color":"red","value":80}] }
         },
-        "overrides": []
+        "overrides":[]
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 8
+      "options":{
+        "legend":{"showLegend":true,"displayMode":"list","placement":"bottom"},
+        "tooltip":{"mode":"single","sort":"none","hideZeros":false}
       },
+      "targets":[
+        {
+          "refId":"A",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223`\nFROM metrics_filter(\"sys_mem_free\", '$snapshot', \"172.23.96.223:8091\", NULL) AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)"
+        },
+        {
+          "refId":"B",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97`\nFROM metrics_filter(\"sys_mem_free\", '$snapshot', \"172.23.96.97:8091\", NULL) AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)"
+        }
+      ]
+    },
+    {
       "id": 16,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.1.0",
-      "targets": [
-        {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"sysproc_cpu_utilization\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND d.labels.proc=\"ns_server\"\n  AND d.labels.instance=\"172.23.96.97:8091\"\n  AND time_range(t._t)",
-          "refId": "A"
-        },
-        {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"sysproc_cpu_utilization\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND d.labels.proc=\"ns_server\"\n  AND d.labels.instance=\"172.23.96.223:8091\"\n  AND time_range(t._t)",
-          "refId": "B"
-        }
-      ],
       "title": "ns_server CPU Utilization (%)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "couchbase-datasource",
-        "uid": "P71E105C5A2E708ED"
-      },
+      "type": "timeseries",
+      "pluginVersion":"12.1.0",
+      "gridPos": { "h":8,"w":12,"x":0,"y":8 },
+      "datasource": { "type":"couchbase-datasource","uid":"P71E105C5A2E708ED"},
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
+          "unit":"percent","color":{"mode":"palette-classic"},
           "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 4,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "drawStyle":"line","lineWidth":2,"fillOpacity":12,"showPoints":"auto",
+            "axisPlacement":"auto","axisColorMode":"text","axisBorderShow":false,
+            "axisCenteredZero":false,"pointSize":4,"spanNulls":false,
+            "stacking":{"mode":"none","group":"A"},"thresholdsStyle":{"mode":"off"},
+            "lineInterpolation":"linear","insertNulls":false,"scaleDistribution":{"type":"linear"}
           },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "red",
-                "value": 90
-              }
-            ]
-          },
-          "unit": "percent"
+          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":0},{"color":"red","value":90}]}
         },
-        "overrides": []
+        "overrides":[]
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 8
-      },
+      "options":{"legend":{"showLegend":true,"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"single","sort":"none"}},
+      "targets":[
+        {
+          "refId":"A",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"sysproc_cpu_utilization\" AND d.labels.proc=\"ns_server\" AND ('$snapshot'='All' OR d.labels.job='$snapshot') AND d.labels.instance=\"172.23.96.97:8091\" AND time_range(t._t)"
+        },
+        {
+          "refId":"B",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"sysproc_cpu_utilization\" AND d.labels.proc=\"ns_server\" AND ('$snapshot'='All' OR d.labels.job='$snapshot') AND d.labels.instance=\"172.23.96.223:8091\" AND time_range(t._t)"
+        }
+      ]
+    },
+    {
       "id": 15,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.1.0",
-      "targets": [
-        {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"sysproc_cpu_utilization\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND d.labels.proc=\"memcached\"\n  AND d.labels.instance=\"172.23.96.97:8091\"\n  AND time_range(t._t)",
-          "refId": "A"
-        },
-        {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"sysproc_cpu_utilization\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND d.labels.proc=\"memcached\"\n  AND d.labels.instance=\"172.23.96.223:8091\"\n  AND time_range(t._t)",
-          "refId": "B"
-        }
-      ],
       "title": "memcached CPU Utilization (%)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "couchbase-datasource",
-        "uid": "P71E105C5A2E708ED"
-      },
+      "type": "timeseries",
+      "pluginVersion":"12.1.0",
+      "gridPos": { "h":8,"w":12,"x":12,"y":8 },
+      "datasource": { "type":"couchbase-datasource","uid":"P71E105C5A2E708ED"},
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
+          "unit":"percent","color":{"mode":"palette-classic"},
           "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 4,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "drawStyle":"line","lineWidth":2,"fillOpacity":12,"showPoints":"auto",
+            "axisPlacement":"auto","axisColorMode":"text","axisBorderShow":false,
+            "axisCenteredZero":false,"pointSize":4,"spanNulls":false,
+            "stacking":{"mode":"none","group":"A"},"thresholdsStyle":{"mode":"off"},
+            "lineInterpolation":"linear","insertNulls":false,"scaleDistribution":{"type":"linear"}
           },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "bytes"
+          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":0},{"color":"red","value":90}]}
         },
-        "overrides": []
+        "overrides":[]
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 16
-      },
+      "options":{"legend":{"showLegend":true,"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"single","sort":"none"}},
+      "targets":[
+        {
+          "refId":"A",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"sysproc_cpu_utilization\" AND d.labels.proc=\"memcached\" AND ('$snapshot'='All' OR d.labels.job='$snapshot') AND d.labels.instance=\"172.23.96.97:8091\" AND time_range(t._t)"
+        },
+        {
+          "refId":"B",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"sysproc_cpu_utilization\" AND d.labels.proc=\"memcached\" AND ('$snapshot'='All' OR d.labels.job='$snapshot') AND d.labels.instance=\"172.23.96.223:8091\" AND time_range(t._t)"
+        }
+      ]
+    },
+    {
       "id": 14,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.1.0",
-      "targets": [
-        {
-          "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"sysproc_mem_resident\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND d.labels.proc=\"ns_server\"\n  AND d.labels.instance=\"172.23.96.97:8091\"\n  AND time_range(t._t)",
-          "refId": "A"
-        },
-        {
-          "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"sysproc_mem_resident\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND d.labels.proc=\"ns_server\"\n  AND d.labels.instance=\"172.23.96.223:8091\"\n  AND time_range(t._t)",
-          "refId": "B"
-        }
-      ],
       "title": "ns_server Resident Memory (Bytes)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "couchbase-datasource",
-        "uid": "P71E105C5A2E708ED"
-      },
+      "type": "timeseries",
+      "pluginVersion":"12.1.0",
+      "gridPos": { "h":8,"w":12,"x":0,"y":16 },
+      "datasource": { "type":"couchbase-datasource","uid":"P71E105C5A2E708ED"},
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
+          "unit":"bytes","color":{"mode":"palette-classic"},
           "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 4,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "drawStyle":"line","lineWidth":2,"fillOpacity":12,"showPoints":"auto",
+            "axisPlacement":"auto","axisColorMode":"text","axisBorderShow":false,
+            "axisCenteredZero":false,"pointSize":4,"spanNulls":false,
+            "stacking":{"mode":"none","group":"A"},"thresholdsStyle":{"mode":"off"},
+            "lineInterpolation":"linear","insertNulls":false,"scaleDistribution":{"type":"linear"}
           },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "bytes"
+          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":0},{"color":"red","value":80}]}
         },
-        "overrides": []
+        "overrides":[]
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 16
-      },
+      "options":{"legend":{"showLegend":true,"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"single","sort":"none"}},
+      "targets":[
+        {
+          "refId":"A",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97`\nFROM cbmonitor._default._default AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.metric_name=\"sysproc_mem_resident\" AND d.labels.proc=\"ns_server\" AND ('$snapshot'='All' OR d.labels.job='$snapshot') AND d.labels.instance=\"172.23.96.97:8091\" AND time_range(t._t)"
+        },
+        {
+          "refId":"B",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223`\nFROM cbmonitor._default._default AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.metric_name=\"sysproc_mem_resident\" AND d.labels.proc=\"ns_server\" AND ('$snapshot'='All' OR d.labels.job='$snapshot') AND d.labels.instance=\"172.23.96.223:8091\" AND time_range(t._t)"
+        }
+      ]
+    },
+    {
       "id": 13,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.1.0",
-      "targets": [
-        {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"sysproc_mem_resident\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND d.labels.proc=\"memcached\"\n  AND d.labels.instance=\"172.23.96.97:8091\"\n  AND time_range(t._t)",
-          "refId": "A"
-        },
-        {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223`\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"sysproc_mem_resident\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND d.labels.proc=\"memcached\"\n  AND d.labels.instance=\"172.23.96.223:8091\"\n  AND time_range(t._t)",
-          "refId": "B"
-        }
-      ],
       "title": "memcached Resident Memory (Bytes)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "couchbase-datasource",
-        "uid": "P71E105C5A2E708ED"
-      },
+      "type": "timeseries",
+      "pluginVersion":"12.1.0",
+      "gridPos": { "h":8,"w":12,"x":12,"y":16 },
+      "datasource": { "type":"couchbase-datasource","uid":"P71E105C5A2E708ED"},
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
+          "unit":"bytes","color":{"mode":"palette-classic"},
           "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 4,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "drawStyle":"line","lineWidth":2,"fillOpacity":12,"showPoints":"auto",
+            "axisPlacement":"auto","axisColorMode":"text","axisBorderShow":false,
+            "axisCenteredZero":false,"pointSize":4,"spanNulls":false,
+            "stacking":{"mode":"none","group":"A"},"thresholdsStyle":{"mode":"off"},
+            "lineInterpolation":"linear","insertNulls":false,"scaleDistribution":{"type":"linear"}
           },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "bytes"
+          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":0},{"color":"red","value":80}]}
         },
-        "overrides": []
+        "overrides":[]
       },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 24
-      },
-      "id": 10,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.1.0",
-      "targets": [
+      "options":{"legend":{"showLegend":true,"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"single","sort":"none"}},
+      "targets":[
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS mem\nFROM metrics_filter(\"kv_mem_used_bytes\", '$snapshot', NULL, \"cbmonitor\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
-          "refId": "A"
+          "refId":"A",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97`\nFROM cbmonitor._default._default AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.metric_name=\"sysproc_mem_resident\" AND d.labels.proc=\"memcached\" AND ('$snapshot'='All' OR d.labels.job='$snapshot') AND d.labels.instance=\"172.23.96.97:8091\" AND time_range(t._t)"
         },
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS memory\nFROM metrics_filter(\"kv_memory_used_bytes\", '$snapshot', NULL, \"cbmonitor\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
-          "refId": "B"
+          "refId":"B",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223`\nFROM cbmonitor._default._default AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.metric_name=\"sysproc_mem_resident\" AND d.labels.proc=\"memcached\" AND ('$snapshot'='All' OR d.labels.job='$snapshot') AND d.labels.instance=\"172.23.96.223:8091\" AND time_range(t._t)"
         }
-      ],
-      "title": "KV Memory Usage (Bytes)",
-      "type": "timeseries"
+      ]
     },
     {
-      "datasource": {
-        "type": "couchbase-datasource",
-        "uid": "P71E105C5A2E708ED"
-      },
+      "id": 18,
+      "title": "cbq-engine CPU Utilization (%)",
+      "type": "timeseries",
+      "pluginVersion":"12.1.0",
+      "gridPos": { "h":8,"w":12,"x":0,"y":24 },
+      "datasource": { "type":"couchbase-datasource","uid":"P71E105C5A2E708ED"},
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
+          "unit":"percent","color":{"mode":"palette-classic"},
           "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 4,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "drawStyle":"line","lineWidth":2,"fillOpacity":12,"showPoints":"auto",
+            "axisPlacement":"auto","axisColorMode":"text","axisBorderShow":false,
+            "axisCenteredZero":false,"pointSize":4,"spanNulls":false,
+            "stacking":{"mode":"none","group":"A"},"thresholdsStyle":{"mode":"off"},
+            "lineInterpolation":"linear","insertNulls":false,"scaleDistribution":{"type":"linear"}
           },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "bytes"
+          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":0},{"color":"red","value":90}]}
         },
-        "overrides": []
+        "overrides":[]
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 32
-      },
-      "id": 4,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.1.0",
-      "targets": [
+      "options":{"legend":{"showLegend":true,"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"single","sort":"none"}},
+      "targets":[
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS cbmonitor\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"kv_ep_meta_data_memory_bytes\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND d.labels.`bucket`=\"cbmonitor\"\n  AND time_range(t._t)",
-          "refId": "A"
+          "refId":"A",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97`\nFROM metrics_filter(\"sysproc_cpu_utilization\", '$snapshot',\"172.23.96.97:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.labels.proc=\"cbq-engine\" AND time_range(t._t)"
         },
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS metadata\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"kv_ep_meta_data_memory_bytes\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND d.labels.`bucket`=\"metadata\"\n  AND time_range(t._t)",
-          "refId": "B"
+          "refId":"B",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223`\nFROM metrics_filter(\"sysproc_cpu_utilization\", '$snapshot',\"172.23.96.223:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.labels.proc=\"cbq-engine\" AND time_range(t._t)"
         }
-      ],
-      "title": "Metadata Memory Usage (Bytes)",
-      "type": "timeseries"
+      ]
     },
     {
-      "datasource": {
-        "type": "couchbase-datasource",
-        "uid": "P71E105C5A2E708ED"
-      },
+      "id": 19,
+      "title": "cbq-engine Resident Memory (Bytes)",
+      "type": "timeseries",
+      "pluginVersion":"12.1.0",
+      "gridPos": { "h":8,"w":12,"x":12,"y":24 },
+      "datasource": { "type":"couchbase-datasource","uid":"P71E105C5A2E708ED"},
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
+          "unit":"bytes","color":{"mode":"palette-classic"},
           "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 4,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "drawStyle":"line","lineWidth":2,"fillOpacity":12,"showPoints":"auto",
+            "axisPlacement":"auto","axisColorMode":"text","axisBorderShow":false,
+            "axisCenteredZero":false,"pointSize":4,"spanNulls":false,
+            "stacking":{"mode":"none","group":"A"},"thresholdsStyle":{"mode":"off"},
+            "lineInterpolation":"linear","insertNulls":false,"scaleDistribution":{"type":"linear"}
           },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "bytes"
+          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":0},{"color":"red","value":80}]}
         },
-        "overrides": []
+        "overrides":[]
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 32
-      },
-      "id": 12,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.1.0",
-      "targets": [
+      "options":{"legend":{"showLegend":true,"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"single","sort":"none"}},
+      "targets":[
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS cbmonitor\nFROM metrics_filter(\"couch_docs_actual_disk_size\", '$snapshot', NULL, \"cbmonitor\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
-          "refId": "A"
+          "refId":"A",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97`\nFROM metrics_filter(\"sysproc_mem_resident\", '$snapshot',\"172.23.96.97:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.labels.proc=\"cbq-engine\" AND time_range(t._t)"
         },
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS metadata\nFROM metrics_filter(\"couch_docs_actual_disk_size\", '$snapshot', NULL, \"metadata\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
-          "refId": "B"
+          "refId":"B",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223`\nFROM metrics_filter(\"sysproc_mem_resident\", '$snapshot',\"172.23.96.223:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.labels.proc=\"cbq-engine\" AND time_range(t._t)"
         }
-      ],
-      "title": "Couch Docs Actual Disk Size (Bytes)",
-      "type": "timeseries"
+      ]
     },
     {
-      "datasource": {
-        "type": "couchbase-datasource",
-        "uid": "P71E105C5A2E708ED"
-      },
+      "id": 21,
+      "title": "Indexer CPU Utilization (%)",
+      "type": "timeseries",
+      "pluginVersion":"12.1.0",
+      "gridPos": { "h":8,"w":12,"x":0,"y":32 },
+      "datasource": { "type":"couchbase-datasource","uid":"P71E105C5A2E708ED"},
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
+          "unit":"percent","color":{"mode":"palette-classic"},
           "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 4,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "drawStyle":"line","lineWidth":2,"fillOpacity":12,"showPoints":"auto",
+            "axisPlacement":"auto","axisColorMode":"text","axisBorderShow":false,
+            "axisCenteredZero":false,"pointSize":4,"spanNulls":false,
+            "stacking":{"mode":"none","group":"A"},"thresholdsStyle":{"mode":"off"},
+            "lineInterpolation":"linear","insertNulls":false,"scaleDistribution":{"type":"linear"}
           },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "short"
+          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":0},{"color":"red","value":90}]}
         },
-        "overrides": []
+        "overrides":[]
       },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 40
-      },
-      "id": 7,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.1.0",
-      "targets": [
+      "options":{"legend":{"showLegend":true,"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"single","sort":"none"}},
+      "targets":[
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS cbmonitor\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"kv_ep_queue_size\"\n  AND d.labels.`bucket`=\"cbmonitor\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND time_range(t._t)",
-          "refId": "A"
+          "refId":"A",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97`\nFROM metrics_filter(\"sysproc_cpu_utilization\", '$snapshot',\"172.23.96.97:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.labels.proc=\"indexer\" AND time_range(t._t)"
         },
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS metadata\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"kv_ep_queue_size\"\n  AND d.labels.`bucket`=\"metadata\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND time_range(t._t)",
-          "refId": "B"
+          "refId":"B",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223`\nFROM metrics_filter(\"sysproc_cpu_utilization\", '$snapshot',\"172.23.96.223:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.labels.proc=\"indexer\" AND time_range(t._t)"
         }
-      ],
-      "title": "KV Engine Queue Size",
-      "type": "timeseries"
+      ]
     },
     {
-      "datasource": {
-        "type": "couchbase-datasource",
-        "uid": "P71E105C5A2E708ED"
-      },
+      "id": 20,
+      "title": "Indexer Resident Memory (Bytes)",
+      "type": "timeseries",
+      "pluginVersion":"12.1.0",
+      "gridPos": { "h":8,"w":12,"x":12,"y":32 },
+      "datasource": { "type":"couchbase-datasource","uid":"P71E105C5A2E708ED"},
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
+          "unit":"bytes","color":{"mode":"palette-classic"},
           "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 4,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "drawStyle":"line","lineWidth":2,"fillOpacity":12,"showPoints":"auto",
+            "axisPlacement":"auto","axisColorMode":"text","axisBorderShow":false,
+            "axisCenteredZero":false,"pointSize":4,"spanNulls":false,
+            "stacking":{"mode":"none","group":"A"},"thresholdsStyle":{"mode":"off"},
+            "lineInterpolation":"linear","insertNulls":false,"scaleDistribution":{"type":"linear"}
           },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "reqps"
+          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":0},{"color":"red","value":80}]}
         },
-        "overrides": []
+        "overrides":[]
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 48
-      },
-      "id": 6,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.1.0",
-      "targets": [
+      "options":{"legend":{"showLegend":true,"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"single","sort":"none"}},
+      "targets":[
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS cbmonitor\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"kv_ep_diskqueue_fill\"\n  AND d.labels.`bucket`=\"cbmonitor\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND time_range(t._t)",
-          "refId": "A"
+          "refId":"A",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97`\nFROM metrics_filter(\"sysproc_mem_resident\", '$snapshot',\"172.23.96.97:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.labels.proc=\"indexer\" AND time_range(t._t)"
         },
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS metadata\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"kv_ep_diskqueue_fill\"\n  AND d.labels.`bucket`=\"metadata\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND time_range(t._t)",
-          "refId": "B"
+          "refId":"B",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223`\nFROM metrics_filter(\"sysproc_mem_resident\", '$snapshot',\"172.23.96.223:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.labels.proc=\"indexer\" AND time_range(t._t)"
         }
-      ],
-      "title": "Disk Queue Fill Rate (req/s)",
-      "type": "timeseries"
+      ]
     },
     {
-      "datasource": {
-        "type": "couchbase-datasource",
-        "uid": "P71E105C5A2E708ED"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 4,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 48
-      },
-      "id": 5,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.1.0",
-      "targets": [
-        {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS cbmonitor\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"kv_ep_diskqueue_drain\"\n  AND d.labels.`bucket`=\"cbmonitor\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND time_range(t._t)",
-          "refId": "A"
-        },
-        {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS metadata\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"kv_ep_diskqueue_drain\"\n  AND d.labels.`bucket`=\"metadata\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND time_range(t._t)",
-          "refId": "B"
-        }
-      ],
-      "title": "Disk Queue Drain Rate (req/s)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "couchbase-datasource",
-        "uid": "P71E105C5A2E708ED"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 20,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "pointSize": 4,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "ops"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 11,
-        "w": 14,
-        "x": 0,
-        "y": 56
-      },
       "id": 1,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+      "title": "KV Operations (ops)",
+      "type": "timeseries",
+      "pluginVersion":"12.1.0",
+      "gridPos": { "h":8,"w":12,"x":0,"y":40 },
+      "datasource": { "type":"couchbase-datasource","uid":"P71E105C5A2E708ED"},
+      "fieldConfig": {
+        "defaults": {
+          "unit":"ops","color":{"mode":"palette-classic"},
+          "custom": {
+            "drawStyle":"line","lineWidth":2,"fillOpacity":18,"showPoints":"auto",
+            "axisPlacement":"auto","axisColorMode":"text","axisBorderShow":false,
+            "axisCenteredZero":false,"pointSize":4,"spanNulls":false,
+            "stacking":{"mode":"none","group":"A"},"thresholdsStyle":{"mode":"off"},
+            "lineInterpolation":"linear","insertNulls":false,"scaleDistribution":{"type":"linear"}
+          },
+          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":0},{"color":"red","value":80}]}
         },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
+        "overrides":[]
       },
-      "pluginVersion": "12.1.0",
-      "targets": [
+      "options":{"legend":{"showLegend":true,"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"single","sort":"none"}},
+      "targets":[
         {
           "refId":"A",
           "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS cbmonitor FROM cbmonitor._default._default AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.metric_name=\"kv_ops\" AND ('$snapshot'='All' OR d.labels.job='$snapshot') AND d.labels.`bucket`=\"cbmonitor\" AND time_range(t._t)"
@@ -1253,165 +386,137 @@
       ]
     },
     {
-      "id": 19,
-      "title": "cbq-engine Resident Memory (Bytes)",
+      "id": 12,
+      "title": "Couch Docs Actual Disk Size (Bytes)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 56 },
-      "datasource": { "type":"couchbase-datasource","uid":"P71E105C5A2E708ED" },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "drawStyle": "line","lineWidth": 2,"fillOpacity": 10,"showPoints": "auto",
-            "lineInterpolation": "linear","spanNulls": false,
-            "axisPlacement": "auto","axisColorMode": "text","axisBorderShow": false,
-            "axisCenteredZero": false,"pointSize": 4,
-            "stacking": { "mode": "none","group": "A" },
-            "thresholdsStyle": { "mode": "off" },"insertNulls": false,
-            "scaleDistribution": { "type": "linear" }
-          },
-          "thresholds": { "mode":"absolute","steps":[{"color":"green","value":0},{"color":"red","value":80}] }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "showLegend": true,"displayMode": "list","placement": "bottom"
-        },
-        "tooltip": {
-          "mode":"single","sort":"none","hideZeros":false
-        }
-      },
       "pluginVersion":"12.1.0",
-      "targets":[
-        {
-          "refId":"A",
-          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97` FROM metrics_filter(\"sysproc_mem_resident\", '$snapshot',\"172.23.96.97:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.labels.proc=\"cbq-engine\" AND time_range(t._t)"
-        },
-        {
-          "refId":"B",
-          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223` FROM metrics_filter(\"sysproc_mem_resident\", '$snapshot',\"172.23.96.223:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.labels.proc=\"cbq-engine\" AND time_range(t._t)"
-        }
-      ]
-    },
-    {
-      "id": 18,
-      "title": "cbq-engine CPU Utilization (%)",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 64 },
-      "datasource": { "type":"couchbase-datasource","uid":"P71E105C5A2E708ED" },
+      "gridPos": { "h":8,"w":12,"x":12,"y":40 },
+      "datasource": { "type":"couchbase-datasource","uid":"P71E105C5A2E708ED"},
       "fieldConfig": {
         "defaults": {
-          "unit": "percent",
-          "color": { "mode": "palette-classic" },
+          "unit":"bytes","color":{"mode":"palette-classic"},
           "custom": {
-            "drawStyle":"line","lineWidth":2,"fillOpacity":10,"showPoints":"auto",
-            "lineInterpolation":"linear","spanNulls":false,
+            "drawStyle":"line","lineWidth":1,"fillOpacity":0,"showPoints":"auto",
             "axisPlacement":"auto","axisColorMode":"text","axisBorderShow":false,
-            "axisCenteredZero":false,"pointSize":4,
-            "stacking":{"mode":"none","group":"A"},
-            "thresholdsStyle":{"mode":"off"},"insertNulls":false,
-            "scaleDistribution":{"type":"linear"}
-          },
-          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":0},{"color":"red","value":90}]}
-        },
-        "overrides":[]
-      },
-      "options":{
-        "legend":{"showLegend":true,"displayMode":"list","placement":"bottom"},
-        "tooltip":{"mode":"single","sort":"none","hideZeros":false}
-      },
-      "pluginVersion":"12.1.0",
-      "targets":[
-        {
-          "refId":"A",
-          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97` FROM metrics_filter(\"sysproc_cpu_utilization\", '$snapshot',\"172.23.96.97:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.labels.proc=\"cbq-engine\" AND time_range(t._t)"
-        },
-        {
-          "refId":"B",
-          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223` FROM metrics_filter(\"sysproc_cpu_utilization\", '$snapshot',\"172.23.96.223:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.labels.proc=\"cbq-engine\" AND time_range(t._t)"
-        }
-      ]
-    },
-    {
-      "id": 21,
-      "title": "Indexer CPU Utilization (%)",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 64 },
-      "datasource": { "type":"couchbase-datasource","uid":"P71E105C5A2E708ED" },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "drawStyle":"line","lineWidth":2,"fillOpacity":10,"showPoints":"auto",
-            "lineInterpolation":"linear","spanNulls":false,
-            "axisPlacement":"auto","axisColorMode":"text","axisBorderShow":false,
-            "axisCenteredZero":false,"pointSize":4,
-            "stacking":{"mode":"none","group":"A"},
-            "thresholdsStyle":{"mode":"off"},"insertNulls":false,
-            "scaleDistribution":{"type":"linear"}
-          },
-          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":0},{"color":"red","value":90}]}
-        },
-        "overrides":[]
-      },
-      "options":{
-        "legend":{"showLegend":true,"displayMode":"list","placement":"bottom"},
-        "tooltip":{"mode":"single","sort":"none","hideZeros":false}
-      },
-      "pluginVersion":"12.1.0",
-      "targets":[
-        {
-          "refId":"A",
-          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97` FROM metrics_filter(\"sysproc_cpu_utilization\", '$snapshot',\"172.23.96.97:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.labels.proc=\"indexer\" AND time_range(t._t)"
-        },
-        {
-          "refId":"B",
-          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223` FROM metrics_filter(\"sysproc_cpu_utilization\", '$snapshot',\"172.23.96.223:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.labels.proc=\"indexer\" AND time_range(t._t)"
-        }
-      ]
-    },
-    {
-      "id": 20,
-      "title": "Indexer Resident Memory (Bytes)",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 72 },
-      "datasource": { "type":"couchbase-datasource","uid":"P71E105C5A2E708ED" },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "drawStyle":"line","lineWidth":2,"fillOpacity":10,"showPoints":"auto",
-            "lineInterpolation":"linear","spanNulls":false,
-            "axisPlacement":"auto","axisColorMode":"text","axisBorderShow":false,
-            "axisCenteredZero":false,"pointSize":4,
-            "stacking":{"mode":"none","group":"A"},
-            "thresholdsStyle":{"mode":"off"},"insertNulls":false,
-            "scaleDistribution":{"type":"linear"}
+            "axisCenteredZero":false,"pointSize":4,"spanNulls":false,
+            "stacking":{"mode":"none","group":"A"},"thresholdsStyle":{"mode":"off"},
+            "lineInterpolation":"linear","insertNulls":false,"scaleDistribution":{"type":"linear"}
           },
           "thresholds":{"mode":"absolute","steps":[{"color":"green","value":0},{"color":"red","value":80}]}
         },
         "overrides":[]
       },
-      "options":{
-        "legend":{"showLegend":true,"displayMode":"list","placement":"bottom"},
-        "tooltip":{"mode":"single","sort":"none","hideZeros":false}
-      },
-      "pluginVersion":"12.1.0",
+      "options":{"legend":{"showLegend":true,"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"single","sort":"none"}},
       "targets":[
         {
           "refId":"A",
-          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97` FROM metrics_filter(\"sysproc_mem_resident\", '$snapshot',\"172.23.96.97:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.labels.proc=\"indexer\" AND time_range(t._t)"
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS cbmonitor\nFROM metrics_filter(\"couch_docs_actual_disk_size\", '$snapshot', NULL, \"cbmonitor\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)"
         },
         {
           "refId":"B",
-          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223` FROM metrics_filter(\"sysproc_mem_resident\", '$snapshot',\"172.23.96.223:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.labels.proc=\"indexer\" AND time_range(t._t)"
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS metadata\nFROM metrics_filter(\"couch_docs_actual_disk_size\", '$snapshot', NULL, \"metadata\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)"
         }
       ]
-    }
+    },
+    {
+      "id": 23,
+      "title": "CPU Cores Available",
+      "type": "timeseries",
+      "pluginVersion":"12.1.0",
+      "gridPos": { "h":8,"w":12,"x":0,"y":48 },
+      "datasource": { "type":"couchbase-datasource","uid":"P71E105C5A2E708ED"},
+      "fieldConfig": {
+        "defaults": {
+          "unit":"short","color":{"mode":"palette-classic"},
+          "custom":{
+            "drawStyle":"line","lineWidth":2,"fillOpacity":12,"showPoints":"auto",
+            "axisPlacement":"auto","axisColorMode":"text","axisBorderShow":false,
+            "axisCenteredZero":false,"pointSize":3,"spanNulls":false,
+            "stacking":{"mode":"none","group":"A"},"thresholdsStyle":{"mode":"off"},
+            "lineInterpolation":"linear","insertNulls":false,"scaleDistribution":{"type":"linear"}
+          },
+          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":0},{"color":"red","value":128}]}
+        },
+        "overrides":[]
+      },
+      "options":{"legend":{"showLegend":true,"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"single","sort":"none"}},
+      "targets":[
+        {
+          "refId":"A",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223`\nFROM metrics_filter(\"sys_cpu_cores_available\", '$snapshot', \"172.23.96.223:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE time_range(t._t)"
+        },
+        {
+          "refId":"B",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97`\nFROM metrics_filter(\"sys_cpu_cores_available\", '$snapshot', \"172.23.96.97:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE time_range(t._t)"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "Scrape Duration (s)",
+      "type": "timeseries",
+      "pluginVersion":"12.1.0",
+      "gridPos": { "h":8,"w":12,"x":12,"y":48 },
+      "datasource": { "type":"couchbase-datasource","uid":"P71E105C5A2E708ED"},
+      "fieldConfig": {
+        "defaults": {
+          "unit":"s","color":{"mode":"palette-classic"},
+          "custom":{
+            "drawStyle":"line","lineWidth":2,"fillOpacity":12,"showPoints":"auto",
+            "axisPlacement":"auto","axisColorMode":"text","axisBorderShow":false,
+            "axisCenteredZero":false,"pointSize":3,"spanNulls":false,
+            "stacking":{"mode":"none","group":"A"},"thresholdsStyle":{"mode":"off"},
+            "lineInterpolation":"linear","insertNulls":false,"scaleDistribution":{"type":"linear"}
+          },
+          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":0},{"color":"red","value":5}]}
+        },
+        "overrides":[]
+      },
+      "options":{"legend":{"showLegend":true,"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"single","sort":"none"}},
+      "targets":[
+        {
+          "refId":"A",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223`\nFROM metrics_filter(\"scrape_duration_seconds\", '$snapshot', \"172.23.96.223:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE time_range(t._t)"
+        },
+        {
+          "refId":"B",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97`\nFROM metrics_filter(\"scrape_duration_seconds\", '$snapshot', \"172.23.96.97:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE time_range(t._t)"
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "title": "System Disk Queue (Aggregate)",
+      "type": "timeseries",
+      "pluginVersion":"12.1.0",
+      "gridPos": { "h":8,"w":12,"x":0,"y":56 },
+      "datasource": { "type":"couchbase-datasource","uid":"P71E105C5A2E708ED"},
+      "fieldConfig": {
+        "defaults": {
+          "unit":"short","color":{"mode":"palette-classic"},
+          "custom":{
+            "drawStyle":"line","lineWidth":2,"fillOpacity":12,"showPoints":"auto",
+            "axisPlacement":"auto","axisColorMode":"text","axisBorderShow":false,
+            "axisCenteredZero":false,"pointSize":3,"spanNulls":false,
+            "stacking":{"mode":"none","group":"A"},"thresholdsStyle":{"mode":"off"},
+            "lineInterpolation":"linear","insertNulls":false,"scaleDistribution":{"type":"linear"}
+          },
+          "thresholds":{"mode":"absolute","steps":[{"color":"green","value":0},{"color":"red","value":25}]}
+        },
+        "overrides":[]
+      },
+      "options":{"legend":{"showLegend":true,"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"single","sort":"none"}},
+      "targets":[
+        {
+          "refId":"A",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223`\nFROM metrics_filter(\"sys_disk_queue\", '$snapshot', \"172.23.96.223:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE time_range(t._t)"
+        },
+        {
+          "refId":"B",
+          "query":"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97`\nFROM metrics_filter(\"sys_disk_queue\", '$snapshot', \"172.23.96.97:8091\", NULL) AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE time_range(t._t)"
+        }
+      ]
+    }    
   ],
   "preload": false,
   "refresh": "",
@@ -1420,34 +525,24 @@
   "templating": {
     "list": [
       {
-        "allValue": "All",
-        "current": {
-          "text": "All",
-          "value": "$__all"
-        },
-        "datasource": {
-          "type": "couchbase-datasource",
-          "uid": "P71E105C5A2E708ED"
-        },
-        "definition": "SELECT DISTINCT d.labels.job FROM cbmonitor._default._default AS d WHERE d.labels.job IS NOT NULL",
-        "includeAll": true,
-        "label": "Job",
         "name": "snapshot",
-        "options": [],
-        "query": "SELECT DISTINCT d.labels.job FROM cbmonitor._default._default AS d WHERE d.labels.job IS NOT NULL",
+        "label": "Job",
+        "type": "query",
+        "datasource": { "type": "couchbase-datasource", "uid": "P71E105C5A2E708ED" },
+        "includeAll": true,
+        "allValue": "All",
         "refresh": 1,
-        "regex": "",
-        "type": "query"
+        "query": "SELECT DISTINCT d.labels.job FROM cbmonitor._default._default AS d WHERE d.labels.job IS NOT NULL",
+        "definition": "SELECT DISTINCT d.labels.job FROM cbmonitor._default._default AS d WHERE d.labels.job IS NOT NULL",
+        "current": { "text": "All", "value": "$__all" },
+        "options": []
       }
     ]
   },
-  "time": {
-    "from": "now-3h",
-    "to": "now"
-  },
+  "time": { "from": "now-3h", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
-  "title": "system_basic.json",
+  "title": "system_basic",
   "uid": "12b2cb59-bdeb-4015-a7c6-7367a7ff3898",
-  "version": 12
+  "version": 7
 }
