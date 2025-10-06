@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
+  "id": 2,
   "links": [],
   "panels": [
     {
@@ -424,7 +424,7 @@
             "barAlignment": 0,
             "barWidthFactor": 0.6,
             "drawStyle": "line",
-            "fillOpacity": 20,
+            "fillOpacity": 18,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -462,7 +462,7 @@
               }
             ]
           },
-          "unit": "reqps"
+          "unit": "ops"
         },
         "overrides": []
       },
@@ -472,7 +472,7 @@
         "x": 0,
         "y": 24
       },
-      "id": 6,
+      "id": 13,
       "options": {
         "legend": {
           "calcs": [],
@@ -489,15 +489,17 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS cbmonitor\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"kv_ep_diskqueue_fill\"\n  AND d.labels.`bucket`=\"cbmonitor\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND time_range(t._t)",
+          "analytics": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS cbmonitor FROM cbmonitor._default._default AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.metric_name=\"kv_ops\" AND ('$snapshot'='All' OR d.labels.job='$snapshot') AND d.labels.`bucket`=\"cbmonitor\" AND time_range(t._t)",
           "refId": "A"
         },
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS metadata\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"kv_ep_diskqueue_fill\"\n  AND d.labels.`bucket`=\"metadata\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND time_range(t._t)",
+          "analytics": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS metadata FROM cbmonitor._default._default AS d UNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t WHERE d.metric_name=\"kv_ops\" AND ('$snapshot'='All' OR d.labels.job='$snapshot') AND d.labels.`bucket`=\"metadata\" AND time_range(t._t)",
           "refId": "B"
         }
       ],
-      "title": "Disk Queue Fill Rate (req/s)",
+      "title": "KV Operations (ops)",
       "type": "timeseries"
     },
     {
@@ -653,7 +655,7 @@
               }
             ]
           },
-          "unit": "ops"
+          "unit": "reqps"
         },
         "overrides": []
       },
@@ -663,7 +665,7 @@
         "x": 0,
         "y": 32
       },
-      "id": 1,
+      "id": 6,
       "options": {
         "legend": {
           "calcs": [],
@@ -680,15 +682,15 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS cbmonitor\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"kv_ops\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND d.labels.`bucket`=\"cbmonitor\"\n  AND time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS cbmonitor\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"kv_ep_diskqueue_fill\"\n  AND d.labels.`bucket`=\"cbmonitor\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND time_range(t._t)",
           "refId": "A"
         },
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS metadata\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"kv_ops\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND d.labels.`bucket`=\"metadata\"\n  AND time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS metadata\nFROM cbmonitor._default._default AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE d.metric_name=\"kv_ep_diskqueue_fill\"\n  AND d.labels.`bucket`=\"metadata\"\n  AND ('$snapshot'='All' OR d.labels.job='$snapshot')\n  AND time_range(t._t)",
           "refId": "B"
         }
       ],
-      "title": "Operations Per Second",
+      "title": "Disk Queue Fill Rate (req/s)",
       "type": "timeseries"
     },
     {
@@ -1118,5 +1120,5 @@
   "timezone": "browser",
   "title": "kv_basic",
   "uid": "12b2cb59-bdeb-4015-a7c6-7367a7ff3878",
-  "version": 3
+  "version": 2
 }
