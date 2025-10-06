@@ -1182,6 +1182,297 @@
       ],
       "title": "Index Number of Rows Returned",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "PE43222976ED53D25"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 0,
+        "y": 72
+      },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "analytics": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `cbmonitor`\nFROM metrics_filter(\"index_num_docs_indexed\", '$snapshot', NULL, \"cbmonitor\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
+          "refId": "A"
+        },
+        {
+          "analytics": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `metadata`\nFROM metrics_filter(\"index_num_docs_indexed\", '$snapshot', NULL, \"metadata\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
+          "refId": "B"
+        }
+      ],
+      "title": "Index Number of Documents Indexed",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "PE43222976ED53D25"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 12,
+        "y": 72
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "analytics": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `cbmonitor`\nFROM metrics_filter(\"index_items_count\", '$snapshot', NULL, \"cbmonitor\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
+          "refId": "A"
+        },
+        {
+          "analytics": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `metadata`\nFROM metrics_filter(\"index_items_count\", '$snapshot', NULL, \"metadata\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
+          "refId": "B"
+        }
+      ],
+      "title": "Index Items Count",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "couchbase-datasource",
+        "uid": "PE43222976ED53D25"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 0,
+        "y": 84
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "analytics": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `cbmonitor`\nFROM metrics_filter(\"index_disk_size\", '$snapshot', NULL, \"cbmonitor\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
+          "refId": "A"
+        },
+        {
+          "analytics": false,
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `metadata`\nFROM metrics_filter(\"index_disk_size\", '$snapshot', NULL, \"metadata\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
+          "refId": "B"
+        }
+      ],
+      "title": "Index Disk Size",
+      "type": "timeseries"
     }
   ],
   "preload": false,
@@ -1210,8 +1501,8 @@
       },
       {
         "current": {
-          "text": "ix_system_query",
-          "value": "ix_system_query"
+          "text": "",
+          "value": ""
         },
         "datasource": {
           "type": "couchbase-datasource",
