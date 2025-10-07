@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 4,
+  "id": 7,
   "links": [],
   "panels": [
     {
@@ -106,25 +106,25 @@
       "targets": [
         {
           "analytics": false,
-          "hide": true,
+          "hide": false,
           "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97 GET`\nFROM metrics_filter(\"cm_http_requests_total\", '$snapshot', \"172.23.96.97:8091\", NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND d.labels.method = \"GET\"",
           "refId": "A"
         },
         {
           "analytics": false,
-          "hide": true,
+          "hide": false,
           "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223 GET`\nFROM metrics_filter(\"cm_http_requests_total\", '$snapshot', \"172.23.96.223:8091\", NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND d.labels.method = \"GET\"",
           "refId": "B"
         },
         {
           "analytics": false,
-          "hide": true,
+          "hide": false,
           "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.97 POST`\nFROM metrics_filter(\"cm_http_requests_total\", '$snapshot', \"172.23.96.97:8091\", NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND d.labels.method = \"POST\"",
           "refId": "C"
         },
         {
           "analytics": false,
-          "hide": true,
+          "hide": false,
           "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `172.23.96.223 POST`\nFROM metrics_filter(\"cm_http_requests_total\", '$snapshot', \"172.23.96.223:8091\", NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND d.labels.method = \"POST\"",
           "refId": "D"
         },
@@ -658,5 +658,5 @@
   "timezone": "browser",
   "title": "cluster_manager_basic",
   "uid": "6f4a2c2f-eb84-4a92-b8ac-2f955336d624",
-  "version": 7
+  "version": 2
 }
