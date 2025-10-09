@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 9,
+  "id": 8,
   "links": [],
   "panels": [
     {
@@ -1781,7 +1781,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_max_entries`\nFROM metrics_filter(\"sgw_cache_chan_cache_max_entries\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_max_entries`\nFROM metrics_filter(\"sgw_cache_chan_cache_max_entries\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -1874,7 +1874,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_hits`\nFROM metrics_filter(\"sgw_cache_chan_cache_hits\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_hits`\nFROM metrics_filter(\"sgw_cache_chan_cache_hits\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -1967,7 +1967,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_misses`\nFROM metrics_filter(\"sgw_cache_chan_cache_misses\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_misses`\nFROM metrics_filter(\"sgw_cache_chan_cache_misses\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -2060,7 +2060,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_pending_queries`\nFROM metrics_filter(\"sgw_cache_chan_cache_pending_queries\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_pending_queries`\nFROM metrics_filter(\"sgw_cache_chan_cache_pending_queries\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -2153,7 +2153,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_num_channels`\nFROM metrics_filter(\"sgw_cache_chan_cache_num_channels\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_num_channels`\nFROM metrics_filter(\"sgw_cache_chan_cache_num_channels\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -2246,7 +2246,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_removal_revs`\nFROM metrics_filter(\"sgw_cache_chan_cache_removal_revs\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_removal_revs`\nFROM metrics_filter(\"sgw_cache_chan_cache_removal_revs\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -2339,7 +2339,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_tombstone_revs`\nFROM metrics_filter(\"sgw_cache_chan_cache_tombstone_revs\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_tombstone_revs`\nFROM metrics_filter(\"sgw_cache_chan_cache_tombstone_revs\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -2432,7 +2432,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_active_revs`\nFROM metrics_filter(\"sgw_cache_chan_cache_active_revs\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_active_revs`\nFROM metrics_filter(\"sgw_cache_chan_cache_active_revs\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -2525,7 +2525,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_bypass_count`\nFROM metrics_filter(\"sgw_cache_chan_cache_bypass_count\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_bypass_count`\nFROM metrics_filter(\"sgw_cache_chan_cache_bypass_count\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -2618,7 +2618,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_channels_added`\nFROM metrics_filter(\"sgw_cache_chan_cache_channels_added\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_channels_added`\nFROM metrics_filter(\"sgw_cache_chan_cache_channels_added\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -2711,7 +2711,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_channels_evicted_inactive`\nFROM metrics_filter(\"sgw_cache_chan_cache_channels_evicted_inactive\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_channels_evicted_inactive`\nFROM metrics_filter(\"sgw_cache_chan_cache_channels_evicted_inactive\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -2804,7 +2804,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_channels_evicted_nru`\nFROM metrics_filter(\"sgw_cache_chan_cache_channels_evicted_nru\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_channels_evicted_nru`\nFROM metrics_filter(\"sgw_cache_chan_cache_channels_evicted_nru\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -2897,7 +2897,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_compact_count`\nFROM metrics_filter(\"sgw_cache_chan_cache_compact_count\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_chan_cache_compact_count`\nFROM metrics_filter(\"sgw_cache_chan_cache_compact_count\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -2990,7 +2990,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_abandoned_seqs`\nFROM metrics_filter(\"sgw_cache_abandoned_seqs\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_abandoned_seqs`\nFROM metrics_filter(\"sgw_cache_abandoned_seqs\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -3083,7 +3083,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_num_skipped_seqs`\nFROM metrics_filter(\"sgw_cache_num_skipped_seqs\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_num_skipped_seqs`\nFROM metrics_filter(\"sgw_cache_num_skipped_seqs\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -3176,7 +3176,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_high_seq_cached`\nFROM metrics_filter(\"sgw_cache_high_seq_cached\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_high_seq_cached`\nFROM metrics_filter(\"sgw_cache_high_seq_cached\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -3269,7 +3269,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_high_seq_stable`\nFROM metrics_filter(\"sgw_cache_high_seq_stable\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_high_seq_stable`\nFROM metrics_filter(\"sgw_cache_high_seq_stable\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -3362,7 +3362,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_skipped_seq_len`\nFROM metrics_filter(\"sgw_cache_skipped_seq_len\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_skipped_seq_len`\nFROM metrics_filter(\"sgw_cache_skipped_seq_len\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -3455,7 +3455,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_pending_seq_len`\nFROM metrics_filter(\"sgw_cache_pending_seq_len\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_pending_seq_len`\nFROM metrics_filter(\"sgw_cache_pending_seq_len\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -3548,7 +3548,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_num_skipped_seqs`\nFROM metrics_filter(\"sgw_cache_num_skipped_seqs\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_num_skipped_seqs`\nFROM metrics_filter(\"sgw_cache_num_skipped_seqs\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -3641,7 +3641,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_current_skipped_seq_count`\nFROM metrics_filter(\"sgw_cache_current_skipped_seq_count\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_cache_current_skipped_seq_count`\nFROM metrics_filter(\"sgw_cache_current_skipped_seq_count\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -3734,7 +3734,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_sequence_get_count`\nFROM metrics_filter(\"sgw_database_sequence_get_count\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_sequence_get_count`\nFROM metrics_filter(\"sgw_database_sequence_get_count\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -3827,7 +3827,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_sequence_incr_count`\nFROM metrics_filter(\"sgw_database_sequence_incr_count\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_sequence_incr_count`\nFROM metrics_filter(\"sgw_database_sequence_incr_count\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -3920,7 +3920,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_sequence_reserved_count`\nFROM metrics_filter(\"sgw_database_sequence_reserved_count\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_sequence_reserved_count`\nFROM metrics_filter(\"sgw_database_sequence_reserved_count\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -4013,7 +4013,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_sequence_assigned_count`\nFROM metrics_filter(\"sgw_database_sequence_assigned_count\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_sequence_assigned_count`\nFROM metrics_filter(\"sgw_database_sequence_assigned_count\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -4106,7 +4106,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_sequence_released_count`\nFROM metrics_filter(\"sgw_database_sequence_released_count\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_sequence_released_count`\nFROM metrics_filter(\"sgw_database_sequence_released_count\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -4199,7 +4199,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_crc32c_match_count`\nFROM metrics_filter(\"sgw_database_crc32c_match_count\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_crc32c_match_count`\nFROM metrics_filter(\"sgw_database_crc32c_match_count\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -4292,7 +4292,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_num_replications_active`\nFROM metrics_filter(\"sgw_database_num_replications_active\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_num_replications_active`\nFROM metrics_filter(\"sgw_database_num_replications_active\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -4385,7 +4385,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_num_replications_total`\nFROM metrics_filter(\"sgw_database_num_replications_total\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_num_replications_total`\nFROM metrics_filter(\"sgw_database_num_replications_total\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -4478,7 +4478,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_num_doc_writes`\nFROM metrics_filter(\"sgw_database_num_doc_writes\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_num_doc_writes`\nFROM metrics_filter(\"sgw_database_num_doc_writes\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -4571,7 +4571,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_num_tombstones_compacted`\nFROM metrics_filter(\"sgw_database_num_tombstones_compacted\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_num_tombstones_compacted`\nFROM metrics_filter(\"sgw_database_num_tombstones_compacted\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -4664,7 +4664,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_doc_writes_bytes`\nFROM metrics_filter(\"sgw_database_doc_writes_bytes\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_doc_writes_bytes`\nFROM metrics_filter(\"sgw_database_doc_writes_bytes\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -4757,7 +4757,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_doc_writes_xattr_bytes`\nFROM metrics_filter(\"sgw_database_doc_writes_xattr_bytes\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_doc_writes_xattr_bytes`\nFROM metrics_filter(\"sgw_database_doc_writes_xattr_bytes\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -4850,7 +4850,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_num_doc_reads_rest`\nFROM metrics_filter(\"sgw_database_num_doc_reads_rest\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_num_doc_reads_rest`\nFROM metrics_filter(\"sgw_database_num_doc_reads_rest\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -4943,7 +4943,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_num_doc_reads_blip`\nFROM metrics_filter(\"sgw_database_num_doc_reads_blip\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_num_doc_reads_blip`\nFROM metrics_filter(\"sgw_database_num_doc_reads_blip\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -5036,7 +5036,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_doc_writes_bytes_blip`\nFROM metrics_filter(\"sgw_database_doc_writes_bytes_blip\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_doc_writes_bytes_blip`\nFROM metrics_filter(\"sgw_database_doc_writes_bytes_blip\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -5129,7 +5129,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_doc_reads_bytes_blip`\nFROM metrics_filter(\"sgw_database_doc_reads_bytes_blip\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `sgw_database_doc_reads_bytes_blip`\nFROM metrics_filter(\"sgw_database_doc_reads_bytes_blip\", '$snapshot', NULL, NULL) AS d\nUNNEST _timeseries(d, {\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`database` = '$database' OR '$database' = \"\")",
           "refId": "A"
         }
       ],
@@ -5138,6 +5138,7 @@
     }
   ],
   "preload": false,
+  "refresh": "1m",
   "schemaVersion": 41,
   "tags": [],
   "templating": {
@@ -5163,8 +5164,8 @@
       },
       {
         "current": {
-          "text": "",
-          "value": ""
+          "text": "sgw-1",
+          "value": "sgw-1"
         },
         "datasource": {
           "type": "couchbase-datasource",
@@ -5189,5 +5190,5 @@
   "timezone": "browser",
   "title": "sgw_basic",
   "uid": "391007d5-5550-4379-892d-ef44bfd3679b",
-  "version": 19
+  "version": 7
 }
