@@ -684,12 +684,12 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `cbmonitor`\nFROM metrics_filter(\"index_num_requests\", '$snapshot', NULL, \"cbmonitor\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `cbmonitor`\nFROM metrics_filter(\"index_avg_item_size\", '$snapshot', NULL, \"cbmonitor\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
           "refId": "A"
         },
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `metadata`\nFROM metrics_filter(\"index_num_requests\", '$snapshot', NULL, \"metadata\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `metadata`\nFROM metrics_filter(\"index_avg_item_size\", '$snapshot', NULL, \"metadata\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
           "refId": "B"
         }
       ],
@@ -753,7 +753,7 @@
               }
             ]
           },
-          "unit": "ms"
+          "unit": "ns"
         },
         "overrides": []
       },
@@ -781,12 +781,12 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `cbmonitor`\nFROM metrics_filter(\"index_num_requests\", '$snapshot', NULL, \"cbmonitor\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `cbmonitor`\nFROM metrics_filter(\"index_avg_scan_latency\", '$snapshot', NULL, \"cbmonitor\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
           "refId": "A"
         },
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `metadata`\nFROM metrics_filter(\"index_num_requests\", '$snapshot', NULL, \"metadata\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `metadata`\nFROM metrics_filter(\"index_avg_scan_latency\", '$snapshot', NULL, \"metadata\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
           "refId": "B"
         }
       ],
@@ -878,7 +878,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `cbmonitor`\nFROM metrics_filter(\"index_num_requests\", '$snapshot', NULL, \"cbmonitor\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `cbmonitor`\nFROM metrics_filter(\"index_cache_hits\", '$snapshot', NULL, \"cbmonitor\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
           "refId": "A"
         },
         {
@@ -975,12 +975,12 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `cbmonitor`\nFROM metrics_filter(\"index_num_requests\", '$snapshot', NULL, \"cbmonitor\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `cbmonitor`\nFROM metrics_filter(\"index_cache_misses\", '$snapshot', NULL, \"cbmonitor\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
           "refId": "A"
         },
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `metadata`\nFROM metrics_filter(\"index_num_requests\", '$snapshot', NULL, \"metadata\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `metadata`\nFROM metrics_filter(\"index_cache_misses\", '$snapshot', NULL, \"metadata\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
           "refId": "B"
         }
       ],
@@ -1170,13 +1170,13 @@
         {
           "analytics": false,
           "hide": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `cbmonitor`\nFROM metrics_filter(\"index_num_requests\", '$snapshot', NULL, \"cbmonitor\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `cbmonitor`\nFROM metrics_filter(\"index_num_rows_returned\", '$snapshot', NULL, \"cbmonitor\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
           "refId": "A"
         },
         {
           "analytics": false,
           "hide": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `metadata`\nFROM metrics_filter(\"index_num_requests\", '$snapshot', NULL, \"metadata\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `metadata`\nFROM metrics_filter(\"index_num_rows_returned\", '$snapshot', NULL, \"metadata\") AS d\nUNNEST _timeseries(d,{\"ts_ranges\":[${__from},${__to}]}) AS t\nWHERE time_range(t._t) AND (d.labels.`index` = '$index' OR '$index' = \"\")",
           "refId": "B"
         }
       ],
@@ -1527,5 +1527,5 @@
   "timezone": "browser",
   "title": "index_basic",
   "uid": "c78d444d-1f00-45cd-8bbe-565b4bb3b5a0",
-  "version": 7
+  "version": 6
 }
