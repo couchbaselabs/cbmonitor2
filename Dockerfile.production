@@ -1,0 +1,14 @@
+FROM grafana/grafana:latest
+
+USER root
+
+COPY cbmonitor/dist /var/lib/grafana/plugins/cbmonitor-app
+COPY cbmonitor/dist/couchbase-datasource /var/lib/grafana/plugins/couchbase-datasource
+
+RUN chown -R 472:0 /var/lib/grafana/plugins
+
+USER grafana
+
+EXPOSE 3000
+
+CMD ["/run.sh"]

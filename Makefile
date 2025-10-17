@@ -1,4 +1,4 @@
-.PHONY: build clean test lint help
+.PHONY: build clean test lint help push
 
 # Default target: Build all services
 build: build-cm
@@ -19,7 +19,7 @@ build-plugin:
 	@cd cbmonitor && npm install && npm run build && mage
 
 # Build the grafana-app plugin docker image
-build-plugin-docker: build-plugin move-datasource-build-artifacts
+build-pluginmake build-plugin-production-docker: build-plugin move-datasource-build-artifacts
 	@echo "Building cbmonitor grafana-app plugin docker image..."
 	@cd cbmonitor && npm run server
 
@@ -36,6 +36,22 @@ move-datasource-build-artifacts:
 	@echo "Moving datasource build artifacts..."
 	@mkdir -p cbmonitor/dist/couchbase-datasource/
 	@cp -r mfork-grafana-plugin/couchbase-datasource/dist/* cbmonitor/dist/couchbase-datasource/
+
+# Build PRODUCTION container image with embedded plugins
+build-plugin-production: build-plugin move-datasource-build-artifacts
+	@echo "Building production cbmonitor plugin container image..."
+	@docker build -t cbmonitor2:latest -f Dockerfile.production .
+	@echo "Production image built: cbmonitor2:latest"
+	@echo "To run: docker run -p 3000:3000 cbmonitor2:latest"
+
+# Tag and push to DockerHub (replace 'your-username' with your DockerHub username)
+push-plugin-production: build-plugin-production
+	@echo "Tagging and pushing to DockerHub..."
+	@read -p "Enter your DockerHub username: " username; \
+	docker tag cbmonitor2:latest $$username/cbmonitor2:latest && \
+    docker push $$username/cbmonitor2:latest && \
+    echo "Pushed to DockerHub: $$username/cbmonitor2:latest"
+
 
 # Clean build artifacts
 clean-cm:
@@ -61,6 +77,8 @@ help:
 	@echo "  build-cm-docker 	- Build config-manager service docker image"
 	@echo "  build-plugin 		- Build cbmonitor grafana-app plugin"
 	@echo "  build-plugin-docker 	- Build cbmonitor grafana-app plugin docker image"
+	@echo "  build-plugin-production - Build production container image with embedded plugins"
+	@echo "  push-plugin-production  - Build and push production image to DockerHub"
 	@echo "  test-cm     		- Run config-manager tests"
 	@echo "  clean       		- Clean all build artifacts"
 	@echo "  clean-cm    		- Clean config-manager service build artifacts"
