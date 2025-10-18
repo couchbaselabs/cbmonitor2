@@ -15,66 +15,9 @@ export function SnapshotDisplay({ snapshot, onViewDashboard }: SnapshotDisplayPr
 
   return (
     <div className={s.container}>
-      {/* Snapshot Header */}
-      <Card className={s.headerCard}>
-        <div className={s.header}>
-          <div className={s.headerLeft}>
-            <Icon name="camera" size="xl" className={s.headerIcon} />
-          </div>
-          <div className={s.headerRight}>
-            <div className={s.metadataItem}>
-              <span className={s.metadataLabel}>Snapshot ID:</span>
-              <code className={s.metadataValue}>{metadata.snapshotId}</code>
-            </div>
-            <div className={s.metadataItem}>
-              <span className={s.metadataLabel}>Services:</span>
-              <span className={s.metadataValue}>{metadata.services.join(', ')}</span>
-            </div>
-            <div className={s.metadataItem}>
-              <span className={s.metadataLabel}>Nodes:</span>
-              <span className={s.metadataValue}>{metadata.nodes.length} node(s)</span>
-            </div>
-            <div className={s.metadataItem}>
-              <span className={s.metadataLabel}>Buckets:</span>
-              <span className={s.metadataValue}>{metadata.buckets.join(', ')}</span>
-            </div>
-            <div className={s.metadataItem}>
-              <span className={s.metadataLabel}>Start Time:</span>
-              <span className={s.metadataValue}>{new Date(metadata.ts_start).toLocaleString()}</span>
-            </div>
-            <div className={s.metadataItem}>
-              <span className={s.metadataLabel}>End Time:</span>
-              <span className={s.metadataValue}>{new Date(metadata.ts_end).toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Nodes Information */}
-      {metadata.nodes && metadata.nodes.length > 0 && (
-        <Card className={s.nodesCard}>
-          <div className={s.nodesHeader}>
-            <Icon name="cube" size="lg" />
-            <h3>Cluster Nodes ({metadata.nodes.length})</h3>
-          </div>
-          <div className={s.nodesList}>
-            {metadata.nodes.map((node, idx) => (
-              <div key={idx} className={s.nodeItem}>
-                <Icon name="server" />
-                <code>{node}</code>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
+      <Card className={s.dashboardsCard}>
       {/* Available Dashboards */}
       {dashboards && dashboards.length > 0 && (
-        <Card className={s.dashboardsCard}>
-          <div className={s.dashboardsHeader}>
-            <Icon name="apps" size="lg" />
-            <h3>Available Dashboards</h3>
-          </div>
           <div className={s.dashboardsList}>
             {dashboards.map((dashboardId) => (
               <Button
@@ -88,18 +31,55 @@ export function SnapshotDisplay({ snapshot, onViewDashboard }: SnapshotDisplayPr
               </Button>
             ))}
           </div>
-        </Card>
       )}
-
-      {/* Snapshot Data Summary */}
-      <Card className={s.dataCard}>
-        <div className={s.dataHeader}>
-          <Icon name="database" size="lg" />
-          <h3>Snapshot Data Summary</h3>
+      {/* Snapshot raw data */}
+      {(() => {
+        const [folded, setFolded] = React.useState(true);
+        return (
+          <span>
+            <Button
+              variant="secondary"
+              icon={folded ? "angle-right" : "angle-down"}
+              onClick={() => setFolded((v) => !v)}
+              className={s.foldButton}
+              aria-expanded={!folded}
+              aria-controls="snapshot-raw-data"
+              size="sm"
+            >
+              {folded ? "Show Raw Data" : "Hide Raw Data"}
+            </Button>
+            {!folded && (
+              <pre id="snapshot-raw-data" className={s.dataContent}>
+                {JSON.stringify(data, null, 2)}
+              </pre>
+            )}
+          </span>
+        );
+      })()}
+      <div className={s.header}>
+        <div className={s.headerLeft}>
+          <div className={s.metadataItem}>
+            <span className={s.metadataLabel}>Services ({metadata.services.length}):</span>
+            <span className={s.metadataValue}>{metadata.services.join(', ')}</span>
+          </div>
+          <div className={s.metadataItem}>
+            <span className={s.metadataLabel}>Nodes ({metadata.nodes.length}):</span>
+            <span className={s.metadataValue}>{metadata.nodes.join(', ')}</span>
+          </div>
+          <div className={s.metadataItem}>
+            <span className={s.metadataLabel}>Buckets ({metadata.buckets.length}):</span>
+            <span className={s.metadataValue}>{metadata.buckets.join(', ')}</span>
+          </div>
+          <div className={s.metadataItem}>
+            <span className={s.metadataLabel}>Start Time:</span>
+            <span className={s.metadataValue}>{new Date(metadata.ts_start).toLocaleString()}</span>
+          </div>
+          <div className={s.metadataItem}>
+            <span className={s.metadataLabel}>End Time:</span>
+            <span className={s.metadataValue}>{new Date(metadata.ts_end).toLocaleString()}</span>
+          </div>
         </div>
-        <pre className={s.dataContent}>
-          {JSON.stringify(data, null, 2)}
-        </pre>
+      </div>
       </Card>
     </div>
   );
@@ -122,7 +102,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     padding: 24px;
   `,
   headerCard: css`
-    padding: 24px;
+    padding: 2px;
   `,
   header: css`
     display: flex;

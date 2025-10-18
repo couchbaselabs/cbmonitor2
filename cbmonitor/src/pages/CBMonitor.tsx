@@ -78,23 +78,6 @@ function CBMonitor() {
     return (
       <PluginPage>
         <div className={s.snapshotContainer}>
-          <div className={s.snapshotHeader}>
-            <Button
-              icon="arrow-left"
-              variant="secondary"
-              onClick={handleNewSearch}
-              className={s.backButton}
-            >
-              New Search
-            </Button>
-            <Button
-              icon="sync"
-              variant="secondary"
-              onClick={refetch}
-            >
-              Refresh
-            </Button>
-          </div>
           <SnapshotDisplay
             snapshot={snapshot}
             onViewDashboard={handleViewDashboard}
