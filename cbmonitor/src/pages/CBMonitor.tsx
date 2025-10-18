@@ -1,22 +1,31 @@
 import React, { useState } from 'react';
 import { css } from '@emotion/css';
 import type { GrafanaTheme2 } from '@grafana/data';
-import { useStyles2, Button, Input, Icon } from '@grafana/ui';
+import { useStyles2, Button, Input, Icon, LoadingPlaceholder, Alert } from '@grafana/ui';
 import { PluginPage } from '@grafana/runtime';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { prefixRoute } from '../utils/utils.routing';
 import { ROUTES } from '../constants';
 import { testIds } from '../components/testIds';
+import { useSnapshot } from '../hooks/useSnapshot';
+import { SnapshotDisplay } from '../components/SnapshotDisplay/SnapshotDisplay';
 
 function CBMonitor() {
   const s = useStyles2(getStyles);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Get snapshotId from URL query parameters
+  const snapshotId = searchParams.get('snapshotId');
+
+  // Fetch snapshot data if snapshotId is present
+  const { snapshot, loading, error, refetch } = useSnapshot(snapshotId);
 
   const handleSearch = () => {
     if (searchQuery.trim()) {
-      // Navigate to showfast page with search query
-      navigate(prefixRoute(ROUTES.CBMonitor + '?snapshotId=' + searchQuery));
+      // Navigate to cbmonitor page with snapshotId query parameter
+      navigate(prefixRoute(ROUTES.CBMonitor + '?snapshotId=' + encodeURIComponent(searchQuery)));
     }
   };
 
@@ -26,6 +35,76 @@ function CBMonitor() {
     }
   };
 
+  const handleNewSearch = () => {
+    // Clear the snapshot and return to search
+    navigate(prefixRoute(ROUTES.CBMonitor));
+  };
+
+  const handleViewDashboard = (dashboardId: string) => {
+    // Navigate to Grafana dashboard
+    // Grafana dashboards are typically at /d/{uid}/{slug}
+    window.location.href = `/d/${dashboardId}`;
+  };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <PluginPage>
+        <div className={s.container}>
+          <LoadingPlaceholder text="Loading snapshot data..." />
+        </div>
+      </PluginPage>
+    );
+  }
+
+  // Show error state
+  if (error && snapshotId) {
+    return (
+      <PluginPage>
+        <div className={s.container}>
+          <Alert severity="error" title="Error loading snapshot">
+            {error}
+          </Alert>
+          <Button icon="arrow-left" onClick={handleNewSearch} className={s.backButton}>
+            Back to Search
+          </Button>
+        </div>
+      </PluginPage>
+    );
+  }
+
+  // Show snapshot data if loaded
+  if (snapshot) {
+    return (
+      <PluginPage>
+        <div className={s.snapshotContainer}>
+          <div className={s.snapshotHeader}>
+            <Button
+              icon="arrow-left"
+              variant="secondary"
+              onClick={handleNewSearch}
+              className={s.backButton}
+            >
+              New Search
+            </Button>
+            <Button
+              icon="sync"
+              variant="secondary"
+              onClick={refetch}
+            >
+              Refresh
+            </Button>
+          </div>
+          <SnapshotDisplay
+            snapshot={snapshot}
+            onViewDashboard={handleViewDashboard}
+          />
+        </div>
+      </PluginPage>
+    );
+  }
+
+  // Default: Show search interface
   return (
     <PluginPage>
       <div className={s.container} data-testid={testIds.home.container}>
@@ -38,7 +117,7 @@ function CBMonitor() {
 
           {/* Subtitle */}
           <p className={s.subtitle}>
-            Welcome to CBMonitor, a tool for monitoring and analyzing Couchbase performance metrics.
+            Welcome to CBMonitor, a tool for monitoring and analysing Couchbase performance metrics.
           </p>
 
           {/* Search Box */}
@@ -75,6 +154,7 @@ export default CBMonitor;
 const getStyles = (theme: GrafanaTheme2) => ({
   container: css`
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     min-height: calc(100vh - 100px);
@@ -142,5 +222,18 @@ const getStyles = (theme: GrafanaTheme2) => ({
     flex-wrap: wrap;
     margin-top: 24px;
   `,
+  snapshotContainer: css`
+    background: ${theme.colors.background.primary};
+    min-height: calc(100vh - 100px);
+  `,
+  snapshotHeader: css`
+    display: flex;
+    gap: 12px;
+    padding: 16px 24px;
+    background: ${theme.colors.background.secondary};
+    border-bottom: 1px solid ${theme.colors.border.weak};
+  `,
+  backButton: css`
+    margin-bottom: 16px;
+  `,
 });
-
