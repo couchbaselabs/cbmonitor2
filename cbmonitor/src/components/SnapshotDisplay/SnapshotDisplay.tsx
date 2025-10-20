@@ -1,8 +1,10 @@
 import React from 'react';
 import { css } from '@emotion/css';
 import { GrafanaTheme2 } from '@grafana/data';
-import { useStyles2, Card, Icon, Button, LoadingPlaceholder, Alert } from '@grafana/ui';
+import { useStyles2, Card, Button } from '@grafana/ui';
 import { SnapshotData } from '../../types/snapshot';
+import { DashboardEmbed } from '../DashboardEmbed/DashboardEmbed';
+import { getDashboardUid, getDashboardDisplayName } from '../../constants';
 
 interface SnapshotDisplayProps {
   snapshot: SnapshotData;
@@ -24,10 +26,10 @@ export function SnapshotDisplay({ snapshot, onViewDashboard }: SnapshotDisplayPr
                 key={dashboardId}
                 variant="secondary"
                 icon="chart-line"
-                onClick={() => onViewDashboard?.(dashboardId)}
+                onClick={() => onViewDashboard?.(getDashboardUid(dashboardId))}
                 className={s.dashboardButton}
               >
-                {formatDashboardName(dashboardId)}
+                {getDashboardDisplayName(dashboardId)}
               </Button>
             ))}
           </div>
@@ -81,15 +83,17 @@ export function SnapshotDisplay({ snapshot, onViewDashboard }: SnapshotDisplayPr
         </div>
       </div>
       </Card>
+      {/* Embedded System Dashboard */}
+      <div className={s.dashboardCard}>
+        <DashboardEmbed
+          dashboardUid={getDashboardUid('system')}
+          metadata={metadata}
+          title="System Dashboard"
+          height="800px"
+        />
+      </div>
     </div>
   );
-}
-
-// Helper function to format dashboard names
-function formatDashboardName(dashboardId: string): string {
-  return dashboardId
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (l) => l.toUpperCase());
 }
 
 const getStyles = (theme: GrafanaTheme2) => ({
@@ -191,6 +195,22 @@ const getStyles = (theme: GrafanaTheme2) => ({
       font-size: 13px;
     }
   `,
+  dashboardCard: css`
+    padding: 0px;
+  `,
+  dashboardHeader: css`
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+
+    h3 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 500;
+      color: ${theme.colors.text.primary};
+    }
+  `,
   dashboardsCard: css`
     padding: 24px;
   `,
@@ -214,6 +234,9 @@ const getStyles = (theme: GrafanaTheme2) => ({
   `,
   dashboardButton: css`
     min-width: 150px;
+  `,
+  foldButton: css`
+    margin: 8px 0;
   `,
   dataCard: css`
     padding: 24px;

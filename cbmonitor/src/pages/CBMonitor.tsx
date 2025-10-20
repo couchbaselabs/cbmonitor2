@@ -40,10 +40,10 @@ function CBMonitor() {
     navigate(prefixRoute(ROUTES.CBMonitor));
   };
 
-  const handleViewDashboard = (dashboardId: string) => {
+  const handleViewDashboard = (dashboardUid: string) => {
     // Navigate to Grafana dashboard
-    // Grafana dashboards are typically at /d/{uid}/{slug}
-    window.location.href = `/d/${dashboardId}`;
+    // Grafana dashboards are at /d/{uid}
+    window.location.href = `/d/${dashboardUid}`;
   };
 
   // Show loading state
