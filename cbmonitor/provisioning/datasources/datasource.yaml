@@ -5,15 +5,7 @@ datasources:
   type: couchbase-datasource
   access: proxy
   jsonData:
-    host: 172.23.96.97
-    username: Administrator
+    host: ${COUCHBASE_HOST}
+    username: ${COUCHBASE_USERNAME}
   secureJsonData:
-    password: password
-- name: Capella Db2
-  type: couchbase-datasource
-  access: proxy
-  jsonData:
-    host: 172.23.96.223
-    username: Administrator
-  secureJsonData:
-    password: password
+    password: ${COUCHBASE_PASSWORD}
