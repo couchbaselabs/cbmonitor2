@@ -52,7 +52,7 @@ export function DashboardEmbed({ dashboardUid, metadata, title, height = '600px'
     }
 
     // Kiosk mode for clean embedding (removes top navigation)
-    params.set('kiosk', 'tv');
+    params.set('kiosk', '1');
 
     // Theme
     params.set('theme', 'dark');
@@ -66,7 +66,17 @@ export function DashboardEmbed({ dashboardUid, metadata, title, height = '600px'
 
   return (
     <div className={s.container}>
-      {title && <div className={s.title}>{title}</div>}
+      {title && !embedError && (
+        <div>{title} <Button className={s.fallbackLink}
+            variant="secondary"
+            size="sm"
+            icon="external-link-alt"
+            onClick={openInNewWindow}
+          >
+            Open in New Window
+          </Button>
+        </div>
+      )}
 
       {embedError ? (
         <Alert severity="warning" title="Dashboard Embedding Disabled">
@@ -84,22 +94,9 @@ export function DashboardEmbed({ dashboardUid, metadata, title, height = '600px'
           className={s.iframe}
           style={{ height }}
           title={title || `Dashboard ${dashboardUid}`}
-          frameBorder="0"
+          width="100%"
           onError={() => setEmbedError(true)}
         />
-      )}
-
-      {!embedError && (
-        <div className={s.fallbackLink}>
-          <Button
-            variant="secondary"
-            size="sm"
-            icon="external-link-alt"
-            onClick={openInNewWindow}
-          >
-            Open in New Window
-          </Button>
-        </div>
       )}
     </div>
   );
@@ -153,8 +150,6 @@ const getStyles = (theme: GrafanaTheme2) => ({
     margin-top: 8px;
   `,
   fallbackLink: css`
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 8px;
+    margin-left: 8px;
   `,
 });
