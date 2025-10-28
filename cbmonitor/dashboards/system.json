@@ -106,7 +106,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS CPU, d.labels.instance FROM cbmonitor._default._default AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE d.metric_name='sys_cpu_utilization_rate' AND d.labels.job='$snapshot_id' AND d.labels.instance IN ${nodes:json} AND time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS CPU, d.labels.instance FROM get_metric_for('sys_cpu_utilization_rate', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -205,7 +205,7 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Memory, d.labels.instance FROM get_metric_for('sys_mem_free', '$snapshot_id', ${nodes:json}, NULL) AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Memory, d.labels.instance FROM get_metric_for('sys_mem_free', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -304,7 +304,7 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Cores, d.labels.instance FROM get_metric_for('sys_cpu_cores_available', '$snapshot_id', ${nodes:json}, NULL) AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Cores, d.labels.instance FROM get_metric_for('sys_cpu_cores_available', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -404,7 +404,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Items, d.labels.instance FROM get_metric_for('sys_disk_queue', '$snapshot_id', ${nodes:json}, NULL) AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Items, d.labels.instance FROM get_metric_for('sys_disk_queue', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -504,7 +504,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `(Bytes)`, d.labels.`bucket` FROM get_metric_for('couch_docs_actual_disk_size', '$snapshot_id', NULL, ${buckets:json}) AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `(Bytes)`, d.labels.`bucket` FROM get_metric_for('couch_docs_actual_disk_size', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -603,7 +603,7 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Seconds, d.labels.instance FROM get_metric_for('scrape_duration_seconds', '$snapshot_id', ${nodes:json}, NULL) AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Seconds, d.labels.instance FROM get_metric_for('scrape_duration_seconds', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -702,7 +702,7 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS CPU, d.labels.instance FROM cbmonitor._default._default AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE d.metric_name='sysproc_cpu_utilization' AND d.labels.proc='memcached' AND d.labels.job='$snapshot_id' AND d.labels.instance IN ${nodes:json} AND time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS CPU, d.labels.instance FROM get_metric_for('sysproc_cpu_utilization', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE d.labels.proc='memcached' AND time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -801,7 +801,7 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Memory, d.labels.instance FROM cbmonitor._default._default AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE d.metric_name='sysproc_mem_resident' AND d.labels.proc='memcached' AND d.labels.job='$snapshot_id' AND d.labels.instance IN ${nodes:json} AND time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Memory, d.labels.instance FROM get_metric_for('sysproc_mem_resident', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE d.labels.proc='memcached' AND time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -900,7 +900,7 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS CPU, d.labels.instance FROM cbmonitor._default._default AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE d.metric_name='sysproc_cpu_utilization' AND d.labels.proc='ns_server' AND d.labels.job='$snapshot_id' AND d.labels.instance IN ${nodes:json} AND time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS CPU, d.labels.instance FROM get_metric_for('sysproc_cpu_utilization', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE d.labels.proc='ns_server' AND time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -999,7 +999,7 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Memory, d.labels.instance FROM cbmonitor._default._default AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE d.metric_name='sysproc_mem_resident' AND d.labels.proc='ns_server' AND d.labels.job='$snapshot_id' AND d.labels.instance IN ${nodes:json} AND time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Memory, d.labels.instance FROM get_metric_for('sysproc_mem_resident', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE d.labels.proc='ns_server' AND time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -1098,7 +1098,7 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS CPU, d.labels.instance FROM get_metric_for('sysproc_cpu_utilization', '$snapshot_id', ${nodes:json}, NULL) AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE d.labels.proc='cbq-engine' AND time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS CPU, d.labels.instance FROM get_metric_for('sysproc_cpu_utilization', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE d.labels.proc='cbq-engine' AND time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -1197,7 +1197,7 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Memory, d.labels.instance FROM get_metric_for('sysproc_mem_resident', '$snapshot_id', ${nodes:json}, NULL) AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE d.labels.proc='cbq-engine' AND time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Memory, d.labels.instance FROM get_metric_for('sysproc_mem_resident', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE d.labels.proc='cbq-engine' AND time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -1296,7 +1296,7 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS CPU, d.labels.instance FROM get_metric_for('sysproc_cpu_utilization', '$snapshot_id', ${nodes:json}, NULL) AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE d.labels.proc='indexer' AND time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS CPU, d.labels.instance FROM get_metric_for('sysproc_cpu_utilization', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE d.labels.proc='indexer' AND time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -1395,7 +1395,7 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Memory, d.labels.instance FROM get_metric_for('sysproc_mem_resident', '$snapshot_id', ${nodes:json}, NULL) AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE d.labels.proc='indexer' AND time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Memory, d.labels.instance FROM get_metric_for('sysproc_mem_resident', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE d.labels.proc='indexer' AND time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -1494,7 +1494,7 @@
       "pluginVersion": "12.1.0",
       "targets": [
         {
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Memory, d.labels.instance FROM get_metric_for('kv_ep_meta_data_memory_bytes', '$snapshot_id', ${nodes:json}, NULL) AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Memory, d.labels.instance FROM get_metric_for('kv_ep_meta_data_memory_bytes', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -1594,7 +1594,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Items, d.labels.instance FROM get_metric_for('kv_ep_queue_size', '$snapshot_id', ${nodes:json}, NULL) AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Items, d.labels.instance FROM get_metric_for('kv_ep_queue_size', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -1694,7 +1694,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Fill, d.labels.instance FROM get_metric_for('kv_ep_diskqueue_fill', '$snapshot_id', ${nodes:json}, NULL) AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Fill, d.labels.instance FROM get_metric_for('kv_ep_diskqueue_fill', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -1794,7 +1794,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Drain, d.labels.instance FROM get_metric_for('kv_ep_diskqueue_drain', '$snapshot_id', ${nodes:json}, NULL) AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS Drain, d.labels.instance FROM get_metric_for('kv_ep_diskqueue_drain', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -1894,7 +1894,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `(Seconds)`, d.labels.instance FROM get_metric_for('kv_vb_queue_age_seconds', '$snapshot_id', ${nodes:json}, NULL) AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `(Seconds)`, d.labels.instance FROM get_metric_for('kv_vb_queue_age_seconds', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
           "refId": "A"
         }
       ],
@@ -1994,7 +1994,7 @@
       "targets": [
         {
           "analytics": false,
-          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `(Bytes)`, d.labels.instance FROM get_metric_for('kv_vb_queue_size', '$snapshot_id', ${nodes:json}, NULL) AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
+          "query": "SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `(Bytes)`, d.labels.instance FROM get_metric_for('kv_vb_queue_size', '$snapshot_id') AS d UNNEST _timeseries(d,{'ts_ranges':[${__from},${__to}]}) AS t WHERE time_range(t._t)",
           "refId": "A"
         }
       ],
