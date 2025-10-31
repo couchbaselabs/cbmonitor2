@@ -49,7 +49,6 @@ export const snapshotPage = new SceneAppPage({
 
 // Add activation handler to fetch and configure snapshot
 snapshotPage.addActivationHandler(() => {
-    console.log('SnapshotPage activation handler triggered');
 
     // Function to load snapshot based on current URL
     const loadSnapshotFromUrl = () => {
@@ -62,8 +61,6 @@ snapshotPage.addActivationHandler(() => {
             showSearchInterface();
             return;
         }
-
-        console.log(`Loading snapshot: ${snapshotId}`);
 
         // Fetch snapshot data
         const fetchSnapshot = async () => {
@@ -103,9 +100,6 @@ snapshotPage.addActivationHandler(() => {
                         }),
                     ],
                 });
-
-                console.log(`Snapshot ${snapshotId} loaded successfully`);
-                console.log(`Time range: ${metadata.ts_start} to ${metadata.ts_end}`);
 
             } catch (error) {
                 console.error('Error loading snapshot:', error);

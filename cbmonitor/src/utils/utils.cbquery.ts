@@ -11,7 +11,7 @@ export class CBQueryBuilder {
     private metricName: string;
     private labelFilters: Map<string, string | string[]> = new Map();
     private extraFields: string[] = ['d.labels.instance']; // Most panels will select the instance label by default
-    private timeRange: { from: string; to: string } = { from: '${__from}', to: '${__to}' };
+
 
     constructor(snapshotId: string, metricName: string) {
         this.snapshotId = snapshotId;
@@ -40,12 +40,6 @@ export class CBQueryBuilder {
         if (!this.extraFields.includes(field)) {
             this.extraFields.push(field);
         }
-        return this;
-    }
-
-    // Set time range
-    setTimeRange(from: string, to: string): this {
-        this.timeRange = { from, to };
         return this;
     }
 
@@ -83,7 +77,7 @@ export class CBQueryBuilder {
         const selectClause = this.buildSelectClause();
         const whereClause = this.buildWhereClause();
 
-        let query = `SELECT ${selectClause} FROM get_metric_for('${this.metricName}', '${this.snapshotId}') AS d UNNEST _timeseries(d,{'ts_ranges':[${this.timeRange.from},${this.timeRange.to}]}) AS t WHERE ${whereClause}`;
+        let query = `SELECT ${selectClause} FROM get_metric_for('${this.metricName}', '${this.snapshotId}') AS d UNNEST _timeseries(d,{'ts_ranges':[\${__from}, \${__to}]}) AS t WHERE ${whereClause}`;
 
         return query;
     }
