@@ -14,6 +14,9 @@ export function clusterManagerMetricsDashboard(snapshotId: string): EmbeddedScen
             children: [
                 createMetricPanel(snapshotId, 'cm_http_requests_total', 'HTTP Requests Total', {
                     extraFields: ['d.labels.instance', 'd.labels.method'],
+                    labelFilters: {
+                        method: ['GET', 'POST', 'PUT', 'DELETE', 'RPCCONNECT'],
+                    },
                     width: '100%',
                 }),
             ],

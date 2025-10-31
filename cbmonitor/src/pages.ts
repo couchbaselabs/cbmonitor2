@@ -6,6 +6,9 @@ import { ROUTES } from './constants';
 import { systemMetricsDashboard } from 'dashboards/system';
 import { clusterManagerMetricsDashboard } from 'dashboards/clusterManager';
 import { kvMetricsDashboard } from 'dashboards/kv';
+import { indexMetricsDashboard } from 'dashboards/index';
+import { queryMetricsDashboard } from 'dashboards/query';
+import { ftsMetricsDashboard } from 'dashboards/fts';
 
 /**
  * Factory functions to create dashboard pages for a provided list of services in a snapshot
@@ -22,6 +25,18 @@ export function getDashboardsForServices(services: string[], snapshotId: string)
     // of how they are listed in the snapshot.
     if (services.map(s => s.toLowerCase()).includes('kv')) {
         dashboards.push(getKvMetricsPage(snapshotId));
+    }
+
+    if (services.map(s => s.toLowerCase()).includes('index')) {
+        dashboards.push(getIndexMetricsPage(snapshotId));
+    }
+
+    if (services.map(s => s.toLowerCase()).includes('query')) {
+        dashboards.push(getQueryMetricsPage(snapshotId));
+    }
+
+    if (services.map(s => s.toLowerCase()).includes('fts')) {
+        dashboards.push(getFtsMetricsPage(snapshotId));
     }
 
     // Add cluster manager metrics, make it the last tab
@@ -45,6 +60,18 @@ function getSystemMetricsPage(snapshotId: string): SceneAppPage {
 
 function getKvMetricsPage(snapshotId: string): SceneAppPage {
     return getMetricsDashboardPage(kvMetricsDashboard, 'KV Metrics', snapshotId, 'kv');
+}
+
+function getIndexMetricsPage(snapshotId: string): SceneAppPage {
+    return getMetricsDashboardPage(indexMetricsDashboard, 'Index Metrics', snapshotId, 'index');
+}
+
+function getQueryMetricsPage(snapshotId: string): SceneAppPage {
+    return getMetricsDashboardPage(queryMetricsDashboard, 'Query Engine Metrics', snapshotId, 'query');
+}
+
+function getFtsMetricsPage(snapshotId: string): SceneAppPage {
+    return getMetricsDashboardPage(ftsMetricsDashboard, 'FTS Metrics', snapshotId, 'fts');
 }
 
 function getClusterManagerMetricsPage(snapshotId: string): SceneAppPage {
