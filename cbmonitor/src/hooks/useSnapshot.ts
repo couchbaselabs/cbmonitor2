@@ -68,4 +68,3 @@ export function useSnapshot(snapshotId: string | null): UseSnapshotResult {
     refetch,
   };
 }
-
