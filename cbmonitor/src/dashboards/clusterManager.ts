@@ -2,8 +2,9 @@ import {
     EmbeddedScene,
     SceneFlexLayout,
 } from '@grafana/scenes';
-import { getSnapshotPanel } from 'utils/utils.panel';
+import { createMetricPanel } from 'utils/utils.panel';
 
+// TODO: Revisit this dashboard to make it more useful.
 export function clusterManagerMetricsDashboard(snapshotId: string): EmbeddedScene {
     return new EmbeddedScene({
         body: new SceneFlexLayout({
@@ -11,7 +12,10 @@ export function clusterManagerMetricsDashboard(snapshotId: string): EmbeddedScen
             direction: 'row',
             wrap: 'wrap',
             children: [
-                getSnapshotPanel(snapshotId, 'cm_http_requests_total', 'HTTP Requests Total'),
+                createMetricPanel(snapshotId, 'cm_http_requests_total', 'HTTP Requests Total', {
+                    extraFields: ['d.labels.instance', 'd.labels.method'],
+                    width: '100%',
+                }),
             ],
         })
     });

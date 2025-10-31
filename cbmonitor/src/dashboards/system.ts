@@ -2,7 +2,7 @@ import {
     EmbeddedScene,
     SceneFlexLayout,
 } from '@grafana/scenes';
-import { getSnapshotPanel } from 'utils/utils.panel';
+import { createMetricPanel } from 'utils/utils.panel';
 
 export function systemMetricsDashboard(snapshotId: string): EmbeddedScene {
     return new EmbeddedScene({
@@ -11,26 +11,98 @@ export function systemMetricsDashboard(snapshotId: string): EmbeddedScene {
             direction: 'row',
             wrap: 'wrap',
             children: [
-                getSnapshotPanel(snapshotId, 'sys_cpu_utilization_rate', 'CPU Utilization (%)'),
-                getSnapshotPanel(snapshotId, 'sys_mem_free', 'Free Memory (Bytes)'),
-                getSnapshotPanel(snapshotId, 'sys_cpu_cores_available', 'CPU Cores Available'),
-                getSnapshotPanel(snapshotId, 'sys_disk_queue', 'Disk Queue (Aggregate)'),
-                getSnapshotPanel(snapshotId, 'couch_docs_actual_disk_size', 'Couch Docs Actual Disk Size (Bytes)', 'd.labels.`bucket`'),
-                getSnapshotPanel(snapshotId, 'scrape_duration_seconds', 'Scrape Duration (s)'),
-                getSnapshotPanel(snapshotId, 'sysproc_cpu_utilization', 'memcached CPU Utilization (%)', 'd.labels.instance', 'memcached'),
-                getSnapshotPanel(snapshotId, 'sysproc_mem_resident', 'memcached Resident Memory (Bytes)', 'd.labels.instance', 'memcached'),
-                getSnapshotPanel(snapshotId, 'sysproc_cpu_utilization', 'ns_server CPU Utilization (%)', 'd.labels.instance', 'ns_server'),
-                getSnapshotPanel(snapshotId, 'sysproc_mem_resident', 'ns_server Resident Memory (Bytes)', 'd.labels.instance', 'ns_server'),
-                getSnapshotPanel(snapshotId, 'sysproc_cpu_utilization', 'Indexer CPU Utilization (%)', 'd.labels.instance', 'indexer'),
-                getSnapshotPanel(snapshotId, 'sysproc_mem_resident', 'Indexer Resident Memory (Bytes)', 'd.labels.instance', 'indexer'),
-                getSnapshotPanel(snapshotId, 'sysproc_cpu_utilization', 'Query Engine CPU Utilization (%)', 'd.labels.instance', 'cbq-engine'),
-                getSnapshotPanel(snapshotId, 'sysproc_mem_resident', 'Query Engine Resident Memory (Bytes)', 'd.labels.instance', 'cbq-engine'),
-                getSnapshotPanel(snapshotId, 'kv_ep_meta_data_memory_bytes', 'KV EP Metadata Memory (Bytes)'),
-                getSnapshotPanel(snapshotId, 'kv_ep_queue_size', 'KV EP Queue Size (Bytes)'),
-                getSnapshotPanel(snapshotId, 'kv_ep_diskqueue_fill', 'KV EP Disk Queue Fill (Bytes)'),
-                getSnapshotPanel(snapshotId, 'kv_ep_diskqueue_drain', 'KV EP Disk Queue Drain (Bytes)'),
-                getSnapshotPanel(snapshotId, 'kv_vb_queue_age_seconds', 'vBucket Queue Age (Seconds)'),
-                getSnapshotPanel(snapshotId, 'kv_vb_queue_size', 'vBucket Queue Size (Bytes)')
+                // Overall (per node) CPU and Memory utilisation
+                createMetricPanel(snapshotId, 'sys_cpu_utilization_rate', 'CPU Utilization (%)'),
+                createMetricPanel(snapshotId, 'sys_mem_free', 'Free Memory (Bytes)'),
+                createMetricPanel(snapshotId, 'sys_cpu_cores_available', 'CPU Cores Available'),
+
+                // Per-service CPU and Memory utilisation
+                // TODO: Add a logic to only show the panels for the services that are actually present in the snapshot.
+                // ns_server
+                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'ns_server CPU Utilization (%)', {
+                    labelFilters: {
+                        proc: 'ns_server',
+                    },
+                }),
+                createMetricPanel(snapshotId, 'sysproc_mem_resident', 'ns_server Resident Memory (Bytes)', {
+                    labelFilters: {
+                        proc: 'ns_server',
+                    },
+                }),
+                // memcached
+                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'memcached CPU Utilization (%)', {
+                    labelFilters: {
+                        proc: 'memcached',
+                    },
+                }),
+                createMetricPanel(snapshotId, 'sysproc_mem_resident', 'memcached Resident Memory (Bytes)', {
+                    labelFilters: {
+                        proc: 'memcached',
+                    },
+                }),
+                // Query Engine
+                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'Query Engine CPU Utilization (%)', {
+                    labelFilters: {
+                        proc: 'cbq-engine',
+                    },
+                }),
+                createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Query Engine Resident Memory (Bytes)', {
+                    labelFilters: {
+                        proc: 'cbq-engine',
+                    },
+                }),
+                // Indexer
+                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'Indexer CPU Utilization (%)', {
+                    labelFilters: {
+                        proc: 'indexer',
+                    },
+                }),
+                createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Indexer Resident Memory (Bytes)', {
+                    labelFilters: {
+                        proc: 'indexer',
+                    },
+                }),
+                // Search (FTS)
+                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'Search CPU Utilization (%)', {
+                    labelFilters: {
+                        proc: 'cbft',
+                    },
+                }),
+                createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Search Resident Memory (Bytes)', {
+                    labelFilters: {
+                        proc: 'cbft',
+                    },
+                }),
+                // Eventing
+                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'Eventing CPU Utilization (%)', {
+                    labelFilters: {
+                        proc: 'eventing',
+                    },
+                }),
+                createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Eventing Resident Memory (Bytes)', {
+                    labelFilters: {
+                        proc: 'eventing',
+                    },
+                }),
+                // Prometheus
+                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'Prometheus CPU Utilization (%)', {
+                    labelFilters: {
+                        proc: 'prometheus',
+                    },
+                }),
+                createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Prometheus Resident Memory (Bytes)', {
+                    labelFilters: {
+                        proc: 'prometheus',
+                    },
+                }),
+
+                // Overall Disk utilisation
+                createMetricPanel(snapshotId, 'sys_disk_queue', 'Disk Queue (Aggregate)'),
+                createMetricPanel(snapshotId, 'couch_docs_actual_disk_size', 'Couch Docs Actual Disk Size (Bytes)', {
+                    extraFields: ['d.labels.`bucket`'],
+                }),
+                // Scrape duration
+                createMetricPanel(snapshotId, 'scrape_duration_seconds', 'Scrape Duration (s)')
             ],
         })
     });

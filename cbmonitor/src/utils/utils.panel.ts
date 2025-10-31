@@ -2,19 +2,8 @@
 // using the cbdatasource plugin
 
 import { PanelBuilders, SceneDataTransformer, SceneFlexItem, SceneQueryRunner } from '@grafana/scenes';
-import { CB_DATASOURCE_REF } from '../constants';
+import { CBQueryBuilder } from './utils.cbquery';
 
-export function getNewCBQueryRunner(snapshotId: string, metricName: string, from: string, to: string, extra_fields = 'd.labels.instance', proc = '') {
-    return new SceneQueryRunner({
-        datasource: CB_DATASOURCE_REF,
-        queries: [
-            {
-                refId: `${metricName}`,
-                query: `SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS \`${metricName}\`, ${extra_fields} FROM get_metric_for('${metricName}', '${snapshotId}') AS d UNNEST _timeseries(d,{'ts_ranges':[${from},${to}]}) AS t WHERE ${proc ? `d.labels.proc='${proc}' AND` : ''} time_range(t._t)`, // TODO: Use a proper query builder
-            },
-        ],
-    });
-}
 
 export function getNewTimeSeriesDataTransformer(queryRunner: SceneQueryRunner) {
     return new SceneDataTransformer({
@@ -30,19 +19,41 @@ export function getNewTimeSeriesDataTransformer(queryRunner: SceneQueryRunner) {
     });
 }
 
-export function getNewTransformedCBQueryRunner(snapshotId: string, metricName: string, from: string, to: string, extra_fields = 'd.labels.instance', proc = '') {
-    return getNewTimeSeriesDataTransformer(getNewCBQueryRunner(snapshotId, metricName, from, to, extra_fields, proc));
-}
+/**
+ * Create a new metric panel using the CBQueryBuilder and TimeSeriesDataTransformer
+ */
+export function createMetricPanel(
+    snapshotId: string,
+    metricName: string,
+    title: string,
+    options: {
+        labelFilters?: Record<string, string | string[]>;
+        extraFields?: string[];
+        width?: string;
+        height?: number;
+    } = {}
+): SceneFlexItem {
+    const builder = new CBQueryBuilder(snapshotId, metricName);
 
+    // Apply label filters
+    if (options.labelFilters) {
+        for (const [label, value] of Object.entries(options.labelFilters)) {
+            builder.addLabelFilter(label, value);
+        }
+    }
 
-export function getSnapshotPanel(snapshotId: string, metricName: string, title: string, extra_fields = 'd.labels.instance', proc = '') {
+    // Apply extra fields
+    if (options.extraFields) {
+        builder.setExtraFields(options.extraFields);
+    }
+
     return new SceneFlexItem({
-        height: 300,
-        width: "49%",
-        minWidth: "45%",
+        height: options.height ?? 300,
+        width: options.width ?? '49%',
+        minWidth: '45%',
         body: PanelBuilders.timeseries()
             .setTitle(title)
             .build(),
-        $data: getNewTransformedCBQueryRunner(snapshotId, metricName, '${__from}', '${__to}', extra_fields, proc),
+        $data: getNewTimeSeriesDataTransformer(builder.buildQueryRunner()),
     });
 }
