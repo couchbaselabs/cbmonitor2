@@ -67,7 +67,7 @@ function SnapshotSearchRenderer({ model }: SceneComponentProps<SnapshotSearchSce
               placeholder="Enter a snapshot id ..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.currentTarget.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress}
               className={s.searchInput}
               prefix={<Icon name="search" />}
               autoFocus
@@ -161,4 +161,3 @@ const getStyles = (theme: GrafanaTheme2) => ({
     margin-top: 8px;
   `,
 });
-
