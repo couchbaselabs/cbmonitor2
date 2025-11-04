@@ -1,0 +1,354 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 11,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "bf2ies6qqrzswc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 0,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 13,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 3,
+      "maxPerRow": 2,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.84,
+        "fullHighlight": true,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "always",
+        "stacking": "none",
+        "text": {
+          "valueSize": 1
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "build",
+        "xTickLabelRotation": 30,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.1.0",
+      "repeat": "kv_metric",
+      "repeatDirection": "v",
+      "targets": [
+        {
+          "columns": [
+            {
+              "selector": "0",
+              "text": "build",
+              "type": "string"
+            },
+            {
+              "selector": "1",
+              "text": "ops/sec",
+              "type": "number"
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "bf2ies6qqrzswc"
+          },
+          "filterExpression": "",
+          "filters": [],
+          "format": "table",
+          "global_query_id": "",
+          "parser": "backend",
+          "refId": "A",
+          "root_selector": "",
+          "source": "url",
+          "type": "json",
+          "url": "/api/v1/timeline/$kv_metric",
+          "url_options": {
+            "data": "",
+            "method": "GET"
+          }
+        }
+      ],
+      "title": "${kv_metric:text}",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "bf2ies6qqrzswc"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 17,
+        "x": 0,
+        "y": 741
+      },
+      "id": 1,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "12.1.0",
+      "targets": [
+        {
+          "columns": [
+            {
+              "selector": "id",
+              "text": "metric_id",
+              "type": "string"
+            },
+            {
+              "selector": "title",
+              "text": "title",
+              "type": "string"
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "bf2ies6qqrzswc"
+          },
+          "filterExpression": "",
+          "filters": [],
+          "format": "table",
+          "global_query_id": "",
+          "parser": "backend",
+          "refId": "A",
+          "root_selector": "$\n",
+          "source": "url",
+          "type": "json",
+          "url": "/api/v1/metrics/kv/max_ops/all",
+          "url_options": {
+            "data": "",
+            "method": "GET",
+            "params": []
+          }
+        }
+      ],
+      "title": "kv max ops linux",
+      "type": "table"
+    }
+  ],
+  "preload": false,
+  "schemaVersion": 41,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "allValue": "All",
+        "allowCustomValue": false,
+        "current": {
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "yesoreyeram-infinity-datasource",
+          "uid": "bf2ies6qqrzswc"
+        },
+        "definition": "",
+        "description": "",
+        "includeAll": true,
+        "label": "kv_metrics",
+        "multi": true,
+        "name": "kv_metric",
+        "options": [],
+        "query": {
+          "infinityQuery": {
+            "columns": [
+              {
+                "selector": "id",
+                "text": "value_field",
+                "type": "string"
+              },
+              {
+                "selector": "title",
+                "text": "text_field",
+                "type": "string"
+              }
+            ],
+            "filterExpression": "",
+            "filters": [],
+            "format": "table",
+            "parser": "backend",
+            "refId": "variable",
+            "root_selector": "",
+            "source": "url",
+            "type": "json",
+            "url": "/api/v1/metrics/kv/max_ops/all",
+            "url_options": {
+              "data": "",
+              "method": "GET"
+            }
+          },
+          "query": "",
+          "queryType": "infinity"
+        },
+        "refresh": 2,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "allValue": "All",
+        "allowCustomValue": false,
+        "current": {
+          "text": "Ubuntu 24.04",
+          "value": "Ubuntu 24.04"
+        },
+        "datasource": {
+          "type": "yesoreyeram-infinity-datasource",
+          "uid": "bf2ies6qqrzswc"
+        },
+        "definition": "",
+        "description": "",
+        "includeAll": false,
+        "label": "os",
+        "name": "os",
+        "options": [],
+        "query": {
+          "infinityQuery": {
+            "columns": [
+              {
+                "selector": "cluster.os",
+                "text": "os",
+                "type": "string"
+              }
+            ],
+            "filterExpression": "",
+            "filters": [],
+            "format": "table",
+            "parser": "backend",
+            "refId": "variable",
+            "root_selector": "",
+            "source": "url",
+            "type": "json",
+            "url": "/api/v1/metrics/kv/max_ops/all",
+            "url_options": {
+              "data": "",
+              "method": "GET"
+            }
+          },
+          "query": "",
+          "queryType": "infinity"
+        },
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "showfast",
+  "uid": "4c711b8e-db79-4d48-b42f-e2f283ef6a59",
+  "version": 44
+}
