@@ -4,6 +4,8 @@ import {
 } from '@grafana/scenes';
 import { createMetricPanel } from 'utils/utils.panel';
 
+// TO DO: add a way to select which indexes you want to compare
+// TO DO: add a way to select which indexes you want to compare
 export function indexMetricsDashboard(snapshotId: string): EmbeddedScene {
     return new EmbeddedScene({
         body: new SceneFlexLayout({
@@ -12,14 +14,12 @@ export function indexMetricsDashboard(snapshotId: string): EmbeddedScene {
             wrap: 'wrap',
             children: [
                 // Latency and throughput metrics
-                createMetricPanel(snapshotId, 'index_avg_disk_bps', 'Index Disk Bytes per Second'),
-                createMetricPanel(snapshotId, 'index_avg_mutation_rate', 'Index Mutation Rate'),
-                createMetricPanel(snapshotId, 'index_net_avg_scan_rate', 'Index Average Scan Rate'),
-                createMetricPanel(snapshotId, 'index_memory_rss', 'Indexer Process Resident Set Size'),
-                createMetricPanel(snapshotId, 'index_memory_used', 'Index Memory Used', {
-                    extraFields: ['d.labels.instance', 'd.labels.`bucket`']
-                }),
-                createMetricPanel(snapshotId, 'index_total_data_size', 'Index Total Data Size'),
+                createMetricPanel(snapshotId, 'index_avg_disk_bps', 'Index Disk Bytes per Second', ),
+                createMetricPanel(snapshotId, 'index_avg_mutation_rate', 'Index Mutation Rate', ),
+                createMetricPanel(snapshotId, 'index_net_avg_scan_rate', 'Index Average Scan Rate', ),
+                createMetricPanel(snapshotId, 'index_memory_rss', 'Indexer Process Resident Set Size', ),
+                createMetricPanel(snapshotId, 'index_memory_used', 'Index Memory Used'),
+                createMetricPanel(snapshotId, 'index_total_data_size', 'Index Total Data Size', ),
                 // Per-index metrics
                 createMetricPanel(snapshotId, 'index_avg_scan_latency', 'Index Average Scan Latency', {
                     extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],

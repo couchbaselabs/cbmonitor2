@@ -12,7 +12,6 @@ export function ftsMetricsDashboard(snapshotId: string): EmbeddedScene {
             wrap: 'wrap',
             children: [
                 createMetricPanel(snapshotId, 'fts_total_queries', 'Total Queries'),
-                createMetricPanel(snapshotId, 'fts_avg_query_latency', 'Average Query Latency'),
                 createMetricPanel(snapshotId, 'fts_total_request_time', 'Average Query Time'),
                 createMetricPanel(snapshotId, 'fts_total_queries_error', 'Total Queries Error'),
                 createMetricPanel(snapshotId, 'fts_total_bytes_query_results', 'Total Bytes Query Results'),
@@ -20,14 +19,11 @@ export function ftsMetricsDashboard(snapshotId: string): EmbeddedScene {
                 createMetricPanel(snapshotId, 'fts_total_queries_timeout', 'Total Queries Timeout'),
                 createMetricPanel(snapshotId, 'fts_total_gc', 'Total GC'),
                 createMetricPanel(snapshotId, 'fts_pct_cpu_gc', 'CPU GC (%)'),
-                createMetricPanel(snapshotId, 'fts_avg_query_throughput', 'Average Query Throughput'),
-                createMetricPanel(snapshotId, 'fts_avg_query_error_rate', 'Average Query Error Rate'),
                 // Disk usage metrics
                 createMetricPanel(snapshotId, 'fts_num_bytes_used_disk', 'Disk Usage (Bytes)'),
                 createMetricPanel(snapshotId, 'fts_num_files_on_disk', 'Number of Files on Disk'),
                 // RAM usage metrics
                 createMetricPanel(snapshotId, 'fts_num_bytes_used_ram', 'RAM Usage (Bytes)'),
-                createMetricPanel(snapshotId, 'fts_num_files_on_ram', 'Number of Files on RAM'),
             ],
         })
     });
