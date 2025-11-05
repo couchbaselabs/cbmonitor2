@@ -9,3 +9,12 @@ datasources:
     username: ${COUCHBASE_USERNAME}
   secureJsonData:
     password: ${COUCHBASE_PASSWORD}
+- name: Showfast
+  type: yesoreyeram-infinity-datasource
+  access: proxy
+  url: https://${SHOWFAST_URL}
+  basicAuth: false
+  jsonData:
+    tlsSkipVerify: true
+    allowDangerousHTTPMethods: false
+ 
