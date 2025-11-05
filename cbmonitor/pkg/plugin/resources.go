@@ -46,9 +46,12 @@ func (a *App) handleEcho(w http.ResponseWriter, req *http.Request) {
 func (a *App) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/ping", a.handlePing)
 	mux.HandleFunc("/echo", a.handleEcho)
-	
+
 	// Initialize Couchbase service and metrics handlers
 	a.setupMetricsRoutes(mux)
+
+	// Initialize snapshot routes
+	a.setupSnapshotRoutes(mux)
 }
 
 // setupMetricsRoutes initializes the metrics API routes
@@ -82,6 +85,43 @@ func (a *App) setupMetricsRoutes(mux *http.ServeMux) {
 			metricsHandler.HandleGetComponentMetrics(w, r)
 		}
 	})
+}
+
+// setupSnapshotRoutes initializes the snapshot API routes
+func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
+	// Get Couchbase connection details from environment variables
+	connectionString := getEnvWithDefault("COUCHBASE_CONNECTION_STRING", "couchbase://localhost")
+	username := getEnvWithDefault("COUCHBASE_USERNAME", "Administrator")
+	password := getEnvWithDefault("COUCHBASE_PASSWORD", "password")
+	snapshotBucket := getEnvWithDefault("COUCHBASE_SNAPSHOT_BUCKET", "metadata")
+
+	// Initialize Snapshot service
+	snapshotService, err := services.NewSnapshotService(connectionString, username, password, snapshotBucket)
+	if err != nil {
+		log.Printf("Warning: Failed to initialize Snapshot service: %v", err)
+		log.Printf("Snapshot endpoints will not be available")
+		snapshotService = nil
+	}
+
+	// Initialize snapshot handler
+	snapshotHandler := handlers.NewSnapshotHandler(snapshotService)
+
+	// Register snapshot routes
+	mux.HandleFunc("/snapshots/", func(w http.ResponseWriter, r *http.Request) {
+		// Extract path after /snapshots/
+		path := r.URL.Path[len("/snapshots/"):]
+
+		// If path is empty, list snapshots
+		if path == "" || path == "/" {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		} else {
+			// Otherwise, get specific snapshot
+			snapshotHandler.HandleGetSnapshot(w, r)
+		}
+	})
+
+	log.Printf("Snapshot routes registered on /snapshots/")
 }
 
 // getEnvWithDefault gets environment variable with a default value

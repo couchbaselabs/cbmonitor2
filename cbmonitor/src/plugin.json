@@ -4,7 +4,7 @@
   "name": "Showfast",
   "id": "cbmonitor",
   "backend": true,
-      "executable": "cbmonitor",
+  "executable": "cbmonitor",
   "info": {
     "keywords": ["app"],
     "description": "",
@@ -22,10 +22,18 @@
   "includes": [
     {
       "type": "page",
+      "name": "CBMonitor",
+      "path": "/a/%PLUGIN_ID%/cbmonitor",
+      "addToNav": true,
+      "defaultNav": false,
+      "icon": "home-alt"
+    },
+    {
+      "type": "page",
       "name": "Showfast",
       "path": "/a/%PLUGIN_ID%/showfast",
       "addToNav": true,
-      "defaultNav": true,
+      "defaultNav": false,
       "icon": "apps"
     },
     {
