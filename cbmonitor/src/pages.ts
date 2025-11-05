@@ -9,6 +9,9 @@ import { kvMetricsDashboard } from 'dashboards/kv';
 import { indexMetricsDashboard } from 'dashboards/index';
 import { queryMetricsDashboard } from 'dashboards/query';
 import { ftsMetricsDashboard } from 'dashboards/fts';
+import { xdcrMetricsDashboard} from 'dashboards/xdcr';
+import { sgwMetricsDashboard } from 'dashboards/sgw';
+import { eventingMetricsDashboard } from 'dashboards/eventing';
 
 /**
  * Factory functions to create dashboard pages for a provided list of services in a snapshot
@@ -37,6 +40,18 @@ export function getDashboardsForServices(services: string[], snapshotId: string)
 
     if (services.map(s => s.toLowerCase()).includes('fts')) {
         dashboards.push(getFtsMetricsPage(snapshotId));
+    }
+
+    if (services.map(s => s.toLowerCase()).includes('eventing')) {
+        dashboards.push(getEventingMetricsPage(snapshotId));
+    }
+
+    if (services.map(s => s.toLowerCase()).includes('sgw')) {
+        dashboards.push(getSGWMetricsPage(snapshotId));
+    }
+
+    if (services.map(s => s.toLowerCase()).includes('xdcr')) {
+        dashboards.push(getXDCRMetricsPage(snapshotId));
     }
 
     // Add cluster manager metrics, make it the last tab
@@ -76,4 +91,16 @@ function getFtsMetricsPage(snapshotId: string): SceneAppPage {
 
 function getClusterManagerMetricsPage(snapshotId: string): SceneAppPage {
     return getMetricsDashboardPage(clusterManagerMetricsDashboard, 'Cluster Manager Metrics', snapshotId, 'cluster-manager');
+}
+
+function getEventingMetricsPage(snapshotId: string): SceneAppPage {
+    return getMetricsDashboardPage(eventingMetricsDashboard, 'Eventing Metrics', snapshotId, 'eventing');
+}
+
+function getSGWMetricsPage(snapshotId: string): SceneAppPage {
+    return getMetricsDashboardPage(sgwMetricsDashboard, 'Sync Gateway Metrics', snapshotId, 'sgw');
+}
+
+function getXDCRMetricsPage(snapshotId: string): SceneAppPage {
+    return getMetricsDashboardPage(xdcrMetricsDashboard, 'XDCR Metrics', snapshotId, 'xdcr');
 }
