@@ -9,7 +9,7 @@ import { kvMetricsDashboard } from 'dashboards/kv';
 import { indexMetricsDashboard } from 'dashboards/index';
 import { queryMetricsDashboard } from 'dashboards/query';
 import { ftsMetricsDashboard } from 'dashboards/fts';
-import { xdcrMetricsDashboard} from 'dashboards/xdcr';
+import { xdcrMetricsDashboard } from 'dashboards/xdcr';
 import { sgwMetricsDashboard } from 'dashboards/sgw';
 import { eventingMetricsDashboard } from 'dashboards/eventing';
 
@@ -26,31 +26,33 @@ export function getDashboardsForServices(services: string[], snapshotId: string)
     //Conditionally add other dashboards based on the services listed. 
     // Would prefer to have a predictable order for services irregardless
     // of how they are listed in the snapshot.
-    if (services.map(s => s.toLowerCase()).includes('kv')) {
+    const lowercaseServices = services.map(s => s.toLowerCase());
+
+    if (lowercaseServices.includes('kv')) {
         dashboards.push(getKvMetricsPage(snapshotId));
     }
 
-    if (services.map(s => s.toLowerCase()).includes('index')) {
+    if (lowercaseServices.includes('index')) {
         dashboards.push(getIndexMetricsPage(snapshotId));
     }
 
-    if (services.map(s => s.toLowerCase()).includes('query')) {
+    if (lowercaseServices.includes('query')) {
         dashboards.push(getQueryMetricsPage(snapshotId));
     }
 
-    if (services.map(s => s.toLowerCase()).includes('fts')) {
+    if (lowercaseServices.includes('fts')) {
         dashboards.push(getFtsMetricsPage(snapshotId));
     }
 
-    if (services.map(s => s.toLowerCase()).includes('eventing')) {
+    if (lowercaseServices.includes('eventing')) {
         dashboards.push(getEventingMetricsPage(snapshotId));
     }
 
-    if (services.map(s => s.toLowerCase()).includes('sgw')) {
+    if (lowercaseServices.includes('sgw')) {
         dashboards.push(getSGWMetricsPage(snapshotId));
     }
 
-    if (services.map(s => s.toLowerCase()).includes('xdcr')) {
+    if (lowercaseServices.includes('xdcr')) {
         dashboards.push(getXDCRMetricsPage(snapshotId));
     }
 
