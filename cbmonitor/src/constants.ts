@@ -12,6 +12,12 @@ export const DASHBOARD_UIDS = {
   kv_basic: '12b2cb59-bdeb-4015-a7c6-7367a7ff3878'
 } as const;
 
+// Couchbase Datasource Reference
+export const CB_DATASOURCE_REF = {
+  uid: 'cbdatasource',
+  type: 'couchbase-datasource'
+} as const;
+
 export type DashboardId = keyof typeof DASHBOARD_UIDS;
 
 // Helper function to get UID from dashboard name

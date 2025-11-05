@@ -4,7 +4,7 @@
   "name": "Showfast",
   "id": "cbmonitor",
   "backend": true,
-      "executable": "cbmonitor",
+  "executable": "cbmonitor",
   "info": {
     "keywords": ["app"],
     "description": "",

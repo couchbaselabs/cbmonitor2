@@ -1,25 +1,52 @@
 import React from 'react';
-import { Route, Routes, Navigate } from 'react-router-dom';
 import { AppRootProps } from '@grafana/data';
-import { ROUTES } from '../../constants';
+import { config } from '@grafana/runtime';
+import { CB_DATASOURCE_REF } from '../../constants';
+import { SceneApp, useSceneApp } from '@grafana/scenes';
+import { Alert } from '@grafana/ui';
+import { PluginPropsContext } from 'utils/utils.plugin';
+import { snapshotPage } from 'components/SnapshotDisplay/snapshotInstance';
 
-const CBMonitor = React.lazy(() => import('../../pages/CBMonitor'));
-const Showfast = React.lazy(() => import('../../pages/Showfast'));
+// Defines the app and its pages
+function getCBMonitorApp(){
+  return new SceneApp({
+    pages: [snapshotPage],
+    urlSyncOptions: {
+      updateUrlOnInit: false,
+      createBrowserHistorySteps: true,
+    },
+  });
+}
+
+// The main app component that renders the app and its pages
+function CBMonitorHome() {
+  const scene = useSceneApp(getCBMonitorApp);
+
+  return (
+    <> {/* For debugging we list all installed datasources, as id mismatch could be the reason we cannot see the datasource */}
+      {!config.datasources[CB_DATASOURCE_REF.uid] && (
+        <Alert title={`${CB_DATASOURCE_REF.type} is missing`}>
+          <code>{JSON.stringify(CB_DATASOURCE_REF)}</code> datasource is required to use this app.
+          Available datasources:
+          <ul>
+            {Object.values(config.datasources).map((datasource) => (
+              <li key={datasource.uid}>{datasource.name} ({datasource.uid})</li>
+            ))}
+          </ul>
+        </Alert>
+      )}
+
+      {/* Render the app and its pages */}
+      <scene.Component model={scene} />
+    </>
+  );
+}
 
 function App(props: AppRootProps) {
   return (
-    <Routes>
-      {/* CBMonitor landing page with search */}
-      <Route path={`/${ROUTES.CBMonitor}`} element={<CBMonitor />} />
-      <Route path={ROUTES.CBMonitor} element={<CBMonitor />} />
-      {/* Showfast components page */}
-      <Route path={`/${ROUTES.Showfast}`} element={<Showfast />} />
-      <Route path={ROUTES.Showfast} element={<Showfast />} />
-      {/* Default redirect to cbmonitor. Can revisit this later. */}
-      <Route index element={<Navigate to={ROUTES.CBMonitor} replace />} />
-      <Route path="/" element={<Navigate to={ROUTES.CBMonitor} replace />} />
-      <Route path="*" element={<Navigate to={ROUTES.CBMonitor} replace />} />
-    </Routes>
+    <PluginPropsContext.Provider value={props}>
+      <CBMonitorHome />
+    </PluginPropsContext.Provider>
   );
 }
 
