@@ -75,16 +75,13 @@ export function systemMetricsDashboard(snapshotId: string): EmbeddedScene {
                 }),
                 // Eventing
                 // mara here: couldnt find the label eventing, did find eventing-produc though 
-                // mara here: couldnt find the label eventing, did find eventing-produc though 
                 createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'Eventing CPU Utilization (%)', {
                     labelFilters: {
-                        proc: 'eventing-produc',
                         proc: 'eventing-produc',
                     },
                 }),
                 createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Eventing Resident Memory (Bytes)', {
                     labelFilters: {
-                        proc: 'eventing-produc',
                         proc: 'eventing-produc',
                     },
                 }),
