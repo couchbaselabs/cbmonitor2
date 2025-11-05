@@ -18,12 +18,7 @@ export function indexMetricsDashboard(snapshotId: string): EmbeddedScene {
                 createMetricPanel(snapshotId, 'index_avg_mutation_rate', 'Index Mutation Rate', ),
                 createMetricPanel(snapshotId, 'index_net_avg_scan_rate', 'Index Average Scan Rate', ),
                 createMetricPanel(snapshotId, 'index_memory_rss', 'Indexer Process Resident Set Size', ),
-                createMetricPanel(snapshotId, 'index_memory_used', 'Index Memory Used', {
-                    extraFields: ['d.labels.instance']
-                }),
-                createMetricPanel(snapshotId, 'index_total_data_size', 'Index Total Data Size', {
-                    extraFields: ['d.labels.instance']
-                }),
+                createMetricPanel(snapshotId, 'index_memory_used', 'Index Memory Used'),
                 createMetricPanel(snapshotId, 'index_total_data_size', 'Index Total Data Size', ),
                 // Per-index metrics
                 createMetricPanel(snapshotId, 'index_avg_scan_latency', 'Index Average Scan Latency', {
