@@ -8,6 +8,7 @@ import { locationService } from '@grafana/runtime';
 import { SnapshotSearchScene } from '../../pages/SnapshotSearch';
 import { FormatMetadataSummary } from './metadataSummary';
 import { Phase } from '../../types/snapshot';
+import { LayoutToggle } from '../LayoutToggle/LayoutToggle';
 
 // Custom SceneTimeRange that doesn't sync to URL
 class NoUrlSyncTimeRange extends SceneTimeRange {
@@ -159,12 +160,23 @@ snapshotPage.addActivationHandler(() => {
                     });
                 }
 
-                // Create controls array with time picker (with quick ranges) and refresh picker
+                // Handler for layout change - regenerate tabs with new layout
+                const handleLayoutChange = () => {
+                    // Regenerate tabs with current services and snapshotId
+                    snapshotPage.setState({
+                        tabs: getDashboardsForServices(metadata.services, snapshotId),
+                    });
+                };
+
+                // Create controls array with time picker (with quick ranges) and layout toggle
                 const controls: any[] = [
                     new SceneTimePicker({
                         isOnCanvas: true,
                         quickRanges: quickRanges,
-                    })
+                    }),
+                    new LayoutToggle({
+                        onLayoutChange: handleLayoutChange,
+                    }),
                 ];
 
                 // Update page title and subtitle with metadata

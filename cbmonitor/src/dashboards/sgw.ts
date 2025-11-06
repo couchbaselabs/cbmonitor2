@@ -5,6 +5,7 @@ import {
 import { createMetricPanel } from 'utils/utils.panel';
 
 export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
+
     return new EmbeddedScene({
         body: new SceneFlexLayout({
             minHeight: 50, // Intentional to allow the layout to be visible when  no data is available

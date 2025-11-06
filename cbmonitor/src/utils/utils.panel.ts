@@ -3,6 +3,7 @@
 
 import { PanelBuilders, SceneDataTransformer, SceneFlexItem, SceneQueryRunner } from '@grafana/scenes';
 import { CBQueryBuilder } from './utils.cbquery';
+import { layoutService } from '../services/layoutService';
 
 
 export function getNewTimeSeriesDataTransformer(queryRunner: SceneQueryRunner) {
@@ -48,10 +49,13 @@ export function createMetricPanel(
         builder.setExtraFields(options.extraFields);
     }
 
+    // Get width from explicit option, otherwise use layout service
+    const panelWidth = options.width ?? layoutService.getPanelWidth();
+
     return new SceneFlexItem({
         height: options.height ?? 300,
-        width: options.width ?? '49%',
-        minWidth: '45%',
+        width: panelWidth,
+        minWidth: panelWidth === '100%' ? '100%' : '45%',
         body: PanelBuilders.timeseries()
             .setTitle(title)
             .build(),
