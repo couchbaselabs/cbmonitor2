@@ -1,11 +1,13 @@
-import { SceneAppPage, SceneRefreshPicker, SceneTimePicker, SceneTimeRange, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectUrlValues } from '@grafana/scenes';
-import { dateTime } from '@grafana/data';
+import { SceneAppPage, SceneTimePicker, SceneTimeRange, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectUrlValues } from '@grafana/scenes';
+import { dateTime, TimeOption } from '@grafana/data';
 import { ROUTES } from '../../constants';
 import { prefixRoute } from '../../utils/utils.routing';
 import { getDashboardsForServices } from 'pages';
 import { snapshotService } from '../../services/snapshotService';
 import { locationService } from '@grafana/runtime';
 import { SnapshotSearchScene } from '../../pages/SnapshotSearch';
+import { FormatMetadataSummary } from './metadataSummary';
+import { Phase } from '../../types/snapshot';
 
 // Custom SceneTimeRange that doesn't sync to URL
 class NoUrlSyncTimeRange extends SceneTimeRange {
@@ -49,6 +51,8 @@ export const snapshotPage = new SceneAppPage({
 
 // Add activation handler to fetch and configure snapshot
 snapshotPage.addActivationHandler(() => {
+    // Variable to track time range subscription for cleanup
+    let timeRangeSubscription: { unsubscribe: () => void } | null = null;
 
     // Function to load snapshot based on current URL
     const loadSnapshotFromUrl = () => {
@@ -73,36 +77,111 @@ snapshotPage.addActivationHandler(() => {
                     snapshotService.storeSnapshotData(snapshotId, snapshot);
                 }
 
-                const { metadata } = snapshot;
+                const { metadata, data } = snapshot;
 
-                // Update time range from snapshot metadata FIRST (before updating tabs)
+                // Check if there's a phase parameter in the URL
+                const urlPhase = params.phase as string;
+                let initialFrom = metadata.ts_start;
+                let initialTo = metadata.ts_end;
+
+                // If a phase is specified in URL, use that phase's time range
+                if (urlPhase && data.phases) {
+                    const selectedPhase = data.phases.find((p: Phase) => p.label === urlPhase);
+                    if (selectedPhase) {
+                        initialFrom = selectedPhase.ts_start;
+                        initialTo = selectedPhase.ts_end;
+                    }
+                }
+
+                // Update time range from snapshot metadata or phase
                 // Update the time range using onTimeRangeChange to properly trigger all listeners
                 timeRange.onTimeRangeChange({
-                    from: dateTime(metadata.ts_start),
-                    to: dateTime(metadata.ts_end),
+                    from: dateTime(initialFrom),
+                    to: dateTime(initialTo),
                     raw: {
-                        from: metadata.ts_start,
-                        to: metadata.ts_end
+                        from: initialFrom,
+                        to: initialTo
                     }
                 });
 
+                // Handler for when time range changes - update URL with phase if applicable
+                const handleTimeRangeChange = () => {
+                    const currentTimeRange = timeRange.state;
+                    const currentFrom = currentTimeRange.value.raw.from?.toString();
+                    const currentTo = currentTimeRange.value.raw.to?.toString();
+
+                    // Check if current time range matches a phase
+                    if (data.phases) {
+                        const matchingPhase = data.phases.find((p: Phase) => {
+                            const phaseMatches = p.ts_start === currentFrom && p.ts_end === currentTo;
+                            return phaseMatches;
+                        });
+
+                        if (matchingPhase) {
+                            // Update URL with phase parameter
+                            locationService.partial({ phase: matchingPhase.label }, true);
+                        } else if (metadata.ts_start === currentFrom &&
+                            metadata.ts_end === currentTo) {
+                            // Full range selected - remove phase parameter
+                            locationService.partial({ phase: null }, true);
+                        }
+                    }
+                };
+
+                // Clean up previous subscription if it exists
+                if (timeRangeSubscription) {
+                    timeRangeSubscription.unsubscribe();
+                }
+
+                // Subscribe to time range changes
+                timeRangeSubscription = timeRange.subscribeToState((state) => {
+                    handleTimeRangeChange();
+                });
+
+                // Build quick ranges: start with full snapshot range, then add phases if any
+                const quickRanges: TimeOption[] = [];
+
+                // Add full snapshot range as first option
+                quickRanges.push({
+                    from: metadata.ts_start,
+                    to: metadata.ts_end,
+                    display: 'Full Snapshot Range',
+                });
+
+                // Add phase ranges
+                if (data.phases && data.phases.length > 0) {
+                    data.phases.forEach((phase: Phase) => {
+                        quickRanges.push({
+                            from: phase.ts_start,
+                            to: phase.ts_end,
+                            display: `Phase: ${phase.label}`,
+                        });
+                    });
+                }
+
+                // Create controls array with time picker (with quick ranges) and refresh picker
+                const controls: any[] = [
+                    new SceneTimePicker({
+                        isOnCanvas: true,
+                        quickRanges: quickRanges,
+                    })
+                ];
+
                 // Update page title and subtitle with metadata
                 snapshotPage.setState({
-                    title: `Snapshot: ${snapshotId}`,
-                    subTitle: `Services: ${metadata.services.join(', ')} | Nodes: ${metadata.nodes.length} | Buckets: ${metadata.buckets.length}`,
+                    title: "",
                     tabs: getDashboardsForServices(metadata.services, snapshotId),
                     $timeRange: timeRange,
-                    controls: [
-                        new SceneTimePicker({ isOnCanvas: true }),
-                        new SceneRefreshPicker({
-                            intervals: ['5s', '10s', '30s', '1m', '2m', '5m', '10m'],
-                            isOnCanvas: false, // TODO: If cluster is "live", display this, otherwise hide
-                        }),
-                    ],
+                    controls: controls,
+                    renderTitle: () => {
+                        return FormatMetadataSummary({
+                            metadata,
+                            phases: data.phases ?? [],
+                        });
+                    },
                 });
 
             } catch (error) {
-                console.error('Error loading snapshot:', error);
                 const errorMessage = error instanceof Error ? error.message : 'Failed to load snapshot';
                 // Show search interface with error message
                 showSearchInterface(errorMessage);
@@ -117,7 +196,6 @@ snapshotPage.addActivationHandler(() => {
 
     // Subscribe to URL changes to reload snapshot when snapshotId changes
     const urlSubscription = locationService.getHistory().listen(() => {
-        console.log('URL changed, reloading snapshot');
         loadSnapshotFromUrl();
     });
 
@@ -126,6 +204,10 @@ snapshotPage.addActivationHandler(() => {
         console.log('SnapshotPage deactivation handler triggered');
         // Unsubscribe from URL changes
         urlSubscription();
+        // Unsubscribe from time range changes
+        if (timeRangeSubscription) {
+            timeRangeSubscription.unsubscribe();
+        }
     };
 });
 

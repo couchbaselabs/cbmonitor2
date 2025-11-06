@@ -4,24 +4,34 @@
 Example of snapshot metadata:
 {
   "id": "ab-server",
-  "buckets": [
-    "cbmonitor",
-    "metadata"
-  ],
   "services": [
     "kv",
     "index",
     "query"
   ],
-  "nodes": [
-    "<ip_address>:8091",
-    "<ip_address_2>:8091"
-  ],
-  "indexes": [],
   "ts_start": "2025-09-28T17:09:29.808391+01:00",
-  "ts_end": "2025-09-28T17:09:29.808391+01:00"
+  "ts_end": "2025-09-28T17:09:29.808391+01:00",
+  "phases": [
+    {
+      "label": "load",
+      "ts_start": "2025-11-06T05:10:30.215996665Z",
+      "ts_end": "2025-11-06T05:15:02.070763458Z"
+    },
+    {
+      "label": "access",
+      "ts_start": "2025-11-06T05:20:30.215996665Z",
+      "ts_end": "2025-11-06T05:26:02.070763458Z"
+    }
+  ]
 }
 */
+
+export interface Phase {
+  label: string;
+  ts_start: string;
+  ts_end: string;
+}
+
 export interface SnapshotMetadata {
   snapshotId: string;
   buckets: string[];
@@ -30,6 +40,7 @@ export interface SnapshotMetadata {
   indexes: string[];
   ts_start: string;
   ts_end: string;
+  phases?: Phase[];
 }
 
 export interface SnapshotData {
