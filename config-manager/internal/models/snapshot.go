@@ -5,10 +5,9 @@ import "time"
 // SnapshotRequest represents the payload for creating a snapshot
 // Contains information about the cluster to be monitored
 type SnapshotRequest struct {
-	Name        string            `json:"name"`
-	Hostname    string            `json:"hostname"`
-	Port        int               `json:"port"`
+	Configs     []ConfigObject    `json:"configs"`
 	Credentials Credentials       `json:"credentials"`
+	Scheme 		string			  `json:"scheme,omitempty"`
 	TimeStamp   time.Time         `json:"timestamp,omitempty"`
 }
 
@@ -22,4 +21,18 @@ type Credentials struct {
 // SnapshotResponse represents the response after creating a snapshot
 type SnapshotResponse struct {
 	ID        string    `json:"id"`
+}
+
+// ConfigObject represents the configuration for each different config object type
+type ConfigObject struct {
+	Hostnames 	[]string `json:"hostnames"`
+	Type 		string   `json:"type,omitempty"`
+	Port 		int      `json:"port"`
+}
+
+type DisplaySnapshot struct {
+	Name      string    `json:"name"`
+	Urls      []string  `json:"urls,omitempty"`
+	Targets   []string  `json:"targets,omitempty"`
+	TimeStamp time.Time `json:"timestamp"`
 }
