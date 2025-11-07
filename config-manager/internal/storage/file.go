@@ -2,11 +2,8 @@ package storage
 
 import (
 	"fmt"
-	// "go/format"
-	// "net/http"
 	"os"
 	"path/filepath"
-	// "strconv"
 	"strings"
 	"time"
 
@@ -52,7 +49,6 @@ func (fs *FileStorage) SaveSnapshot(clusterInfo interface{}, agentType string) (
 	return id, nil
 }
 
-
 // generateConfigContent creates vmagent configuration format
 func (fs *FileStorage) generateConfigContent(clusterInfo interface{}, agentType string, id string) ([]byte, error) {
 	if strings.ToLower(agentType) != "vmagent" {
@@ -68,7 +64,7 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 		return nil, fmt.Errorf("invalid cluster info format")
 	}
 
-	// Extract configs 
+	// Extract configs
 	configsRaw, ok := clusterMap["configs"].([]interface{})
 	if !ok || len(configsRaw) == 0 {
 		return nil, fmt.Errorf("invalid configs format")
@@ -191,7 +187,7 @@ func (fs *FileStorage) GetSnapshot(id string) (models.DisplaySnapshot, error) {
 			}
 		}
 	}
-	
+
 	// extract targets from static_configs
 	var targets []string
 	if staticConfigs, ok := snapshot[0]["static_configs"].([]interface{}); ok && len(staticConfigs) > 0 {
@@ -225,19 +221,6 @@ func (fs *FileStorage) GetSnapshot(id string) (models.DisplaySnapshot, error) {
 
 	return snapshotData, nil
 }
-
-// func ExtractFromURL(url string) (string, int) {
-// 	segments := strings.Split(url, "/")
-
-// 	extractee := strings.Split(segments[2], ":")
-// 	if len(extractee) != 2 {
-// 		// add error managemenyt here
-// 		return "", 0
-// 	}
-// 	hostname := extractee[0]
-// 	port, _ := strconv.Atoi(extractee[1])
-// 	return hostname, port
-// }
 
 func (fs *FileStorage) DeleteSnapshot(id string) error {
 	// Creates the file path to the snapshot file

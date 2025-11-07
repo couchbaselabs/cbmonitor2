@@ -5,9 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	//"github.com/couchbase/config-manager/internal/logger"
 	"github.com/couchbase/config-manager/internal/models"
-	//"github.com/couchbase/config-manager/internal/services"
 	"github.com/couchbase/config-manager/internal/storage"
 )
 

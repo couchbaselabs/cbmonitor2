@@ -30,6 +30,7 @@ type ConfigObject struct {
 	Port 		int      `json:"port"`
 }
 
+// DisplaySnapshot represents the snapshot structure for GET responses or display purposes
 type DisplaySnapshot struct {
 	Name      string    `json:"name"`
 	Urls      []string  `json:"urls,omitempty"`
