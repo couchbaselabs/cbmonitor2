@@ -2,7 +2,7 @@ import { SceneAppPage, SceneTimePicker, SceneTimeRange, EmbeddedScene, SceneFlex
 import { dateTime, TimeOption } from '@grafana/data';
 import { ROUTES } from '../../constants';
 import { prefixRoute } from '../../utils/utils.routing';
-import { getDashboardsForServices } from 'pages';
+import { getDashboardsForServices, clearSceneCache } from 'pages';
 import { snapshotService } from '../../services/snapshotService';
 import { locationService } from '@grafana/runtime';
 import { SnapshotSearchScene } from '../../pages/SnapshotSearch';
@@ -54,6 +54,8 @@ export const snapshotPage = new SceneAppPage({
 snapshotPage.addActivationHandler(() => {
     // Variable to track time range subscription for cleanup
     let timeRangeSubscription: { unsubscribe: () => void } | null = null;
+    // Track currently loaded snapshot to avoid reloading on tab switches
+    let currentLoadedSnapshotId: string | null = null;
 
     // Function to load snapshot based on current URL
     const loadSnapshotFromUrl = () => {
@@ -62,14 +64,27 @@ snapshotPage.addActivationHandler(() => {
 
         if (!snapshotId) {
             // We didnt get a snapshotId in the URL - show search interface
-            console.warn('No snapshotId found in URL');
             showSearchInterface();
+            currentLoadedSnapshotId = null;
+            return;
+        }
+
+        // Skip if this snapshot is already loaded (happens during tab switches)
+        if (currentLoadedSnapshotId === snapshotId) {
             return;
         }
 
         // Fetch snapshot data
         const fetchSnapshot = async () => {
             try {
+                // Clear scene cache when loading a different snapshot
+                if (currentLoadedSnapshotId !== null && currentLoadedSnapshotId !== snapshotId) {
+                    clearSceneCache();
+                }
+
+                // Update the currently loaded snapshot
+                currentLoadedSnapshotId = snapshotId;
+
                 // Check if we have cached data
                 let snapshot = snapshotService.getStoredSnapshotData(snapshotId);
 
@@ -162,6 +177,8 @@ snapshotPage.addActivationHandler(() => {
 
                 // Handler for layout change - regenerate tabs with new layout
                 const handleLayoutChange = () => {
+                    // Clear scene cache so scenes are recreated with new layout
+                    clearSceneCache();
                     // Regenerate tabs with current services and snapshotId
                     snapshotPage.setState({
                         tabs: getDashboardsForServices(metadata.services, snapshotId),

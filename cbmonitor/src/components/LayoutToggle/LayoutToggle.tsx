@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { SceneObjectBase, SceneComponentProps, SceneObjectState } from '@grafana/scenes';
-import { RadioButtonGroup } from '@grafana/ui';
+import { RadioButtonGroup, Tooltip } from '@grafana/ui';
 import { layoutService, LayoutMode } from '../../services/layoutService';
 
 interface LayoutToggleState extends SceneObjectState {
@@ -45,12 +45,16 @@ function LayoutToggleRenderer({ model }: SceneComponentProps<LayoutToggle>) {
 
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <RadioButtonGroup
-                options={options}
-                value={layout}
-                onChange={handleChange}
-                size="sm"
-            />
+            <Tooltip content="Changing layout will reload all panels and rerun queries">
+                <span>
+                    <RadioButtonGroup
+                        options={options}
+                        value={layout}
+                        onChange={handleChange}
+                        size="sm"
+                    />
+                </span>
+            </Tooltip>
         </div>
     );
 }

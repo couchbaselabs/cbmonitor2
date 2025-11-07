@@ -14,16 +14,44 @@ import { sgwMetricsDashboard } from 'dashboards/sgw';
 import { eventingMetricsDashboard } from 'dashboards/eventing';
 
 /**
+ * Cache for dashboard scenes to avoid recreating them on tab switches
+ * Key format: `${snapshotId}_${dashboardType}`
+ */
+const sceneCache = new Map<string, EmbeddedScene>();
+
+/**
+ * Cache for dashboard tabs (SceneAppPage instances)
+ * Key format: `${snapshotId}_tabs`
+ */
+const tabsCache = new Map<string, SceneAppPage[]>();
+
+/**
+ * Clear the scene cache and tabs cache (e.g., when switching to a different snapshot or changing layout)
+ */
+export function clearSceneCache() {
+    sceneCache.clear();
+    tabsCache.clear();
+}
+
+/**
  * Factory functions to create dashboard pages for a provided list of services in a snapshot
  */
 
 export function getDashboardsForServices(services: string[], snapshotId: string): SceneAppPage[] {
+    const cacheKey = `${snapshotId}_tabs`;
+
+    // Check if we already have tabs cached for this snapshot
+    if (tabsCache.has(cacheKey)) {
+        return tabsCache.get(cacheKey)!;
+    }
+
+    // Create new tabs
     // Always include system metrics, make it the first tab
     const dashboards: SceneAppPage[] = [
         getSystemMetricsPage(snapshotId)
     ];
 
-    //Conditionally add other dashboards based on the services listed. 
+    // Conditionally add other dashboards based on the services listed.
     // Would prefer to have a predictable order for services irregardless
     // of how they are listed in the snapshot.
     const lowercaseServices = services.map(s => s.toLowerCase());
@@ -59,15 +87,33 @@ export function getDashboardsForServices(services: string[], snapshotId: string)
     // Add cluster manager metrics, make it the last tab
     dashboards.push(getClusterManagerMetricsPage(snapshotId));
 
+    // Cache the tabs before returning
+    tabsCache.set(cacheKey, dashboards);
+
     return dashboards;
 }
 
-function getMetricsDashboardPage(dashboardComponent: (snapshotId: string) => EmbeddedScene, dashboardTitle: string, snapshotId: string, dashboardRoutePath: string): SceneAppPage {
+function getMetricsDashboardPage(
+    dashboardComponent: (snapshotId: string) => EmbeddedScene,
+    dashboardTitle: string,
+    snapshotId: string,
+    dashboardRoutePath: string
+): SceneAppPage {
+    const cacheKey = `${snapshotId}_${dashboardRoutePath}`;
+
     return new SceneAppPage({
         title: dashboardTitle,
         url: prefixRoute(`${ROUTES.CBMonitor}/${dashboardRoutePath}`),
         routePath: `/${dashboardRoutePath}`,
-        getScene: () => dashboardComponent(snapshotId),
+        getScene: () => {
+            // Check if scene is already cached
+            if (!sceneCache.has(cacheKey)) {
+                // Create and cache the scene
+                sceneCache.set(cacheKey, dashboardComponent(snapshotId));
+            }
+            // Return cached scene
+            return sceneCache.get(cacheKey)!;
+        },
     });
 }
 
