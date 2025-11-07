@@ -195,10 +195,14 @@ func (fs *FileStorage) GetSnapshot(id string) (models.DisplaySnapshot, error) {
 	// extract targets from static_configs
 	var targets []string
 	if staticConfigs, ok := snapshot[0]["static_configs"].([]interface{}); ok && len(staticConfigs) > 0 {
-		for _, eachTarget := range staticConfigs {
-			if m, ok := eachTarget.(map[string]interface{}); ok {
-				if target, ok := m["target"].(string); ok {
-					targets = append(targets, target)
+		for _, eachStatic := range staticConfigs {
+			if m, ok := eachStatic.(map[string]interface{}); ok {
+				if tlist, ok := m["targets"].([]interface{}); ok {
+					for _, t := range tlist {
+						if target, ok := t.(string); ok {
+							targets = append(targets, target)
+						}
+					}
 				}
 			}
 		}
