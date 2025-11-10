@@ -216,8 +216,29 @@ func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	snapshotID := segments[len(segments)-1]
+
+	var payload struct {
+		Phase string `json:"phase"`
+		Mode string `json:"mode"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid payload request", http.StatusBadRequest)
+		return
+	}
+
+	if payload.Phase == "" || (payload.Mode != "start" && payload.Mode != "end") {
+		http.Error(w, "Invalid mode or missing phase", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.metadataStorage.UpdatePhase(snapshotID, payload.Phase, payload.Mode); err != nil {
+		http.Error(w, "Failed to update phase: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	if err := h.storage.PatchSnapshot(snapshotID); err != nil {
-		http.Error(w, "Failed to patch snapshot", http.StatusInternalServerError)
+		http.Error(w, "Failed to patch snapshot: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
