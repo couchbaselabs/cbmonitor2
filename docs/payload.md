@@ -1,5 +1,6 @@
-New payload should look like:
-{
+### New payload should look like:
+
+``{
     "configs": [
         {
             "hostnames": ["localhost"],
@@ -17,4 +18,4 @@ New payload should look like:
         "password": "password"
     },
     "scheme": "http"
-}
+}``
