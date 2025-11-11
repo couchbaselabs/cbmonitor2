@@ -31,4 +31,4 @@ ENV CM_SERVER_PORT=${CM_SERVER_PORT}
 ENV CM_LOG_LEVEL=${CM_LOG_LEVEL}
 ENV CM_AGENT_DIRECTORY=${CM_AGENT_DIRECTORY}
 
-CMD ["sh", "-c", "./config-manager agent.directory=$CM_AGENT_DIRECTORY server.port=$CM_SERVER_PORT logging.level=$CM_LOG_LEVEL"]
+CMD ["sh", "-c", "./config-manager --config /root/config.yaml agent.directory=$CM_AGENT_DIRECTORY server.port=$CM_SERVER_PORT logging.level=$CM_LOG_LEVEL"]
