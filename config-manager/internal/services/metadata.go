@@ -25,97 +25,61 @@ func NewMetadataService() *MetadataService {
 
 // CollectClusterMetadata collects metadata from a Couchbase cluster
 func (ms *MetadataService) CollectClusterMetadata(hostname string, port int, username, password string) (*models.ClusterMetadata, error) {
-	baseURL := fmt.Sprintf("http://%s:%d", hostname, port)
-	// "http://%s:%d"_all_dbs
-	// Collect buckets
-	buckets, err := ms.getBuckets(baseURL, username, password)
+	baseURL := fmt.Sprintf("http://%s:%d", hostname, port) // "http://%s:%d"_all_dbs
+
+	services, server, err := ms.GetMetadata(baseURL, username, password)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get buckets: %w", err)
+		return nil, fmt.Errorf("failed to get services: %w", err)
 	}
 
-	// Collect nodes
-	nodes, err := ms.getNodes(baseURL, username, password)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get nodes: %w", err)
-	}
-
+	
 	return &models.ClusterMetadata{
-		Buckets:   buckets,
-		Nodes:     nodes,
-		Indexes:   []string{}, //TODO: add indexes
-		Timestamp: time.Now(),
+		SnapshotID: "",
+		Services:   services,
+		Server:     server,
+		TsStart:    time.Now(),
+		
 	}, nil
 }
-
-// getBuckets retrieves the list of buckets from the cluster
-func (ms *MetadataService) getBuckets(baseURL, username, password string) ([]string, error) {
-	url := fmt.Sprintf("%s/pools/default/buckets", baseURL)
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.SetBasicAuth(username, password)
-
-	resp, err := ms.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get buckets: status %d", resp.StatusCode)
-	}
-
-	var buckets []models.BucketInfo
-	if err := json.NewDecoder(resp.Body).Decode(&buckets); err != nil {
-		return nil, err
-	}
-
-	// Extract just the bucket names
-	bucketNames := make([]string, len(buckets))
-	for i, bucket := range buckets {
-		bucketNames[i] = bucket.Name
-	}
-
-	return bucketNames, nil
-}
-
-// getNodes retrieves the list of nodes from the cluster
-func (ms *MetadataService) getNodes(baseURL, username, password string) ([]string, error) {
+// this gets both the services and the server version from the /pools/nodes endpoint
+func (ms *MetadataService) GetMetadata(baseURL, username, password string) ([]string, string, error) {
 	url := fmt.Sprintf("%s/pools/nodes", baseURL)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	req.SetBasicAuth(username, password)
 
 	resp, err := ms.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get nodes: status %d", resp.StatusCode)
+		return nil, "", fmt.Errorf("failed to get services: status %d", resp.StatusCode)
 	}
 
-	var nodeResponse struct {
-		Nodes []models.NodeInfo `json:"nodes"`
+	var poolInfo models.PoolsDefault
+
+	if err := json.NewDecoder(resp.Body).Decode(&poolInfo); err != nil {
+		return nil, "", err
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&nodeResponse); err != nil {
-		return nil, err
-	}
+	var uniqueServices = make(map[string]struct{})
+	var serviceList []string
 
-	// Extract just the node hostnames
-	nodeNames := make([]string, len(nodeResponse.Nodes))
-	for i, node := range nodeResponse.Nodes {
-		nodeNames[i] = node.Hostname
+	// collect unique services from all nodes
+	for _, node := range poolInfo.Nodes {
+		for _, service := range node.Services { 
+			if _, exists := uniqueServices[service]; !exists {
+				uniqueServices[service] = struct{}{}
+				serviceList = append(serviceList, service)
+			}
+		}
 	}
-
-	return nodeNames, nil
+	// the server version is taken from the first node, because it is the same across all nodes
+	return serviceList, poolInfo.Nodes[0].Server, nil
 }

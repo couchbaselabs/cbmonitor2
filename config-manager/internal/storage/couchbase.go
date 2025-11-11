@@ -113,3 +113,8 @@ func (cs *CouchbaseStorage) Close() error {
 func (cs *CouchbaseStorage) Type() string {
 	return "couchbase"
 }
+
+func (cs *CouchbaseStorage) UpdatePhase(snapshotID string, phase string, mode string) error {
+	// Implement Couchbase update phase logic here
+	return nil
+}	

@@ -5,28 +5,25 @@ import "time"
 // ClusterMetadata represents the collected metadata from a Couchbase cluster
 type ClusterMetadata struct {
 	SnapshotID string    `json:"id"`
-	Buckets    []string  `json:"buckets"`
-	Nodes      []string  `json:"nodes"`
-	Indexes    []string  `json:"indexes"`
-	Timestamp  time.Time `json:"timestamp"`
+	Services   []string  `json:"services"` // same thing for buckets and nodes for services 
+	Server 	string    `json:"server,omitempty"`
+	TsStart  time.Time `json:"timestamp"`
+	TsEnd   time.Time `json:"ts_end,omitempty"`
+	Phases  []Phase   `json:"phases,omitempty"`
 }
 
-// BucketInfo represents basic bucket information
-type BucketInfo struct {
-	Name string `json:"name"`
-	Type string `json:"bucketType"`
+type Phase struct {	
+	Label   string `json:"label"` // can by any string so shouldnt need validation
+	TsStart string `json:"ts_start,omitempty"`
+	TsEnd   string `json:"ts_end,omitempty"` 		//the mode label of the pay;load will tell you which tsend or tsstart to update 
+	// can either be "start" or "end", so add a validation thatif mdoe is neither sends and error about invalid mode
 }
 
-// NodeInfo represents basic node information
+type PoolsDefault struct {	
+	Nodes []NodeInfo `json:"nodes"`
+}
+
 type NodeInfo struct {
-	Hostname string   `json:"hostname"`
 	Services []string `json:"services"`
-
-}
-
-// IndexInfo represents basic index information
-type IndexInfo struct {
-	Name       string `json:"name"`
-	KeyspaceID string `json:"keyspace_id"`
-	Definition string `json:"definition"`
+	Server  string   `json:"version,omitempty"`
 }

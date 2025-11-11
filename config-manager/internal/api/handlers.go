@@ -7,6 +7,8 @@ import (
 
 	"github.com/couchbase/config-manager/internal/models"
 	"github.com/couchbase/config-manager/internal/storage"
+	"github.com/couchbase/config-manager/internal/services"
+	"github.com/couchbase/config-manager/internal/logger"
 )
 
 // Handler handles HTTP requests for the config-manager service
@@ -71,27 +73,31 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// // Collect cluster metadata
-	// metadataService := services.NewMetadataService()
-	// for _, config := range req.Configs {
-	// 	for _, hostname := range config.Hostnames {
-	// 		metadata, err := metadataService.CollectClusterMetadata(
+	// Collect cluster metadata
+	metadataService := services.NewMetadataService()
+	for _, config := range req.Configs {
+		for _, hostname := range config.Hostnames {
+			metadata, err := metadataService.CollectClusterMetadata(
+				hostname,
+				config.Port,
+				req.Credentials.Username,
+				req.Credentials.Password,
+			)
 
-	// 		)
-	// 		if err != nil {
-	// 			logger.Warn("Warning: Failed to collect cluster metadata", "error", err)
-	// 			// Continue without metadata - don't fail the snapshot creation
-	// 		} else {
-	// 			// Set the snapshot ID and save metadata
-	// 			metadata.SnapshotID = id
-	// 			if err := h.metadataStorage.SaveMetadata(metadata); err != nil {
-	// 				logger.Warn("Warning: Failed to save metadata", "error", err)
-	// 			} else {
-	// 				logger.Info("Successfully collected and saved metadata for snapshot", "id", id)
-	// 			}
-	// 		}
-	// 	}
-	// }
+			if err != nil {
+				logger.Warn("Warning: Failed to collect cluster metadata", "error", err)
+				// Continue without metadata - don't fail the snapshot creation
+			} else {
+				// Set the snapshot ID and save metadata
+				metadata.SnapshotID = id
+				if err := h.metadataStorage.SaveMetadata(metadata); err != nil {
+					logger.Warn("Warning: Failed to save metadata", "error", err)
+				} else {
+					logger.Info("Successfully collected and saved metadata for snapshot", "id", id)
+				}
+			}
+		}
+	}
 
 	// Create response
 	response := models.SnapshotResponse{
@@ -231,11 +237,11 @@ func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid mode or missing phase", http.StatusBadRequest)
 		return
 	}
-
-	if err := h.metadataStorage.UpdatePhase(snapshotID, payload.Phase, payload.Mode); err != nil {
-		http.Error(w, "Failed to update phase: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
+hhhfdf ydkt
+	// if err := h.metadataStorage.UpdatePhase(snapshotID, payload.Phase, payload.Mode); err != nil {
+	// 	http.Error(w, "Failed to update phase: "+err.Error(), http.StatusInternalServerError)
+	// 	return
+	// }
 
 	if err := h.storage.PatchSnapshot(snapshotID); err != nil {
 		http.Error(w, "Failed to patch snapshot: "+err.Error(), http.StatusInternalServerError)
