@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/couchbase/config-manager/internal/logger"
 	"github.com/couchbase/config-manager/internal/models"
-	"github.com/couchbase/config-manager/internal/services"
 	"github.com/couchbase/config-manager/internal/storage"
+	"github.com/couchbase/config-manager/internal/services"
+	"github.com/couchbase/config-manager/internal/logger"
 )
 
 // Handler handles HTTP requests for the config-manager service
@@ -48,41 +48,54 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert cluster info to map for storage
+	configs := make([]interface{}, len(req.Configs))
+	for i, config := range req.Configs {
+		configs[i] = map[string]interface{}{
+			"hostnames": config.Hostnames,
+			"type":      config.Type,
+			"port":      config.Port,
+		}
+	}
+
 	clusterMap := map[string]interface{}{
-		"hostname": req.Hostname,
-		"port":     req.Port,
+		"configs": configs,
 		"credentials": map[string]interface{}{
 			"username": req.Credentials.Username,
 			"password": req.Credentials.Password,
 		},
+		"scheme": req.Scheme,
 	}
 
 	// Save snapshot to file
 	id, err := h.storage.SaveSnapshot(clusterMap, h.agentType)
 	if err != nil {
-		http.Error(w, "Failed to save snapshot", http.StatusInternalServerError)
+		http.Error(w, "Failed to save snapshot"+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Collect cluster metadata
 	metadataService := services.NewMetadataService()
-	metadata, err := metadataService.CollectClusterMetadata(
-		req.Hostname,
-		req.Port,
-		req.Credentials.Username,
-		req.Credentials.Password,
-	)
+	for _, config := range req.Configs {
+		for _, hostname := range config.Hostnames {
+			metadata, err := metadataService.CollectClusterMetadata(
+				hostname,
+				config.Port,
+				req.Credentials.Username,
+				req.Credentials.Password,
+			)
 
-	if err != nil {
-		logger.Warn("Warning: Failed to collect cluster metadata", "error", err)
-		// Continue without metadata - don't fail the snapshot creation
-	} else {
-		// Set the snapshot ID and save metadata
-		metadata.SnapshotID = id
-		if err := h.metadataStorage.SaveMetadata(metadata); err != nil {
-			logger.Warn("Warning: Failed to save metadata", "error", err)
-		} else {
-			logger.Info("Successfully collected and saved metadata for snapshot", "id", id)
+			if err != nil {
+				logger.Warn("Warning: Failed to collect cluster metadata", "error", err)
+				// Continue without metadata - don't fail the snapshot creation
+			} else {
+				// Set the snapshot ID and save metadata
+				metadata.SnapshotID = id
+				if err := h.metadataStorage.SaveMetadata(metadata); err != nil {
+					logger.Warn("Warning: Failed to save metadata", "error", err)
+				} else {
+					logger.Info("Successfully collected and saved metadata for snapshot", "id", id)
+				}
+			}
 		}
 	}
 
@@ -104,12 +117,17 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 
 // validateSnapshotRequest validates the snapshot request
 func (h *Handler) validateSnapshotRequest(req *models.SnapshotRequest) error {
-	if req.Hostname == "" {
-		return &ValidationError{Field: "hostname", Message: "hostname is required"}
-	}
-
-	if req.Port == 0 {
-		return &ValidationError{Field: "port", Message: "port is required"}
+	for i := range req.Configs {
+		if len(req.Configs[i].Hostnames) == 0 {
+			return &ValidationError{Field: "configs.hostnames", Message: "at least one cluster/hostname is required"}
+		}
+		// TO DO: add validation to check against non existent Types
+		if req.Configs[i].Type == "" {
+			req.Configs[i].Type = "sd"
+		}
+		if req.Configs[i].Port == 0 {
+			return &ValidationError{Field: "configs.port", Message: "port is required"}
+		}
 	}
 
 	if req.Credentials.Username == "" {
@@ -118,6 +136,12 @@ func (h *Handler) validateSnapshotRequest(req *models.SnapshotRequest) error {
 
 	if req.Credentials.Password == "" {
 		return &ValidationError{Field: "credentials.password", Message: "password is required"}
+	}
+
+	if req.Scheme == "" {
+		req.Scheme = "http"
+	} else if req.Scheme != "http" && req.Scheme != "https" {
+		return &ValidationError{Field: "scheme", Message: "scheme must be either 'http' or 'https'"}
 	}
 
 	return nil
@@ -189,7 +213,7 @@ func (h *Handler) DeleteSnapshotRequest(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNoContent)
 }
-	
+
 func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request) {
 	segments := strings.Split(r.URL.Path, "/")
 	if len(segments) < 4 || segments[3] == "" {
@@ -198,8 +222,24 @@ func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	snapshotID := segments[len(segments)-1]
+
+	var payload struct {
+		Phase string `json:"phase"`
+		Mode string `json:"mode"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid payload request", http.StatusBadRequest)
+		return
+	}
+
+	if payload.Phase == "" || (payload.Mode != "start" && payload.Mode != "end") {
+		http.Error(w, "Invalid mode or missing phase", http.StatusBadRequest)
+		return
+	}
+
 	if err := h.storage.PatchSnapshot(snapshotID); err != nil {
-		http.Error(w, "Failed to patch snapshot", http.StatusInternalServerError)
+		http.Error(w, "Failed to patch snapshot: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 

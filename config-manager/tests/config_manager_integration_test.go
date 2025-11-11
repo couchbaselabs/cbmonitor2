@@ -27,12 +27,18 @@ func TestCreateSnapshot(t *testing.T) {
 
 	// Create test request
 	request := models.SnapshotRequest{
-		Hostname: "localhost",
-		Port:     8091,
+		Configs: []models.ConfigObject{
+			{
+				Hostnames: []string{"localhost"},
+				Type:      "couchbase",
+				Port:      8091,
+			},
+		},
 		Credentials: models.Credentials{
 			Username: "admin",
 			Password: "password",
 		},
+		Scheme: "http",
 	}
 
 	// Convert request to JSON
@@ -121,20 +127,36 @@ func TestCreateSnapshotInvalidRequest(t *testing.T) {
 		{
 			name: "missing hostname",
 			request: models.SnapshotRequest{
-				Hostname: "",
-				Port:     8091,
+				Configs: []models.ConfigObject{
+					{
+						Hostnames: []string{""},
+						Type:      "couchbase",
+						Port:      8091,
+					},
+				},
+				Credentials: models.Credentials{
+					Username: "admin",
+					Password: "password",
+				},
+				Scheme: "http",
 			},
 			expectedCode: http.StatusBadRequest,
 		},
 		{
 			name: "missing credentials",
 			request: models.SnapshotRequest{
-				Hostname: "localhost",
-				Port:     8091,
+				Configs: []models.ConfigObject{
+					{
+						Hostnames: []string{""},
+						Type:      "couchbase",
+						Port:      8091,
+					},
+				},
 				Credentials: models.Credentials{
 					Username: "",
 					Password: "",
 				},
+				Scheme: "http",
 			},
 			expectedCode: http.StatusBadRequest,
 		},
