@@ -237,11 +237,6 @@ func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid mode or missing phase", http.StatusBadRequest)
 		return
 	}
-hhhfdf ydkt
-	// if err := h.metadataStorage.UpdatePhase(snapshotID, payload.Phase, payload.Mode); err != nil {
-	// 	http.Error(w, "Failed to update phase: "+err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
 
 	if err := h.storage.PatchSnapshot(snapshotID); err != nil {
 		http.Error(w, "Failed to patch snapshot: "+err.Error(), http.StatusInternalServerError)
