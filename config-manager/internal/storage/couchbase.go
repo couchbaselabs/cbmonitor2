@@ -130,7 +130,7 @@ func (cs *CouchbaseStorage) UpdatePhase(snapshotID string, phase string, mode st
 		})
 	} else if mode == "end" {
 		if len(snapshotMetadata.Phases) > 0 {
-			snapshotMetadata.Phases[len(snapshotMetadata.Phases)-1].TsEnd = time.Now()
+			snapshotMetadata.Phases[len(snapshotMetadata.Phases)-1].TsEnd = time.Now().Format(time.RFC3339Nano)
 		}
 	}
 	err = cs.SaveMetadata(snapshotMetadata)
@@ -147,7 +147,7 @@ func (cs *CouchbaseStorage) EoLSnapshot(snapshotID string) error {
 		return fmt.Errorf("failed to get metadata for deletion: %w", err)
 	}
 
-	eol.TsEnd = time.Now()
+	eol.TsEnd = time.Now().Format(time.RFC3339Nano)
 
 	err = cs.SaveMetadata(eol)
 	if err != nil {
