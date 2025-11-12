@@ -203,6 +203,12 @@ func (h *Handler) DeleteSnapshotRequest(w http.ResponseWriter, r *http.Request) 
 	}
 
 	snapshotID := segments[len(segments)-1]
+
+	if err := h.metadataStorage.EoLSnapshot(snapshotID); err != nil {
+		http.Error(w, "Failed to update end of life for snapshot metadata", http.StatusInternalServerError)
+		return
+	}
+
 	if err := h.storage.DeleteSnapshot(snapshotID); err != nil {
 		http.Error(w, "Failed to delete snapshot", http.StatusInternalServerError)
 		// http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -228,14 +234,21 @@ func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request) {
 		Mode string `json:"mode"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "Invalid payload request", http.StatusBadRequest)
-		return
-	}
+	if r.ContentLength != 0 {
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			http.Error(w, "Invalid payload request", http.StatusBadRequest)
+			return
+		}
 
-	if payload.Phase == "" || (payload.Mode != "start" && payload.Mode != "end") {
-		http.Error(w, "Invalid mode or missing phase", http.StatusBadRequest)
-		return
+		if payload.Phase == "" || (payload.Mode != "start" && payload.Mode != "end") {
+			http.Error(w, "Invalid mode or missing phase", http.StatusBadRequest)
+			return
+		}
+
+		if err := h.metadataStorage.UpdatePhase(snapshotID, payload.Phase, payload.Mode); err != nil {
+			http.Error(w, "Failed to update phase: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	if err := h.storage.PatchSnapshot(snapshotID); err != nil {

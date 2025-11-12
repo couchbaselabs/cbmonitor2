@@ -1,11 +1,6 @@
 package storage
 
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
-	"time"
-
 	"github.com/couchbase/config-manager/internal/config"
 	"github.com/couchbase/config-manager/internal/logger"
 	"github.com/couchbase/config-manager/internal/models"
@@ -13,9 +8,10 @@ import (
 
 // MetadataStorage defines the interface for storing and retrieving metadata
 type MetadataStorage interface {
-	SaveMetadata(metadata *models.ClusterMetadata) error
-	GetMetadata(snapshotID string) (*models.ClusterMetadata, error)
+	SaveMetadata(metadata *models.SnapshotMetadata) error
+	GetMetadata(snapshotID string) (*models.SnapshotMetadata, error)
 	UpdatePhase(snapshotID string, phase string, mode string) error
+	EoLSnapshot(snapshotID string) error
 	Close() error
 	Type() string
 }
@@ -31,6 +27,8 @@ func NewMetadataStorage(cfg *config.Config) (MetadataStorage, error) {
 	return NewFileMetadataStorage(cfg.Agent.Directory), nil
 }
 
+// All of these methods are fall-back, they are supposed to have implementations for physical files 
+// Since metadata is enabled, they theoretically should not be used
 // FileMetadataStorage implements MetadataStorage using files (fallback)
 type FileMetadataStorage struct {
 	baseDirectory string
@@ -44,13 +42,13 @@ func NewFileMetadataStorage(baseDirectory string) *FileMetadataStorage {
 }
 
 // SaveMetadata saves metadata to a file (fallback implementation)
-func (fs *FileMetadataStorage) SaveMetadata(metadata *models.ClusterMetadata) error {
+func (fs *FileMetadataStorage) SaveMetadata(metadata *models.SnapshotMetadata) error {
 	// This is a no-op fallback - metadata collection is disabled
 	return nil
 }
 
 // GetMetadata retrieves metadata from a file (fallback implementation)
-func (fs *FileMetadataStorage) GetMetadata(snapshotID string) (*models.ClusterMetadata, error) {
+func (fs *FileMetadataStorage) GetMetadata(snapshotID string) (*models.SnapshotMetadata, error) {
 	// This is a no-op fallback - metadata collection is disabled
 	return nil, nil
 }
@@ -66,48 +64,9 @@ func (fs *FileMetadataStorage) Type() string {
 }
 
 func (fs *FileMetadataStorage) UpdatePhase(snapshotID string, phase string, mode string) error {
-	metadataPath := filepath.Join(fs.baseDirectory, snapshotID+"_metadata.json")
-	type Phase struct {
-		Label   string `json:"label"`
-		TsStart string `json:"ts_start,omitempty"`
-		TsEnd   string `json:"ts_end,omitempty"`
-	}
-	type Metadata struct {
-		Phases []Phase `json:"phases"`
-	}
+	return nil	
+}
 
-	var metadata Metadata
-	if data, err := os.ReadFile(metadataPath); err == nil {
-		if err := json.Unmarshal(data, &metadata); err != nil {
-			return err
-		}
-	}
-
-	now := time.Now().Format(time.RFC3339Nano)
-	found := false
-	for i, p := range metadata.Phases {
-		if p.Label == phase {
-			found = true
-			if mode == "start" {
-				metadata.Phases[i].TsStart = now
-			} else if mode == "end" {
-				metadata.Phases[i].TsEnd = now
-			}
-			break
-		}
-	}
-	if !found {
-		entry := Phase{Label: phase}
-		if mode == "start" {
-			entry.TsStart = now
-		} else if mode == "end" {
-			entry.TsEnd = now
-		}
-		metadata.Phases = append(metadata.Phases, entry)
-	}
-	out, err := json.MarshalIndent(metadata, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(metadataPath, out, 0644)
+func (fs *FileMetadataStorage) EoLSnapshot(snapshotID string) error {
+	return nil	
 }

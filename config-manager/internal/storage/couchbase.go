@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/couchbase/config-manager/internal/config"
 	"github.com/couchbase/config-manager/internal/logger"
@@ -68,7 +69,7 @@ func NewCouchbaseStorage(cfg *config.Config) (*CouchbaseStorage, error) {
 }
 
 // SaveMetadata saves cluster metadata to Couchbase
-func (cs *CouchbaseStorage) SaveMetadata(metadata *models.ClusterMetadata) error {
+func (cs *CouchbaseStorage) SaveMetadata(metadata *models.SnapshotMetadata) error {
 	// Upsert the document
 	_, err := cs.bucket.DefaultCollection().Upsert(metadata.SnapshotID, metadata, nil)
 	if err != nil {
@@ -81,7 +82,7 @@ func (cs *CouchbaseStorage) SaveMetadata(metadata *models.ClusterMetadata) error
 }
 
 // GetMetadata retrieves cluster metadata from Couchbase
-func (cs *CouchbaseStorage) GetMetadata(snapshotID string) (*models.ClusterMetadata, error) {
+func (cs *CouchbaseStorage) GetMetadata(snapshotID string) (*models.SnapshotMetadata, error) {
 	// Get the document
 	result, err := cs.bucket.DefaultCollection().Get(snapshotID, nil)
 	if err != nil {
@@ -92,7 +93,7 @@ func (cs *CouchbaseStorage) GetMetadata(snapshotID string) (*models.ClusterMetad
 	}
 
 	// Decode the document
-	var metadata models.ClusterMetadata
+	var metadata models.SnapshotMetadata
 	err = result.Content(&metadata)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode metadata: %w", err)
@@ -116,5 +117,42 @@ func (cs *CouchbaseStorage) Type() string {
 
 func (cs *CouchbaseStorage) UpdatePhase(snapshotID string, phase string, mode string) error {
 	// Implement Couchbase update phase logic here
+	snapshotMetadata, err := cs.GetMetadata(snapshotID)
+	if err != nil {
+		return fmt.Errorf("failed to get metadata for update: %w", err)
+	}
+	if mode != "start" && mode != "end" {
+		return fmt.Errorf("invalid mode: %s", mode)
+	} else if mode == "start" {
+		snapshotMetadata.Phases = append(snapshotMetadata.Phases, models.Phase{
+			Label:   phase,
+			TsStart: time.Now(),
+		})
+	} else if mode == "end" {
+		if len(snapshotMetadata.Phases) > 0 {
+			snapshotMetadata.Phases[len(snapshotMetadata.Phases)-1].TsEnd = time.Now()
+		}
+	}
+	err = cs.SaveMetadata(snapshotMetadata)
+	if err != nil {
+		return fmt.Errorf("failed to save updated metadata: %w", err)
+	}
+
 	return nil
 }	
+
+func (cs *CouchbaseStorage) EoLSnapshot(snapshotID string) error {
+	eol, err := cs.GetMetadata(snapshotID)
+	if err != nil {
+		return fmt.Errorf("failed to get metadata for deletion: %w", err)
+	}
+
+	eol.TsEnd = time.Now()
+
+	err = cs.SaveMetadata(eol)
+	if err != nil {
+		return fmt.Errorf("failed to save end time for metadata: %w", err)
+	}
+
+	return nil
+}
