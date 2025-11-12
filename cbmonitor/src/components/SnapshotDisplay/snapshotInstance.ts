@@ -1,4 +1,4 @@
-import { SceneAppPage, SceneTimePicker, SceneTimeRange, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectUrlValues } from '@grafana/scenes';
+import { SceneAppPage, SceneTimePicker, SceneTimeRange, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectUrlValues, SceneRefreshPicker } from '@grafana/scenes';
 import { dateTime, TimeOption } from '@grafana/data';
 import { ROUTES } from '../../constants';
 import { prefixRoute } from '../../utils/utils.routing';
@@ -190,12 +190,21 @@ snapshotPage.addActivationHandler(() => {
                     new SceneTimePicker({
                         isOnCanvas: true,
                         quickRanges: quickRanges,
-                    }),
-                    new LayoutToggle({
-                        onLayoutChange: handleLayoutChange,
-                    }),
+                    })
                 ];
 
+                // If we have active snapshot, display the refresh picker before the layout toggle
+                if (metadata.ts_end && metadata.ts_end.startsWith("now")) {
+                    controls.push(new SceneRefreshPicker({
+                        intervals: ['5s', '10s', '30s', '1m', '2m', '5m', '10m'],
+                        isOnCanvas: true
+                    }));
+                }
+
+                // Add the layout toggle to the controls
+                controls.push(new LayoutToggle({
+                    onLayoutChange: handleLayoutChange,
+                }));
                 // Update page title and subtitle with metadata
                 snapshotPage.setState({
                     title: "",

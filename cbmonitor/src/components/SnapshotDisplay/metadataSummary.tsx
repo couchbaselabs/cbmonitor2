@@ -49,6 +49,9 @@ export function FormatMetadataSummary(props: FormatMetadataSummaryProps) {
 }
 
 function formatPhaseTime(timestamp: string): string {
+    if (timestamp.startsWith("now")) {
+        return timestamp;
+    }
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
