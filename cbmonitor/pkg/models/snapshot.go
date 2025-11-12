@@ -5,10 +5,8 @@ import "time"
 // SnapshotMetadata represents the snapshot metadata structure from Couchbase
 type SnapshotMetadata struct {
 	SnapshotID string    `json:"snapshotId" couchbase:"id"`
-	Buckets    []string  `json:"buckets" couchbase:"buckets"`
 	Services   []string  `json:"services" couchbase:"services"`
-	Nodes      []string  `json:"nodes" couchbase:"nodes"`
-	Indexes    []string  `json:"indexes" couchbase:"indexes"`
+	Version    string    `json:"version" couchbase:"server"`
 	TSStart    time.Time `json:"ts_start" couchbase:"ts_start"`
 	TSEnd      time.Time `json:"ts_end" couchbase:"ts_end"`
 }
@@ -26,4 +24,3 @@ type SnapshotResponse struct {
 	Data    SnapshotData `json:"data,omitempty"`
 	Error   string       `json:"error,omitempty"`
 }
-

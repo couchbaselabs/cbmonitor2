@@ -15,7 +15,7 @@ export function FormatMetadataSummary(props: FormatMetadataSummaryProps) {
         <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                 <div>
-                    <b>Snapshot ID:</b> {metadata.snapshotId} | <b>Nodes:</b> {metadata.nodes.length} | <b>Buckets:</b> {metadata.buckets.length}
+                    <b>Snapshot ID:</b> {metadata.snapshotId} | <b>Server Version:</b> {metadata.version}
                     {phases && phases.length > 0 && (
                         <span style={{ marginLeft: '8px', fontSize: '12px', color: '#888' }}>
                             ({phases.length} phases available in time picker)

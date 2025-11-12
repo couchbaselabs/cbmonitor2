@@ -73,15 +73,6 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 		SnapshotID: snapshotID,
 	}
 
-	// Extract buckets
-	if buckets, ok := rawData["buckets"].([]interface{}); ok {
-		metadata.Buckets = make([]string, len(buckets))
-		for i, b := range buckets {
-			if bucketStr, ok := b.(string); ok {
-				metadata.Buckets[i] = bucketStr
-			}
-		}
-	}
 
 	// Extract services
 	if services, ok := rawData["services"].([]interface{}); ok {
@@ -93,26 +84,9 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 		}
 	}
 
-	// Extract nodes
-	if nodes, ok := rawData["nodes"].([]interface{}); ok {
-		metadata.Nodes = make([]string, len(nodes))
-		for i, n := range nodes {
-			if nodeStr, ok := n.(string); ok {
-				metadata.Nodes[i] = nodeStr
-			}
-		}
-	}
-
-	// Extract indexes
-	if indexes, ok := rawData["indexes"].([]interface{}); ok {
-		metadata.Indexes = make([]string, len(indexes))
-		for i, idx := range indexes {
-			if indexStr, ok := idx.(string); ok {
-				metadata.Indexes[i] = indexStr
-			}
-		}
-	} else {
-		metadata.Indexes = []string{}
+	// Extract version
+	if version, ok := rawData["version"].(string); ok {
+		metadata.Version = version
 	}
 
 	// Extract timestamps
@@ -138,7 +112,7 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 	}
 
 	log.Printf("Successfully fetched snapshot: %s with %d services and %d nodes", 
-		snapshotID, len(metadata.Services), len(metadata.Nodes))
+		snapshotID, len(metadata.Services))
 
 	return snapshotData, nil
 }

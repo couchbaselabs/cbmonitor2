@@ -34,10 +34,8 @@ export interface Phase {
 
 export interface SnapshotMetadata {
   snapshotId: string;
-  buckets: string[];
   services: string[];
-  nodes: string[];
-  indexes: string[];
+  version: string;
   ts_start: string;
   ts_end: string;
   phases?: Phase[];
