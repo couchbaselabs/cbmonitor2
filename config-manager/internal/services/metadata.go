@@ -24,7 +24,7 @@ func NewMetadataService() *MetadataService {
 }
 
 // CollectClusterMetadata collects metadata from a Couchbase cluster
-func (ms *MetadataService) CollectClusterMetadata(hostname string, port int, username, password string) (*models.ClusterMetadata, error) {
+func (ms *MetadataService) CollectClusterMetadata(hostname string, port int, username, password string) (*models.SnapshotMetadata, error) {
 	baseURL := fmt.Sprintf("http://%s:%d", hostname, port) // "http://%s:%d"_all_dbs
 
 	services, server, err := ms.GetMetadata(baseURL, username, password)
@@ -32,8 +32,7 @@ func (ms *MetadataService) CollectClusterMetadata(hostname string, port int, use
 		return nil, fmt.Errorf("failed to get services: %w", err)
 	}
 
-	
-	return &models.ClusterMetadata{
+	return &models.SnapshotMetadata{
 		SnapshotID: "",
 		Services:   services,
 		Server:     server,
