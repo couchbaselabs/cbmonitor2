@@ -91,14 +91,10 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 
 	// Extract timestamps
 	if tsStart, ok := rawData["ts_start"].(string); ok {
-		if parsed, err := time.Parse(time.RFC3339, tsStart); err == nil {
-			metadata.TSStart = parsed
-		}
+		metadata.TSStart = tsStart
 	}
 	if tsEnd, ok := rawData["ts_end"].(string); ok {
-		if parsed, err := time.Parse(time.RFC3339, tsEnd); err == nil {
-			metadata.TSEnd = parsed
-		}
+		metadata.TSEnd = tsEnd
 	}
 
 	// Determine which dashboards to show based on services
@@ -111,8 +107,7 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 		Dashboards: dashboards,
 	}
 
-	log.Printf("Successfully fetched snapshot: %s with %d services and %d nodes", 
-		snapshotID, len(metadata.Services))
+	log.Printf("Successfully fetched snapshot: %s with %d services.", snapshotID, len(metadata.Services))
 
 	return snapshotData, nil
 }

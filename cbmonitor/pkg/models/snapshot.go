@@ -1,14 +1,12 @@
 package models
 
-import "time"
-
 // SnapshotMetadata represents the snapshot metadata structure from Couchbase
 type SnapshotMetadata struct {
 	SnapshotID string    `json:"snapshotId" couchbase:"id"`
 	Services   []string  `json:"services" couchbase:"services"`
 	Version    string    `json:"version" couchbase:"server"`
-	TSStart    time.Time `json:"ts_start" couchbase:"ts_start"`
-	TSEnd      time.Time `json:"ts_end" couchbase:"ts_end"`
+	TSStart    string `json:"ts_start" couchbase:"ts_start"`
+	TSEnd      string `json:"ts_end" couchbase:"ts_end"`
 }
 
 // SnapshotData represents the complete snapshot data including metadata and raw data
