@@ -37,9 +37,10 @@ func (ms *MetadataService) CollectClusterMetadata(hostname string, port int, use
 		Services:   services,
 		Server:     server,
 		TsStart:    time.Now(),
-		
+		TsEnd:    	"now",
 	}, nil
 }
+
 // this gets both the services and the server version from the /pools/nodes endpoint
 func (ms *MetadataService) GetMetadata(baseURL, username, password string) ([]string, string, error) {
 	url := fmt.Sprintf("%s/pools/nodes", baseURL)
