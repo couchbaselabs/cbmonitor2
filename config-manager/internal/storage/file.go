@@ -94,6 +94,10 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 		scheme = "http"
 	}
 
+	portType := "insecure"
+	if scheme == "https" {
+		portType = "secure"
+	}
 	// Generate UUID for job_name
 	jobName := id
 
@@ -116,7 +120,11 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 		case "sd":
 			for _, hostname := range hostnames {
 				httpSDConfigs = append(httpSDConfigs, map[string]interface{}{
-					"url": fmt.Sprintf("%s://%s:%d/prometheus_sd_config?port=insecure", scheme, hostname, port),
+					"url": fmt.Sprintf("%s://%s:%d/prometheus_sd_config?port=%s", scheme, hostname, port, portType),
+					"basic_auth": map[string]interface{}{
+						"username": username,
+						"password": password,
+					},
 				})
 			}
 		case "static":
