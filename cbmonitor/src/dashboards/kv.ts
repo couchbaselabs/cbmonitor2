@@ -12,13 +12,13 @@ export function kvMetricsDashboard(snapshotId: string): EmbeddedScene {
             direction: 'row',
             wrap: 'wrap',
             children: [
-                 // Prometheus
-                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'Prometheus CPU Utilization (%)', {
-                    labelFilters: { proc: 'prometheus' },
+                // memcached
+                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'memcached CPU Utilization (%)', {
+                    labelFilters: { proc: 'memcached' },
                     unit: 'percent'
                 }),
-                createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Prometheus Resident Memory (Bytes)', {
-                    labelFilters: { proc: 'prometheus' },
+                createMetricPanel(snapshotId, 'sysproc_mem_resident', 'memcached Resident Memory (Bytes)', {
+                    labelFilters: { proc: 'memcached' },
                     unit: 'bytes'
                 }),
                 // Operations & Performance (most important high-level metrics first)

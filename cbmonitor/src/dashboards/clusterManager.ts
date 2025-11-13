@@ -22,15 +22,17 @@ export function clusterManagerMetricsDashboard(snapshotId: string): EmbeddedScen
                     labelFilters: { proc: 'ns_server' },
                     unit: 'bytes'
                 }),
-                // memcached
-                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'memcached CPU Utilization (%)', {
-                    labelFilters: { proc: 'memcached' },
+                
+                 // Prometheus
+                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'Prometheus CPU Utilization (%)', {
+                    labelFilters: { proc: 'prometheus' },
                     unit: 'percent'
                 }),
-                createMetricPanel(snapshotId, 'sysproc_mem_resident', 'memcached Resident Memory (Bytes)', {
-                    labelFilters: { proc: 'memcached' },
+                createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Prometheus Resident Memory (Bytes)', {
+                    labelFilters: { proc: 'prometheus' },
                     unit: 'bytes'
                 }),
+    
                 // Miscellaneous metrics
                 createMetricPanel(snapshotId, 'scrape_duration_seconds', 'Scrape Duration (s)', {
                     unit: 'seconds'
