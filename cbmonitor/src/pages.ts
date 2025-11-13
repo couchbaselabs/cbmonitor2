@@ -64,7 +64,7 @@ export function getDashboardsForServices(services: string[], snapshotId: string)
         dashboards.push(getIndexMetricsPage(snapshotId));
     }
 
-    if (lowercaseServices.includes('query')) {
+    if (lowercaseServices.includes('query') || lowercaseServices.includes('n1ql')) {
         dashboards.push(getQueryMetricsPage(snapshotId));
     }
 
@@ -76,7 +76,7 @@ export function getDashboardsForServices(services: string[], snapshotId: string)
         dashboards.push(getEventingMetricsPage(snapshotId));
     }
 
-    if (lowercaseServices.includes('sgw')) {
+    if (lowercaseServices.includes('sgw') || lowercaseServices.includes('sync-gateway')) {
         dashboards.push(getSGWMetricsPage(snapshotId));
     }
 
