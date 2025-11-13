@@ -31,6 +31,7 @@ export function createMetricPanel(
     options: {
         labelFilters?: Record<string, string | string[]>;
         extraFields?: string[];
+        unit?: string;
         width?: string;
         height?: number;
     } = {}
@@ -52,13 +53,20 @@ export function createMetricPanel(
     // Get width from explicit option, otherwise use layout service
     const panelWidth = options.width ?? layoutService.getPanelWidth();
 
+    // Build the panel with unit configuration if provided
+    const panelBuilder = PanelBuilders.timeseries()
+        .setTitle(title);
+    
+    // Apply unit if specified
+    if (options.unit) {
+        panelBuilder.setUnit(options.unit);
+    }
+
     return new SceneFlexItem({
         height: options.height ?? 300,
         width: panelWidth,
         minWidth: panelWidth === '100%' ? '100%' : '45%',
-        body: PanelBuilders.timeseries()
-            .setTitle(title)
-            .build(),
+        body: panelBuilder.build(),
         $data: getNewTimeSeriesDataTransformer(builder.buildQueryRunner()),
     });
 }

@@ -12,17 +12,57 @@ export function kvMetricsDashboard(snapshotId: string): EmbeddedScene {
             direction: 'row',
             wrap: 'wrap',
             children: [
-                createMetricPanel(snapshotId, 'kv_mem_used_bytes', 'KV Memory Usage (Bytes)'),
-                createMetricPanel(snapshotId, 'kv_ep_meta_data_memory_bytes', 'Metadata Memory Usage (Bytes)'),
-                createMetricPanel(snapshotId, 'couch_docs_actual_disk_size', 'Couch Docs Actual Disk Size (Bytes)'),
-                createMetricPanel(snapshotId, 'kv_ep_queue_size', 'KV Engine Queue Size'),
-                createMetricPanel(snapshotId, 'kv_ops', 'KV Operations (ops)'),
-                createMetricPanel(snapshotId, 'kv_ep_diskqueue_fill', 'KV Engine Disk Queue Fill'),
-                createMetricPanel(snapshotId, 'kv_ep_diskqueue_drain', 'KV Engine Disk Queue Drain'),
-                createMetricPanel(snapshotId, 'kv_vb_ops_get', 'vBucket GET Ops'),
-                createMetricPanel(snapshotId, 'kv_curr_items', 'Current Items Count'),
-                createMetricPanel(snapshotId, 'kv_vb_queue_age_seconds', 'vBucket Queue Age (Seconds)'),
-                createMetricPanel(snapshotId, 'kv_vb_queue_size', 'vBucket Queue Size (Bytes)'),
+                 // Prometheus
+                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'Prometheus CPU Utilization (%)', {
+                    labelFilters: { proc: 'prometheus' },
+                    unit: 'percent'
+                }),
+                createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Prometheus Resident Memory (Bytes)', {
+                    labelFilters: { proc: 'prometheus' },
+                    unit: 'bytes'
+                }),
+                // Operations & Performance (most important high-level metrics first)
+                createMetricPanel(snapshotId, 'kv_ops', 'KV Operations (ops)', {
+                    unit: 'ops'
+                }),
+                createMetricPanel(snapshotId, 'kv_vb_ops_get', 'vBucket GET Ops', {
+                    unit: 'ops'
+                }),
+                
+                // Data & Items (what we're storing)
+                createMetricPanel(snapshotId, 'kv_curr_items', 'Current Items Count', {
+                    unit: 'short'
+                }),
+                createMetricPanel(snapshotId, 'kv_curr_connections', 'Current Connections Count', {
+                    unit: 'short'
+                }),
+                
+                // Memory Usage (resource consumption)
+                createMetricPanel(snapshotId, 'kv_mem_used_bytes', 'KV Memory Usage (Bytes)', {
+                    unit: 'bytes'
+                }),
+                createMetricPanel(snapshotId, 'kv_ep_meta_data_memory_bytes', 'Metadata Memory Usage (Bytes)', {
+                    unit: 'bytes'
+                }),
+
+                // Disk Queue Metrics (persistence layer)
+                createMetricPanel(snapshotId, 'kv_ep_diskqueue_fill', 'KV Engine Disk Queue Fill', {
+                    unit: 'short'
+                }),
+                createMetricPanel(snapshotId, 'kv_ep_diskqueue_drain', 'KV Engine Disk Queue Drain', {
+                    unit: 'short'
+                }),
+                
+                // Queue Metrics (internal processing)
+                createMetricPanel(snapshotId, 'kv_ep_queue_size', 'KV Engine Queue Size', {
+                    unit: 'short'
+                }),
+                createMetricPanel(snapshotId, 'kv_vb_queue_size', 'vBucket Queue Size (Bytes)', {
+                    unit: 'bytes'
+                }),
+                createMetricPanel(snapshotId, 'kv_vb_queue_age_seconds', 'vBucket Queue Age (Seconds)', {
+                    unit: 'ns'
+                }),
             ],
         })
     });

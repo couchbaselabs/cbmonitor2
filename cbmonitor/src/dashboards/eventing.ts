@@ -13,9 +13,20 @@ export function eventingMetricsDashboard(snapshotId: string): EmbeddedScene {
             direction: 'row',
             wrap: 'wrap',
             children: [
+                // Eventing
+                // mara here: couldnt find the label eventing, did find eventing-produc though 
+                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'Eventing CPU Utilization (%)', {
+                    labelFilters: { proc: 'eventing-produc' },
+                    unit: 'percent'
+                }),
+                createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Eventing Resident Memory (Bytes)', {
+                    labelFilters: { proc: 'eventing-produc' },
+                    unit: 'bytes'
+                }),
                 createMetricPanel(snapshotId, 'eventing_worker_restart_count', 'Worker Restart Count', {
                     extraFields: ['d.labels.instance'],
-                    width: '100%'
+                    width: '100%',
+                    unit: 'short'
                 }),
             ],
         })

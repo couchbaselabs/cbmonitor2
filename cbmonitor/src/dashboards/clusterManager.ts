@@ -13,12 +13,38 @@ export function clusterManagerMetricsDashboard(snapshotId: string): EmbeddedScen
             direction: 'row',
             wrap: 'wrap',
             children: [
+                // ns_server
+                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'ns_server CPU Utilization (%)', {
+                    labelFilters: { proc: 'ns_server' },
+                    unit: 'percent'
+                }),
+                createMetricPanel(snapshotId, 'sysproc_mem_resident', 'ns_server Resident Memory (Bytes)', {
+                    labelFilters: { proc: 'ns_server' },
+                    unit: 'bytes'
+                }),
+                // memcached
+                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'memcached CPU Utilization (%)', {
+                    labelFilters: { proc: 'memcached' },
+                    unit: 'percent'
+                }),
+                createMetricPanel(snapshotId, 'sysproc_mem_resident', 'memcached Resident Memory (Bytes)', {
+                    labelFilters: { proc: 'memcached' },
+                    unit: 'bytes'
+                }),
+                // Miscellaneous metrics
+                createMetricPanel(snapshotId, 'scrape_duration_seconds', 'Scrape Duration (s)', {
+                    unit: 'seconds'
+                }),
+                createMetricPanel(snapshotId, 'sys_cpu_cores_available', 'CPU Cores Available', {
+                    unit: 'short'
+                }),
                 createMetricPanel(snapshotId, 'cm_http_requests_total', 'HTTP Requests Total', {
                     extraFields: ['d.labels.instance', 'd.labels.method'],
                     labelFilters: {
                         method: ['GET', 'POST', 'PUT', 'DELETE', 'RPCCONNECT'],
                     },
-                    width: '100%'
+                    width: '100%',
+                    unit: 'short'
                 }),
             ],
         })
