@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/couchbase/config-manager/internal/config"
 	"github.com/couchbase/config-manager/internal/manager"
 )
 
 func TestStaleConfigRemoval(t *testing.T) {
 	tempDir := t.TempDir()
 
-	// create a mock yml file that will be fresh 
+	// create a mock yml file that will be fresh
 	fresh := filepath.Join(tempDir, "fresh.yml")
 	if err := os.WriteFile(fresh, []byte("test"), 0644); err != nil {
 		t.Fatalf("Failed to create fresh file: %v", err)
@@ -22,7 +23,7 @@ func TestStaleConfigRemoval(t *testing.T) {
 	stale := filepath.Join(tempDir, "stale.yml")
 	if err := os.WriteFile(stale, []byte("test"), 0644); err != nil {
 		t.Fatalf("Failed to create stale file: %v", err)
-	}	
+	}
 
 	// set the modified time of the stale file in the past
 	oldTime := time.Now().Add(-5 * time.Minute)
@@ -30,11 +31,15 @@ func TestStaleConfigRemoval(t *testing.T) {
 		t.Fatalf("Failed to set modified time for stale file: %v", err)
 	}
 
+	// Create a test config with metadata disabled to avoid Couchbase dependencies in tests
+	cfg := &config.Config{}
+	cfg.Metadata.Enabled = false
+
 	go manager.StartManagerWithInterval(manager.Information{
-		Interval:     1 * time.Minute,
-		MinInterval:  5 * time.Minute,
+		Interval:       1 * time.Minute,
+		MinInterval:    5 * time.Minute,
 		StaleThreshold: 5 * time.Minute,
-	}, tempDir)
+	}, tempDir, cfg)
 
 	time.Sleep(5 * time.Second)
 

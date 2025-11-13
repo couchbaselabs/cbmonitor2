@@ -11,7 +11,7 @@ type MetadataStorage interface {
 	SaveMetadata(metadata *models.SnapshotMetadata) error
 	GetMetadata(snapshotID string) (*models.SnapshotMetadata, error)
 	UpdatePhase(snapshotID string, phase string, mode string) error
-	EoLSnapshot(snapshotID string) error
+	 EoLSnapshot(snapshotID string) error
 	Close() error
 	Type() string
 }

@@ -88,7 +88,7 @@ func main() {
 	mininterval := cfg.Manager.MinInterval
 
 	// Validate manager interval
-	if interval > 30*time.Minute || interval < mininterval{
+	if interval > 30*time.Minute || interval < mininterval {
 		logger.Warn("Manager interval should be between 5 and 30 minutes", "interval", interval, "default", 5*time.Minute)
 		interval = mininterval // Default to 5 minutes if invalid
 	}
@@ -104,7 +104,7 @@ func main() {
 	metadataStorage, err := storage.NewMetadataStorage(cfg)
 	if err != nil {
 		logger.Error("Failed to initialize metadata storage. Metadata will not be collected.", "error", err)
-	}else{
+	} else {
 		logger.Info("Metadata storage initialized", "type", metadataStorage.Type())
 	}
 
@@ -133,21 +133,21 @@ func main() {
 		}
 	}()
 	logger.Debug(
-    "interval, mininterval and stale threshold",
-    "interval", interval.String(),
-    "mininterval", mininterval.String(),
-    "stale_threshold", staleThreshold.String(),
-)
+		"interval, mininterval and stale threshold",
+		"interval", interval.String(),
+		"mininterval", mininterval.String(),
+		"stale_threshold", staleThreshold.String(),
+	)
 
 	logger.Info("Config Manager REST Service Started")
 
 	go func() {
-		
+
 		manager.StartManagerWithInterval(manager.Information{
-			Interval:     interval,
-			MinInterval:  mininterval,
+			Interval:       interval,
+			MinInterval:    mininterval,
 			StaleThreshold: staleThreshold,
-		}, cfg.Agent.Directory)
+		}, cfg.Agent.Directory, cfg)
 	}()
 	logger.Info("Manager Service Started")
 
