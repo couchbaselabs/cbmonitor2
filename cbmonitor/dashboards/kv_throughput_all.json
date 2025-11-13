@@ -24,7 +24,7 @@
     {
       "datasource": {
         "type": "yesoreyeram-infinity-datasource",
-        "uid": "bf2ies6qqrzswc"
+        "uid": "Showfast"
       },
       "fieldConfig": {
         "defaults": {
@@ -118,7 +118,7 @@
           ],
           "datasource": {
             "type": "yesoreyeram-infinity-datasource",
-            "uid": "bf2ies6qqrzswc"
+            "uid": "Showfast"
           },
           "filterExpression": "",
           "filters": [],
@@ -142,7 +142,7 @@
     {
       "datasource": {
         "type": "yesoreyeram-infinity-datasource",
-        "uid": "bf2ies6qqrzswc"
+        "uid": "Showfast"
       },
       "fieldConfig": {
         "defaults": {
@@ -209,7 +209,7 @@
           ],
           "datasource": {
             "type": "yesoreyeram-infinity-datasource",
-            "uid": "bf2ies6qqrzswc"
+            "uid": "Showfast"
           },
           "filterExpression": "",
           "filters": [],
@@ -248,7 +248,7 @@
         },
         "datasource": {
           "type": "yesoreyeram-infinity-datasource",
-          "uid": "bf2ies6qqrzswc"
+          "uid": "Showfast"
         },
         "definition": "",
         "description": "",
@@ -301,7 +301,7 @@
         },
         "datasource": {
           "type": "yesoreyeram-infinity-datasource",
-          "uid": "bf2ies6qqrzswc"
+          "uid": "Showfast"
         },
         "definition": "",
         "description": "",

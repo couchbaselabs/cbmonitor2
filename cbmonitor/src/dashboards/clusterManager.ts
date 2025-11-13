@@ -22,7 +22,7 @@ export function clusterManagerMetricsDashboard(snapshotId: string): EmbeddedScen
                     labelFilters: { proc: 'ns_server' },
                     unit: 'bytes'
                 }),
-                
+
                  // Prometheus
                 createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'Prometheus CPU Utilization (%)', {
                     labelFilters: { proc: 'prometheus' },
@@ -35,7 +35,7 @@ export function clusterManagerMetricsDashboard(snapshotId: string): EmbeddedScen
     
                 // Miscellaneous metrics
                 createMetricPanel(snapshotId, 'scrape_duration_seconds', 'Scrape Duration (s)', {
-                    unit: 'seconds'
+                    unit: 'ns'
                 }),
                 createMetricPanel(snapshotId, 'sys_cpu_cores_available', 'CPU Cores Available', {
                     unit: 'short'

@@ -14,7 +14,9 @@ datasources:
   access: proxy
   url: https://${SHOWFAST_URL}
   basicAuth: false
+  isDefault: false
   jsonData:
     tlsSkipVerify: true
     allowDangerousHTTPMethods: false
+  secureJsonData: {}
  

@@ -40,7 +40,13 @@ services:
       COUCHBASE_PASSWORD: ${COUCHBASE_PASSWORD:-password}
       COUCHBASE_BUCKET: ${COUCHBASE_BUCKET:-showfast}
 
+      SHOWFAST_URL: ${SHOWFAST_URL:-https://showfast.sc.couchbase.com}
+
       # Plugin Configuration
       DEFAULT_METRIC_LIMIT: ${DEFAULT_METRIC_LIMIT:-50}
       ENABLE_MOCK_DATA: ${ENABLE_MOCK_DATA:-false}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      
+      # Install Infinity Datasource Plugin
+      GF_INSTALL_PLUGINS: ${GF_INSTALL_PLUGINS:-yesoreyeram-infinity-datasource}
+
