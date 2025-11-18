@@ -36,8 +36,7 @@ export const METRIC_DEFINITIONS: Record<string, string[]> = {
     'kv_95p_latency', 
     'kv_set_latency',
     'kv_get_latency',
-    'kv_ops_per_second',
-    'draft-1'
+    'kv_ops_per_second'
   ],
   hidd: [
     'hidd_read_throughput',

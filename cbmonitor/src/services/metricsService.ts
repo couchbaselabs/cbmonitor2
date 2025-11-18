@@ -117,14 +117,14 @@ class MetricsService {
         buildNumber: `${version}-${Math.floor(Math.random() * 9999)}`
       }));
 
-      const description = metricName === 'draft-1' 
-        ? 'Key-Value throughput performance metric showing operations per second across versions'
-        : `${this.formatMetricName(metricName)} performance metric`;
+      // const description = metricName === 'draft-1' 
+      //   ? 'Key-Value throughput performance metric showing operations per second across versions'
+      //   : `${this.formatMetricName(metricName)} performance metric`;
 
       return {
         id: metricName,
         name: this.formatMetricName(metricName),
-        description,
+        description: '',
         unit: this.getMetricUnit(metricName),
         category: this.getMetricCategory(metricName),
         values: values.sort((a, b) => a.version.localeCompare(b.version))
@@ -143,11 +143,6 @@ class MetricsService {
    * Helper methods for formatting and categorization
    */
   private formatMetricName(metricId: string): string {
-    // Special handling for draft-1
-    if (metricId === 'draft-1') {
-      return 'KV Throughput';
-    }
-    
     return metricId
       .replace(/_/g, ' ')
       .replace(/\b\w/g, l => l.toUpperCase());
@@ -172,12 +167,7 @@ class MetricsService {
     return nameMap[componentId] || componentId;
   }
 
-  private getMetricUnit(metricId: string): string {
-    // Special handling for draft-1
-    if (metricId === 'draft-1') {
-      return 'ops/sec';
-    }
-    
+  private getMetricUnit(metricId: string): string {    
     if (metricId.includes('latency') || metricId.includes('time') || metricId.includes('duration')) {
       return 'ms';
     }
@@ -200,11 +190,6 @@ class MetricsService {
   }
 
   private getMetricCategory(metricId: string): string {
-    // Special handling for draft-1
-    if (metricId === 'draft-1') {
-      return 'throughput';
-    }
-    
     if (metricId.includes('latency') || metricId.includes('time') || metricId.includes('duration')) {
       return 'latency';
     }
