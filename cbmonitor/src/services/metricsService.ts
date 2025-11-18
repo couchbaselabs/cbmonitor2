@@ -11,8 +11,12 @@ class MetricsService {
     try {
       // Build query parameters
       const params = new URLSearchParams();
-      if (category) params.append('category', category);
-      if (subCategory) params.append('subCategory', subCategory);
+      if (category) {
+        params.append('category', category);
+      }
+      if (subCategory) {
+        params.append('subCategory', subCategory);
+      }
       
       const queryString = params.toString();
       const url = `${API_BASE_URL}/metrics/${componentId}${queryString ? `?${queryString}` : ''}`;
@@ -63,7 +67,7 @@ class MetricsService {
   /**
    * Fetch specific metric with historical data
    */
-  async getMetricHistory(componentId: string, metricId: string, limit: number = 50): Promise<Metric> {
+  async getMetricHistory(componentId: string, metricId: string, limit = 50): Promise<Metric> {
     try {
       console.log(`Fetching metric history for ${componentId}/${metricId}`);
       
@@ -113,10 +117,14 @@ class MetricsService {
         buildNumber: `${version}-${Math.floor(Math.random() * 9999)}`
       }));
 
+      const description = metricName === 'draft-1' 
+        ? 'Key-Value throughput performance metric showing operations per second across versions'
+        : `${this.formatMetricName(metricName)} performance metric`;
+
       return {
         id: metricName,
         name: this.formatMetricName(metricName),
-        description: `${this.formatMetricName(metricName)} performance metric`,
+        description,
         unit: this.getMetricUnit(metricName),
         category: this.getMetricCategory(metricName),
         values: values.sort((a, b) => a.version.localeCompare(b.version))
@@ -135,6 +143,11 @@ class MetricsService {
    * Helper methods for formatting and categorization
    */
   private formatMetricName(metricId: string): string {
+    // Special handling for draft-1
+    if (metricId === 'draft-1') {
+      return 'KV Throughput';
+    }
+    
     return metricId
       .replace(/_/g, ' ')
       .replace(/\b\w/g, l => l.toUpperCase());
@@ -160,6 +173,11 @@ class MetricsService {
   }
 
   private getMetricUnit(metricId: string): string {
+    // Special handling for draft-1
+    if (metricId === 'draft-1') {
+      return 'ops/sec';
+    }
+    
     if (metricId.includes('latency') || metricId.includes('time') || metricId.includes('duration')) {
       return 'ms';
     }
@@ -182,6 +200,11 @@ class MetricsService {
   }
 
   private getMetricCategory(metricId: string): string {
+    // Special handling for draft-1
+    if (metricId === 'draft-1') {
+      return 'throughput';
+    }
+    
     if (metricId.includes('latency') || metricId.includes('time') || metricId.includes('duration')) {
       return 'latency';
     }

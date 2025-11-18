@@ -6,10 +6,12 @@ import { testIds } from '../components/testIds';
 import { PluginPage } from '@grafana/runtime';
 import { useMetrics } from '../hooks/useMetrics';
 import { MetricsDisplay } from '../components/MetricsDisplay/MetricsDisplay';
+import { kvThroughputDashboard } from '../dashboards/kvThroughput';
 
 // Define the available components as tabs
 const COMPONENTS = [
   { id: 'kv', label: 'KV', icon: 'database' },
+  { id: 'kv-throughput', label: 'KV Throughput', icon: 'chart-line' },
   { id: 'hidd', label: 'HiDD', icon: 'database'},
   { id: 'rebalance', label: 'Rebalance', icon: 'repeat' },
   { id: 'xdcr', label: 'XDCR', icon: 'sync' },
@@ -30,10 +32,22 @@ function Showfast() {
   const s = useStyles2(getStyles);
   const [activeTab, setActiveTab] = useState<ComponentId>('kv');
 
-  // Fetch metrics for the currently active tab
-  const { metrics, loading, error, refetch } = useMetrics(activeTab);
+  // Fetch metrics for the currently active tab (skip for dashboard tabs)
+  const shouldFetchMetrics = activeTab !== 'kv-throughput';
+  const { metrics, loading, error, refetch } = useMetrics(shouldFetchMetrics ? activeTab : '');
 
   const renderTabContent = (componentId: ComponentId) => {
+    // Special handling for KV throughput dashboard using Grafana Scenes
+    if (componentId === 'kv-throughput') {
+      const kvScene = kvThroughputDashboard();
+      return (
+        <div className={s.tabContent}>
+          <div className={s.sceneContainer}>
+            <kvScene.Component model={kvScene} />
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className={s.tabContent}>
@@ -51,6 +65,13 @@ function Showfast() {
   return (
     <PluginPage>
       <div data-testid={testIds.showfast.container} className={s.dashboard}>
+        <div className={s.header}>
+          <h1 className={s.title}>Welcome to the Showfast dashboard.</h1>
+          <p className={s.description}>
+            Explore comprehensive performance metrics across different Couchbase components and services.
+          </p>
+        </div>
+        
         <div className={s.tabsContainer}>
           <TabsBar className={s.tabsBar}>
             {COMPONENTS.map((component) => (
@@ -113,6 +134,11 @@ const getStyles = (theme: GrafanaTheme2) => ({
   `,
   tabContent: css`
     padding: 16px 0;
+  `,
+  sceneContainer: css`
+    width: 100%;
+    min-height: 600px;
+    background-color: ${theme.colors.background.primary};
   `,
   contentHeader: css`
     margin-bottom: 24px;
