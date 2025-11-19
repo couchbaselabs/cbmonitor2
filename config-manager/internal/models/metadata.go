@@ -10,6 +10,7 @@ type SnapshotMetadata struct {
 	TsStart  	time.Time 	`json:"ts_start,omitempty"`
 	TsEnd   	string 		`json:"ts_end,omitempty"`
 	Phases  	[]Phase   	`json:"phases,omitempty"`
+	Label    	string    	`json:"label,omitempty"`
 }
 
 type Phase struct {	

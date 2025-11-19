@@ -9,6 +9,7 @@ type SnapshotRequest struct {
 	Credentials 	Credentials       `json:"credentials"`
 	Scheme 			string			  `json:"scheme,omitempty"`
 	TimeStamp   	time.Time         `json:"timestamp,omitempty"`
+	Label       	string            `json:"label,omitempty"`
 }
 
 // Credentials for cluster authentication

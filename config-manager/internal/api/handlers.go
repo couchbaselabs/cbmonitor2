@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/couchbase/config-manager/internal/models"
-	"github.com/couchbase/config-manager/internal/storage"
-	"github.com/couchbase/config-manager/internal/services"
 	"github.com/couchbase/config-manager/internal/logger"
+	"github.com/couchbase/config-manager/internal/models"
+	"github.com/couchbase/config-manager/internal/services"
+	"github.com/couchbase/config-manager/internal/storage"
 )
 
 // Handler handles HTTP requests for the config-manager service
@@ -88,8 +88,11 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 				logger.Warn("Warning: Failed to collect cluster metadata", "error", err)
 				// Continue without metadata - don't fail the snapshot creation
 			} else {
-				// Set the snapshot ID and save metadata
+				// Set the snapshot ID and label, then save metadata
 				metadata.SnapshotID = id
+				if req.Label != "" {
+					metadata.Label = req.Label
+				}
 				if err := h.metadataStorage.SaveMetadata(metadata); err != nil {
 					logger.Warn("Warning: Failed to save metadata", "error", err)
 				} else {
