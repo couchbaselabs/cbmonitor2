@@ -1,12 +1,21 @@
 package models
 
+// Phase represents a phase in the snapshot
+type Phase struct {
+	Label   string `json:"label"`
+	TSStart string `json:"ts_start,omitempty"`
+	TSEnd   string `json:"ts_end,omitempty"`
+}
+
 // SnapshotMetadata represents the snapshot metadata structure from Couchbase
 type SnapshotMetadata struct {
 	SnapshotID string    `json:"snapshotId" couchbase:"id"`
 	Services   []string  `json:"services" couchbase:"services"`
 	Version    string    `json:"version" couchbase:"server"`
-	TSStart    string `json:"ts_start" couchbase:"ts_start"`
-	TSEnd      string `json:"ts_end" couchbase:"ts_end"`
+	TSStart    string    `json:"ts_start" couchbase:"ts_start"`
+	TSEnd      string    `json:"ts_end" couchbase:"ts_end"`
+	Phases     []Phase   `json:"phases,omitempty"`
+	Label      string    `json:"label,omitempty"`
 }
 
 // SnapshotData represents the complete snapshot data including metadata and raw data

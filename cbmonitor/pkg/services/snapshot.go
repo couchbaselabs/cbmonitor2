@@ -73,7 +73,6 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 		SnapshotID: snapshotID,
 	}
 
-
 	// Extract services
 	if services, ok := rawData["services"].([]interface{}); ok {
 		metadata.Services = make([]string, len(services))
@@ -84,17 +83,64 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 		}
 	}
 
-	// Extract version
-	if version, ok := rawData["version"].(string); ok {
-		metadata.Version = version
+	// Extract version from "server" field (backend stores as "server", frontend expects "version")
+	if server, ok := rawData["server"].(string); ok {
+		metadata.Version = server
 	}
 
 	// Extract timestamps
 	if tsStart, ok := rawData["ts_start"].(string); ok {
 		metadata.TSStart = tsStart
+	} else if tsStartTime, ok := rawData["ts_start"].(any); ok {
+		metadata.TSStart = fmt.Sprintf("%v", tsStartTime)
 	}
 	if tsEnd, ok := rawData["ts_end"].(string); ok {
 		metadata.TSEnd = tsEnd
+	}
+
+	// Extract phases if present
+	if phases, ok := rawData["phases"].([]interface{}); ok {
+		metadata.Phases = make([]models.Phase, 0, len(phases))
+		for _, p := range phases {
+			if phaseMap, ok := p.(map[string]interface{}); ok {
+				phase := models.Phase{}
+				if label, ok := phaseMap["label"].(string); ok {
+					phase.Label = label
+				}
+				if tsStart, ok := phaseMap["ts_start"].(string); ok {
+					phase.TSStart = tsStart
+				} else if tsStartTime, ok := phaseMap["ts_start"].(interface{}); ok {
+					phase.TSStart = fmt.Sprintf("%v", tsStartTime)
+				}
+				if tsEnd, ok := phaseMap["ts_end"].(string); ok {
+					phase.TSEnd = tsEnd
+				}
+				metadata.Phases = append(metadata.Phases, phase)
+			}
+		}
+	}
+
+	// Extract label if present
+	if label, ok := rawData["label"].(string); ok {
+		metadata.Label = label
+	}
+
+	// Create a copy of rawData without metadata fields to avoid duplication
+	dataWithoutMetadata := make(map[string]interface{})
+	metadataFields := map[string]bool{
+		"id":        true,
+		"services":  true,
+		"server":    true,
+		"version":   true,
+		"ts_start":  true,
+		"ts_end":    true,
+		"phases":    true,
+		"label":     true,
+	}
+	for k, v := range rawData {
+		if !metadataFields[k] {
+			dataWithoutMetadata[k] = v
+		}
 	}
 
 	// Determine which dashboards to show based on services
@@ -103,7 +149,7 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 	// Create snapshot data structure
 	snapshotData := &models.SnapshotData{
 		Metadata:   metadata,
-		Data:       rawData,
+		Data:       dataWithoutMetadata,
 		Dashboards: dashboards,
 	}
 

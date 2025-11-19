@@ -39,6 +39,7 @@ export interface SnapshotMetadata {
   ts_start: string;
   ts_end: string;
   phases?: Phase[];
+  label?: string;
 }
 
 export interface SnapshotData {
