@@ -12,6 +12,7 @@ import { ftsMetricsDashboard } from 'dashboards/fts';
 import { xdcrMetricsDashboard } from 'dashboards/xdcr';
 import { sgwMetricsDashboard } from 'dashboards/sgw';
 import { eventingMetricsDashboard } from 'dashboards/eventing';
+import { analyticsMetricsDashboard } from 'dashboards/analytics';
 
 /**
  * Cache for dashboard scenes to avoid recreating them on tab switches
@@ -84,6 +85,10 @@ export function getDashboardsForServices(services: string[], snapshotId: string)
         dashboards.push(getXDCRMetricsPage(snapshotId));
     }
 
+    if (lowercaseServices.includes('analytics') || lowercaseServices.includes('cbas')) {
+        dashboards.push(getAnalyticsMetricsPage(snapshotId));
+    }
+
     // Add cluster manager metrics, make it the last tab
     dashboards.push(getClusterManagerMetricsPage(snapshotId));
 
@@ -151,4 +156,8 @@ function getSGWMetricsPage(snapshotId: string): SceneAppPage {
 
 function getXDCRMetricsPage(snapshotId: string): SceneAppPage {
     return getMetricsDashboardPage(xdcrMetricsDashboard, 'XDCR Metrics', snapshotId, 'xdcr');
+}
+
+function getAnalyticsMetricsPage(snapshotId: string): SceneAppPage {
+    return getMetricsDashboardPage(analyticsMetricsDashboard, 'Analytics Metrics', snapshotId, 'analytics');
 }
