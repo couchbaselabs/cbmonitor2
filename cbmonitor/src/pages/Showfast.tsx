@@ -34,18 +34,6 @@ function Showfast() {
   const { metrics, loading, error, refetch } = useMetrics(activeTab);
 
   const renderTabContent = (componentId: ComponentId) => {
-    // // Special handling for KV throughput dashboard using Grafana Scenes
-    // if (componentId === 'kv-throughput') {
-    //   const kvScene = kvThroughputDashboard();
-    //   return (
-    //     <div className={s.tabContent}>
-    //       <div className={s.sceneContainer}>
-    //         <kvScene.Component model={kvScene} />
-    //       </div>
-    //     </div>
-    //   );
-    // }
-
     return (
       <div className={s.tabContent}>
         {/* Real metrics display */}
