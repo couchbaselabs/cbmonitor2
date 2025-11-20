@@ -12,8 +12,8 @@ import (
 
 // SnapshotService handles snapshot-related operations
 type SnapshotService struct {
-	cluster *gocb.Cluster
-	bucket  *gocb.Bucket
+	cluster        *gocb.Cluster
+	bucket         *gocb.Bucket
 }
 
 // NewSnapshotService creates a new snapshot service instance
@@ -41,8 +41,8 @@ func NewSnapshotService(connectionString, username, password, bucketName string)
 	log.Printf("Snapshot service connected to Couchbase cluster: %s, bucket: %s", connectionString, bucketName)
 
 	return &SnapshotService{
-		cluster: cluster,
-		bucket:  bucket,
+		cluster:        cluster,
+		bucket:         bucket,
 	}, nil
 }
 

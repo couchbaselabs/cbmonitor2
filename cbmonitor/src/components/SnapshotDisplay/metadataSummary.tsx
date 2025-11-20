@@ -7,6 +7,38 @@ interface FormatMetadataSummaryProps {
     phases: Phase[];
 }
 
+// Helper function to check if a string is a valid URL
+function isValidURL(str: string): boolean {
+    try {
+        const url = new URL(str);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+        return false;
+    }
+}
+
+// Helper function to render label - as link if URL, otherwise as text
+function renderLabel(label: string | undefined): React.ReactNode {
+    if (!label) {
+        return null;
+    }
+
+    if (isValidURL(label)) {
+        return (
+            <a
+                href={label}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: '#5794F2', textDecoration: 'none' }}
+            >
+                {label}
+            </a>
+        );
+    }
+
+    return <span>{label}</span>;
+}
+
 export function FormatMetadataSummary(props: FormatMetadataSummaryProps) {
     const { metadata, phases } = props;
     const [isExpanded, setIsExpanded] = useState(false);
@@ -35,6 +67,11 @@ export function FormatMetadataSummary(props: FormatMetadataSummaryProps) {
                     <div>
                         <b>Services:</b> {metadata.services.join(', ')}
                     </div>
+                    {metadata.label && (
+                        <div style={{ marginTop: '4px' }}>
+                            <b>Label:</b> {renderLabel(metadata.label)}
+                        </div>
+                    )}
                     {phases && phases.length > 0 && (
                         <div style={{ marginTop: '4px' }}>
                             <b>Phases:</b> {phases.map((p, i) =>
