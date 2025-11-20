@@ -37,7 +37,7 @@ const initialSearchTab = new SceneAppPage({
 
 // Create time range without URL sync, with basic default time range
 const timeRange = new NoUrlSyncTimeRange({
-    from: 'now-1h',
+    from: 'now-15m',
     to: 'now',
 });
 
@@ -93,7 +93,7 @@ snapshotPage.addActivationHandler(() => {
                     snapshotService.storeSnapshotData(snapshotId, snapshot);
                 }
 
-                const { metadata, data } = snapshot;
+                const { metadata } = snapshot;
 
                 // Check if there's a phase parameter in the URL
                 const urlPhase = params.phase as string;
@@ -101,8 +101,8 @@ snapshotPage.addActivationHandler(() => {
                 let initialTo = metadata.ts_end;
 
                 // If a phase is specified in URL, use that phase's time range
-                if (urlPhase && data.phases) {
-                    const selectedPhase = data.phases.find((p: Phase) => p.label === urlPhase);
+                if (urlPhase && metadata.phases) {
+                    const selectedPhase = metadata.phases.find((p: Phase) => p.label === urlPhase);
                     if (selectedPhase) {
                         initialFrom = selectedPhase.ts_start;
                         initialTo = selectedPhase.ts_end;
@@ -127,8 +127,8 @@ snapshotPage.addActivationHandler(() => {
                     const currentTo = currentTimeRange.value.raw.to?.toString();
 
                     // Check if current time range matches a phase
-                    if (data.phases) {
-                        const matchingPhase = data.phases.find((p: Phase) => {
+                    if (metadata.phases) {
+                        const matchingPhase = metadata.phases.find((p: Phase) => {
                             const phaseMatches = p.ts_start === currentFrom && p.ts_end === currentTo;
                             return phaseMatches;
                         });
@@ -165,8 +165,8 @@ snapshotPage.addActivationHandler(() => {
                 });
 
                 // Add phase ranges
-                if (data.phases && data.phases.length > 0) {
-                    data.phases.forEach((phase: Phase) => {
+                if (metadata.phases && metadata.phases.length > 0) {
+                    metadata.phases.forEach((phase: Phase) => {
                         quickRanges.push({
                             from: phase.ts_start,
                             to: phase.ts_end,
@@ -213,8 +213,7 @@ snapshotPage.addActivationHandler(() => {
                     controls: controls,
                     renderTitle: () => {
                         return FormatMetadataSummary({
-                            metadata,
-                            phases: data.phases ?? [],
+                            metadata
                         });
                     },
                 });

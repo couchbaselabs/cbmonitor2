@@ -1,10 +1,9 @@
 import React, { useState } from "react";
 import { Icon } from "@grafana/ui";
-import { Phase, SnapshotMetadata } from "types/snapshot";
+import { SnapshotMetadata } from "types/snapshot";
 
 interface FormatMetadataSummaryProps {
     metadata: SnapshotMetadata;
-    phases: Phase[];
 }
 
 // Helper function to check if a string is a valid URL
@@ -40,7 +39,7 @@ function renderLabel(label: string | undefined): React.ReactNode {
 }
 
 export function FormatMetadataSummary(props: FormatMetadataSummaryProps) {
-    const { metadata, phases } = props;
+    const { metadata } = props;
     const [isExpanded, setIsExpanded] = useState(false);
 
     return (
@@ -48,9 +47,9 @@ export function FormatMetadataSummary(props: FormatMetadataSummaryProps) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                 <div>
                     <b>Snapshot ID:</b> {metadata.snapshotId} | <b>Server Version:</b> {metadata.version}
-                    {phases && phases.length > 0 && (
+                    {metadata.phases && metadata.phases.length > 0 && (
                         <span style={{ marginLeft: '8px', fontSize: '12px', color: '#888' }}>
-                            ({phases.length} phases available in time picker)
+                            ({metadata.phases.length} phases available in time picker)
                         </span>
                     )}
                     <span
@@ -72,9 +71,9 @@ export function FormatMetadataSummary(props: FormatMetadataSummaryProps) {
                             <b>Label:</b> {renderLabel(metadata.label)}
                         </div>
                     )}
-                    {phases && phases.length > 0 && (
+                    {metadata.phases && metadata.phases.length > 0 && (
                         <div style={{ marginTop: '4px' }}>
-                            <b>Phases:</b> {phases.map((p, i) =>
+                            <b>Phases:</b> {metadata.phases.map((p) =>
                                 `📍 ${p.label}: ${formatPhaseTime(p.ts_start)} - ${formatPhaseTime(p.ts_end)}`
                             ).join(' , ')}
                         </div>
@@ -86,7 +85,7 @@ export function FormatMetadataSummary(props: FormatMetadataSummaryProps) {
 }
 
 function formatPhaseTime(timestamp: string): string {
-    if (timestamp.startsWith("now")) {
+    if (!timestamp || timestamp.startsWith("now")) {
         return timestamp;
     }
     const date = new Date(timestamp);

@@ -91,8 +91,6 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 	// Extract timestamps
 	if tsStart, ok := rawData["ts_start"].(string); ok {
 		metadata.TSStart = tsStart
-	} else if tsStartTime, ok := rawData["ts_start"].(any); ok {
-		metadata.TSStart = fmt.Sprintf("%v", tsStartTime)
 	}
 	if tsEnd, ok := rawData["ts_end"].(string); ok {
 		metadata.TSEnd = tsEnd
@@ -109,8 +107,6 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 				}
 				if tsStart, ok := phaseMap["ts_start"].(string); ok {
 					phase.TSStart = tsStart
-				} else if tsStartTime, ok := phaseMap["ts_start"].(interface{}); ok {
-					phase.TSStart = fmt.Sprintf("%v", tsStartTime)
 				}
 				if tsEnd, ok := phaseMap["ts_end"].(string); ok {
 					phase.TSEnd = tsEnd
