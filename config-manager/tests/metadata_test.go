@@ -29,12 +29,12 @@ func TestCouchbaseMetadataStorage(t *testing.T) {
 	defer couchbaseStorage.Close()
 
 	// Create test metadata
-	metadata := &models.ClusterMetadata{
+	metadata := &models.SnapshotMetadata{
 		SnapshotID: "test-snapshot-123",
-		Buckets:    []string{"bucket1", "bucket2", "bucket3"},
-		Nodes:      []string{"node1.example.com", "node2.example.com"},
-		Indexes:    []string{"idx1", "idx2", "idx3", "idx4"},
-		Timestamp:  time.Now(),
+		Services:   []string{"kv", "index", "query"},
+		Server:     "7.6.8-7151-enterprise",
+		TsStart:    time.Now(),
+		TsEnd:      "now",
 	}
 
 	// Test saving metadata
@@ -54,8 +54,8 @@ func TestCouchbaseMetadataStorage(t *testing.T) {
 		t.Errorf("Expected SnapshotID %s, got %s", metadata.SnapshotID, retrievedMetadata.SnapshotID)
 	}
 
-	if len(retrievedMetadata.Buckets) != len(metadata.Buckets) {
-		t.Errorf("Expected %d buckets, got %d", len(metadata.Buckets), len(retrievedMetadata.Buckets))
+	if len(retrievedMetadata.Services) != len(metadata.Services) {
+		t.Errorf("Expected %d services, got %d", len(metadata.Services), len(retrievedMetadata.Services))
 	}
 }
 
@@ -73,12 +73,12 @@ func TestFileMetadataStorageFallback(t *testing.T) {
 	defer metadataStorage.Close()
 
 	// Test saving metadata (should be no-op)
-	metadata := &models.ClusterMetadata{
+	metadata := &models.SnapshotMetadata{
 		SnapshotID: "test-snapshot-123",
-		Buckets:    []string{"bucket1", "bucket2"},
-		Nodes:      []string{"node1.example.com"},
-		Indexes:    []string{"idx1", "idx2"},
-		Timestamp:  time.Now(),
+		Services:   []string{"kv", "index", "query"},
+		Server:     "7.6.8-7151-enterprise",
+		TsStart:    time.Now(),
+		TsEnd:      "now",
 	}
 
 	err = metadataStorage.SaveMetadata(metadata)

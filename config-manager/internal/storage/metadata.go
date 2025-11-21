@@ -11,7 +11,8 @@ type MetadataStorage interface {
 	SaveMetadata(metadata *models.SnapshotMetadata) error
 	GetMetadata(snapshotID string) (*models.SnapshotMetadata, error)
 	UpdatePhase(snapshotID string, phase string, mode string) error
-	 EoLSnapshot(snapshotID string) error
+	UpdateServices(snapshotID string, services []string) error
+	EoLSnapshot(snapshotID string) error
 	Close() error
 	Type() string
 }
@@ -65,6 +66,10 @@ func (fs *FileMetadataStorage) Type() string {
 
 func (fs *FileMetadataStorage) UpdatePhase(snapshotID string, phase string, mode string) error {
 	return nil	
+}
+
+func (fs *FileMetadataStorage) UpdateServices(snapshotID string, services []string) error {
+	return nil
 }
 
 func (fs *FileMetadataStorage) EoLSnapshot(snapshotID string) error {

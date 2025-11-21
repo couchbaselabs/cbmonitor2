@@ -233,8 +233,9 @@ func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request) {
 	snapshotID := segments[len(segments)-1]
 
 	var payload struct {
-		Phase string `json:"phase"`
-		Mode string `json:"mode"`
+		Phase    string   `json:"phase,omitempty"`
+		Mode     string   `json:"mode,omitempty"`
+		Services []string `json:"services,omitempty"`
 	}
 
 	if r.ContentLength != 0 {
@@ -243,14 +244,29 @@ func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if payload.Phase == "" || (payload.Mode != "start" && payload.Mode != "end") {
-			http.Error(w, "Invalid mode or missing phase", http.StatusBadRequest)
+		// Validate that at least one operation is requested
+		hasPhaseUpdate := payload.Phase != "" && (payload.Mode == "start" || payload.Mode == "end")
+		hasServiceUpdate := len(payload.Services) > 0
+
+		if !hasPhaseUpdate && !hasServiceUpdate {
+			http.Error(w, "At least one operation must be specified: phase update (phase + mode) or services update (services)", http.StatusBadRequest)
 			return
 		}
 
-		if err := h.metadataStorage.UpdatePhase(snapshotID, payload.Phase, payload.Mode); err != nil {
-			http.Error(w, "Failed to update phase: "+err.Error(), http.StatusInternalServerError)
-			return
+		// Handle phase update
+		if hasPhaseUpdate {
+			if err := h.metadataStorage.UpdatePhase(snapshotID, payload.Phase, payload.Mode); err != nil {
+				http.Error(w, "Failed to update phase: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+
+		// Handle services update
+		if hasServiceUpdate {
+			if err := h.metadataStorage.UpdateServices(snapshotID, payload.Services); err != nil {
+				http.Error(w, "Failed to update services: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 

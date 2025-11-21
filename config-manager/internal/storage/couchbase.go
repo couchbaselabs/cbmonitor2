@@ -139,6 +139,34 @@ func (cs *CouchbaseStorage) UpdatePhase(snapshotID string, phase string, mode st
 	}
 
 	return nil
+}
+
+func (cs *CouchbaseStorage) UpdateServices(snapshotID string, services []string) error {
+	snapshotMetadata, err := cs.GetMetadata(snapshotID)
+	if err != nil {
+		return fmt.Errorf("failed to get metadata for update: %w", err)
+	}
+
+	// Create a map to track existing services for deduplication
+	existingServices := make(map[string]bool)
+	for _, service := range snapshotMetadata.Services {
+		existingServices[service] = true
+	}
+
+	// Add new services (avoid duplicates)
+	for _, service := range services {
+		if !existingServices[service] {
+			snapshotMetadata.Services = append(snapshotMetadata.Services, service)
+			existingServices[service] = true
+		}
+	}
+
+	err = cs.SaveMetadata(snapshotMetadata)
+	if err != nil {
+		return fmt.Errorf("failed to save updated metadata: %w", err)
+	}
+
+	return nil
 }	
 
 func (cs *CouchbaseStorage) EoLSnapshot(snapshotID string) error {
