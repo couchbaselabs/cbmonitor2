@@ -273,6 +273,34 @@ func contains(text string, keywords []string) bool {
 	return false
 }
 
+// ExecuteQuery executes a raw SQL++ query and returns results as map[string]interface{}
+func (cs *CouchbaseService) ExecuteQuery(ctx context.Context, query string) ([]map[string]interface{}, error) {
+	results, err := cs.cluster.Query(query, &gocb.QueryOptions{
+		Timeout: 30 * time.Second,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute query: %w", err)
+	}
+	defer results.Close()
+
+	var rows []map[string]interface{}
+	for results.Next() {
+		var row map[string]interface{}
+		err := results.Row(&row)
+		if err != nil {
+			log.Printf("Error parsing query row: %v", err)
+			continue
+		}
+		rows = append(rows, row)
+	}
+
+	if err := results.Err(); err != nil {
+		return nil, fmt.Errorf("query execution error: %w", err)
+	}
+
+	return rows, nil
+}
+
 // Close closes the Couchbase connection
 func (cs *CouchbaseService) Close() error {
 	if cs.cluster != nil {

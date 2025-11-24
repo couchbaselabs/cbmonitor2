@@ -52,6 +52,9 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 
 	// Initialize snapshot routes
 	a.setupSnapshotRoutes(mux)
+
+	// Initialize Prometheus Query API routes
+	a.setupPrometheusRoutes(mux)
 }
 
 // setupMetricsRoutes initializes the metrics API routes
@@ -122,6 +125,33 @@ func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
 	})
 
 	log.Printf("Snapshot routes registered on /snapshots/")
+}
+
+// setupPrometheusRoutes initializes the Prometheus Query API routes
+func (a *App) setupPrometheusRoutes(mux *http.ServeMux) {
+	// Get Couchbase connection details from environment variables
+	connectionString := getEnvWithDefault("COUCHBASE_CONNECTION_STRING", "couchbase://localhost")
+	username := getEnvWithDefault("COUCHBASE_USERNAME", "Administrator")
+	password := getEnvWithDefault("COUCHBASE_PASSWORD", "password")
+	bucketName := getEnvWithDefault("COUCHBASE_BUCKET", "showfast")
+
+	// Initialize Couchbase service (reuse if already initialized)
+	couchbaseService, err := services.NewCouchbaseService(connectionString, username, password, bucketName)
+	if err != nil {
+		log.Printf("Warning: Failed to initialize Couchbase service for Prometheus API: %v", err)
+		log.Printf("Prometheus Query API endpoints will not be available")
+		couchbaseService = nil
+	}
+
+	// Initialize PromQL handler
+	promQLHandler := handlers.NewPromQLHandler(couchbaseService)
+
+	// Register Prometheus Query API routes
+	mux.HandleFunc("/query", promQLHandler.HandleQuery)
+	mux.HandleFunc("/query_range", promQLHandler.HandleQueryRange)
+	mux.HandleFunc("/series", promQLHandler.HandleSeries)
+
+	log.Printf("PromQL Query API routes registered: /query, /query_range, /series")
 }
 
 // getEnvWithDefault gets environment variable with a default value
