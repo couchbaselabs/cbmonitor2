@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/couchbase/cbmonitor/pkg/models"
@@ -196,7 +197,7 @@ func (h *SnapshotHandler) HandleGetMetricPhase(w http.ResponseWriter, req *http.
 	h.sendJSONResponse(w, response, http.StatusOK)
 }
 
-// HandleGetMetricSummary handles GET /snapshots/{id}/metrics/{metric_name}/summary (future)
+// HandleGetMetricSummary handles GET /snapshots/{id}/metrics/{metric_name}/summary
 func (h *SnapshotHandler) HandleGetMetricSummary(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -213,17 +214,40 @@ func (h *SnapshotHandler) HandleGetMetricSummary(w http.ResponseWriter, req *htt
 	snapshotID := pathParts[1]
 	metricName := pathParts[3]
 
-	// TODO: Implement summary computation
+	log.Printf("Computing metric summary: snapshot=%s, metric=%s", snapshotID, metricName)
+
+	if h.couchbaseService == nil {
+		h.sendSummaryErrorResponse(w, "Couchbase service is not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Build query using get_data_for_snapshot UDF to get all values
+	query := fmt.Sprintf(
+		"SELECT `value` FROM get_data_for_snapshot('%s', '%s') AS data",
+		metricName,
+		snapshotID,
+	)
+
+	// Execute query
+	results, err := h.couchbaseService.ExecuteQuery(req.Context(), query)
+	if err != nil {
+		log.Printf("Error executing metric summary query: %v", err)
+		h.sendSummaryErrorResponse(w, fmt.Sprintf("Failed to fetch metric data: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Extract values and compute summary
+	summary := h.computeSummary(results)
 	response := models.MetricSummaryResponse{
-		Success:  false,
+		Success:  true,
 		Metric:   metricName,
 		Snapshot: snapshotID,
-		Error:    "Summary computation not yet implemented",
+		Summary:  summary,
 	}
-	h.sendJSONResponse(w, response, http.StatusNotImplemented)
+	h.sendJSONResponse(w, response, http.StatusOK)
 }
 
-// HandleGetMetricPhaseSummary handles GET /snapshots/{id}/metrics/{metric_name}/phases/{phase_name}/summary (future)
+// HandleGetMetricPhaseSummary handles GET /snapshots/{id}/metrics/{metric_name}/phases/{phase_name}/summary
 func (h *SnapshotHandler) HandleGetMetricPhaseSummary(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -241,15 +265,39 @@ func (h *SnapshotHandler) HandleGetMetricPhaseSummary(w http.ResponseWriter, req
 	metricName := pathParts[3]
 	phaseName := pathParts[5]
 
-	// TODO: Implement summary computation
+	log.Printf("Computing metric phase summary: snapshot=%s, metric=%s, phase=%s", snapshotID, metricName, phaseName)
+
+	if h.couchbaseService == nil {
+		h.sendSummaryErrorResponse(w, "Couchbase service is not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Build query using get_data_for_phase UDF to get all values
+	query := fmt.Sprintf(
+		"SELECT `value` FROM get_data_for_phase('%s', '%s', '%s') AS data",
+		metricName,
+		snapshotID,
+		phaseName,
+	)
+
+	// Execute query
+	results, err := h.couchbaseService.ExecuteQuery(req.Context(), query)
+	if err != nil {
+		log.Printf("Error executing metric phase summary query: %v", err)
+		h.sendSummaryErrorResponse(w, fmt.Sprintf("Failed to fetch metric phase data: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Extract values and compute summary
+	summary := h.computeSummary(results)
 	response := models.MetricSummaryResponse{
-		Success:  false,
+		Success:  true,
 		Metric:   metricName,
 		Snapshot: snapshotID,
 		Phase:    phaseName,
-		Error:    "Summary computation not yet implemented",
+		Summary:  summary,
 	}
-	h.sendJSONResponse(w, response, http.StatusNotImplemented)
+	h.sendJSONResponse(w, response, http.StatusOK)
 }
 
 // transformMetricResults transforms Couchbase query results to MetricDataResponse
@@ -311,27 +359,6 @@ func (h *SnapshotHandler) transformMetricResults(results []map[string]interface{
 	return response
 }
 
-// buildLabelKey creates a unique key for a label set
-func (h *SnapshotHandler) buildLabelKey(labels map[string]interface{}) string {
-	if len(labels) == 0 {
-		return "{}"
-	}
-
-	var parts []string
-	for k, v := range labels {
-		parts = append(parts, fmt.Sprintf("%s=%v", k, v))
-	}
-	// Sort for consistent ordering
-	for i := 0; i < len(parts)-1; i++ {
-		for j := i + 1; j < len(parts); j++ {
-			if parts[i] > parts[j] {
-				parts[i], parts[j] = parts[j], parts[i]
-			}
-		}
-	}
-	return "{" + strings.Join(parts, ",") + "}"
-}
-
 // sendMetricErrorResponse sends an error response for metric endpoints
 func (h *SnapshotHandler) sendMetricErrorResponse(w http.ResponseWriter, message string, statusCode int) {
 	response := models.MetricDataResponse{
@@ -348,6 +375,108 @@ func (h *SnapshotHandler) sendSummaryErrorResponse(w http.ResponseWriter, messag
 		Error:   message,
 	}
 	h.sendJSONResponse(w, response, statusCode)
+}
+
+// computeSummary computes summary statistics from query results
+func (h *SnapshotHandler) computeSummary(results []map[string]interface{}) *models.MetricSummary {
+	if len(results) == 0 {
+		return &models.MetricSummary{
+			Count: 0,
+		}
+	}
+
+	// Extract values from results
+	var values []float64
+	for _, row := range results {
+		// Handle case where results might be wrapped in "data" key
+		actualRow := row
+		if data, ok := row["data"].(map[string]interface{}); ok {
+			actualRow = data
+		}
+
+		// Extract value - try different types
+		var value float64
+		valueFound := false
+
+		if v, ok := actualRow["value"].(float64); ok {
+			value = v
+			valueFound = true
+		} else if v, ok := actualRow["value"].(int); ok {
+			value = float64(v)
+			valueFound = true
+		} else if v, ok := actualRow["value"].(int64); ok {
+			value = float64(v)
+			valueFound = true
+		}
+
+		if valueFound {
+			values = append(values, value)
+		}
+	}
+
+	if len(values) == 0 {
+		return &models.MetricSummary{
+			Count: 0,
+		}
+	}
+
+	// Sort values for percentile computation
+	sortedValues := make([]float64, len(values))
+	copy(sortedValues, values)
+	sort.Float64s(sortedValues)
+
+	// Compute basic statistics
+	count := len(sortedValues)
+	var sum float64
+	min := sortedValues[0]
+	max := sortedValues[count-1]
+
+	for _, v := range sortedValues {
+		sum += v
+	}
+
+	avg := sum / float64(count)
+
+	// Compute percentiles
+	p50 := percentile(sortedValues, 0.50)
+	p80 := percentile(sortedValues, 0.80)
+	p95 := percentile(sortedValues, 0.95)
+	p99 := percentile(sortedValues, 0.99)
+
+	return &models.MetricSummary{
+		Count: count,
+		Avg:   avg,
+		Min:   min,
+		Max:   max,
+		P50:   p50,
+		P80:   p80,
+		P95:   p95,
+		P99:   p99,
+	}
+}
+
+// percentile computes the percentile value from a sorted slice
+// Uses linear interpolation between the two nearest ranks
+func percentile(sortedValues []float64, p float64) float64 {
+	if len(sortedValues) == 0 {
+		return 0
+	}
+	if len(sortedValues) == 1 {
+		return sortedValues[0]
+	}
+
+	// Calculate the position
+	position := p * float64(len(sortedValues)-1)
+	lower := int(position)
+	upper := lower + 1
+	weight := position - float64(lower)
+
+	if upper >= len(sortedValues) {
+		return sortedValues[len(sortedValues)-1]
+	}
+
+	// Linear interpolation
+	return sortedValues[lower]*(1-weight) + sortedValues[upper]*weight
 }
 
 // getKeys returns all keys from a map for debugging
