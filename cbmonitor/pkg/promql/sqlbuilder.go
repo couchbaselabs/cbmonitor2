@@ -267,13 +267,9 @@ func (b *SQLBuilder) buildLabelSelect(groupBy []string) string {
 	return ""
 }
 
-// escapeLabel escapes label names for SQL++
+// escapeLabel escapes label names for SQL++ by wrapping them in backticks
 func escapeLabel(label string) string {
-	// Use backticks for labels with special characters
-	if strings.ContainsAny(label, "-. ") {
-		return fmt.Sprintf("`%s`", label)
-	}
-	return label
+	return fmt.Sprintf("`%s`", label)
 }
 
 // GetTimeRange returns the time range for the query

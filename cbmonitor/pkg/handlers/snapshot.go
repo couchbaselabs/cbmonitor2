@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/couchbase/cbmonitor/pkg/models"
@@ -117,7 +118,10 @@ func (h *SnapshotHandler) HandleGetMetric(w http.ResponseWriter, req *http.Reque
 	snapshotID := pathParts[1]
 	metricName := pathParts[3]
 
-	log.Printf("Fetching metric data: snapshot=%s, metric=%s", snapshotID, metricName)
+	// Parse label filters from query parameters
+	labelFilters, _ := parseQueryParams(req)
+
+	log.Printf("Fetching metric data: snapshot=%s, metric=%s, labelFilters=%v", snapshotID, metricName, labelFilters)
 
 	if h.couchbaseService == nil {
 		h.sendMetricErrorResponse(w, "Couchbase service is not available", http.StatusServiceUnavailable)
@@ -126,11 +130,22 @@ func (h *SnapshotHandler) HandleGetMetric(w http.ResponseWriter, req *http.Reque
 
 	// Build query using get_data_for_snapshot UDF (bucket name is hardcoded in UDF)
 	// Select only time and value for debugging - clients only need raw data
-	query := fmt.Sprintf(
-		"SELECT time, `value` FROM get_data_for_snapshot('%s', '%s') AS data",
-		metricName,
-		snapshotID,
-	)
+	whereClause := buildLabelWhereClause(labelFilters)
+	var query string
+	if whereClause != "" {
+		query = fmt.Sprintf(
+			"SELECT time, `value` FROM get_data_for_snapshot('%s', '%s') AS d WHERE %s",
+			metricName,
+			snapshotID,
+			whereClause,
+		)
+	} else {
+		query = fmt.Sprintf(
+			"SELECT time, `value` FROM get_data_for_snapshot('%s', '%s') AS data",
+			metricName,
+			snapshotID,
+		)
+	}
 
 	// Execute query
 	results, err := h.couchbaseService.ExecuteQuery(req.Context(), query)
@@ -168,7 +183,10 @@ func (h *SnapshotHandler) HandleGetMetricPhase(w http.ResponseWriter, req *http.
 	metricName := pathParts[3]
 	phaseName := pathParts[5]
 
-	log.Printf("Fetching metric phase data: snapshot=%s, metric=%s, phase=%s", snapshotID, metricName, phaseName)
+	// Parse label filters from query parameters
+	labelFilters, _ := parseQueryParams(req)
+
+	log.Printf("Fetching metric phase data: snapshot=%s, metric=%s, phase=%s, labelFilters=%v", snapshotID, metricName, phaseName, labelFilters)
 
 	if h.couchbaseService == nil {
 		h.sendMetricErrorResponse(w, "Couchbase service is not available", http.StatusServiceUnavailable)
@@ -177,12 +195,24 @@ func (h *SnapshotHandler) HandleGetMetricPhase(w http.ResponseWriter, req *http.
 
 	// Build query using get_data_for_phase UDF (bucket name is hardcoded in UDF)
 	// Select only time and value for debugging - clients only need raw data
-	query := fmt.Sprintf(
-		"SELECT time, `value` FROM get_data_for_phase('%s', '%s', '%s') AS data",
-		metricName,
-		snapshotID,
-		phaseName,
-	)
+	whereClause := buildLabelWhereClause(labelFilters)
+	var query string
+	if whereClause != "" {
+		query = fmt.Sprintf(
+			"SELECT time, `value` FROM get_data_for_phase('%s', '%s', '%s') AS d WHERE %s",
+			metricName,
+			snapshotID,
+			phaseName,
+			whereClause,
+		)
+	} else {
+		query = fmt.Sprintf(
+			"SELECT time, `value` FROM get_data_for_phase('%s', '%s', '%s') AS data",
+			metricName,
+			snapshotID,
+			phaseName,
+		)
+	}
 
 	// Execute query
 	results, err := h.couchbaseService.ExecuteQuery(req.Context(), query)
@@ -214,7 +244,10 @@ func (h *SnapshotHandler) HandleGetMetricSummary(w http.ResponseWriter, req *htt
 	snapshotID := pathParts[1]
 	metricName := pathParts[3]
 
-	log.Printf("Computing metric summary: snapshot=%s, metric=%s", snapshotID, metricName)
+	// Parse label filters and percentiles from query parameters
+	labelFilters, percentiles := parseQueryParams(req)
+
+	log.Printf("Computing metric summary: snapshot=%s, metric=%s, labelFilters=%v, percentiles=%v", snapshotID, metricName, labelFilters, percentiles)
 
 	if h.couchbaseService == nil {
 		h.sendSummaryErrorResponse(w, "Couchbase service is not available", http.StatusServiceUnavailable)
@@ -222,11 +255,22 @@ func (h *SnapshotHandler) HandleGetMetricSummary(w http.ResponseWriter, req *htt
 	}
 
 	// Build query using get_data_for_snapshot UDF to get all values
-	query := fmt.Sprintf(
-		"SELECT `value` FROM get_data_for_snapshot('%s', '%s') AS data",
-		metricName,
-		snapshotID,
-	)
+	whereClause := buildLabelWhereClause(labelFilters)
+	var query string
+	if whereClause != "" {
+		query = fmt.Sprintf(
+			"SELECT `value` FROM get_data_for_snapshot('%s', '%s') AS d WHERE %s",
+			metricName,
+			snapshotID,
+			whereClause,
+		)
+	} else {
+		query = fmt.Sprintf(
+			"SELECT `value` FROM get_data_for_snapshot('%s', '%s') AS data",
+			metricName,
+			snapshotID,
+		)
+	}
 
 	// Execute query
 	results, err := h.couchbaseService.ExecuteQuery(req.Context(), query)
@@ -236,8 +280,8 @@ func (h *SnapshotHandler) HandleGetMetricSummary(w http.ResponseWriter, req *htt
 		return
 	}
 
-	// Extract values and compute summary
-	summary := h.computeSummary(results)
+	// Extract values and compute summary with custom percentiles
+	summary := h.computeSummary(results, percentiles)
 	response := models.MetricSummaryResponse{
 		Success:  true,
 		Metric:   metricName,
@@ -265,7 +309,10 @@ func (h *SnapshotHandler) HandleGetMetricPhaseSummary(w http.ResponseWriter, req
 	metricName := pathParts[3]
 	phaseName := pathParts[5]
 
-	log.Printf("Computing metric phase summary: snapshot=%s, metric=%s, phase=%s", snapshotID, metricName, phaseName)
+	// Parse label filters and percentiles from query parameters
+	labelFilters, percentiles := parseQueryParams(req)
+
+	log.Printf("Computing metric phase summary: snapshot=%s, metric=%s, phase=%s, labelFilters=%v, percentiles=%v", snapshotID, metricName, phaseName, labelFilters, percentiles)
 
 	if h.couchbaseService == nil {
 		h.sendSummaryErrorResponse(w, "Couchbase service is not available", http.StatusServiceUnavailable)
@@ -273,12 +320,24 @@ func (h *SnapshotHandler) HandleGetMetricPhaseSummary(w http.ResponseWriter, req
 	}
 
 	// Build query using get_data_for_phase UDF to get all values
-	query := fmt.Sprintf(
-		"SELECT `value` FROM get_data_for_phase('%s', '%s', '%s') AS data",
-		metricName,
-		snapshotID,
-		phaseName,
-	)
+	whereClause := buildLabelWhereClause(labelFilters)
+	var query string
+	if whereClause != "" {
+		query = fmt.Sprintf(
+			"SELECT `value` FROM get_data_for_phase('%s', '%s', '%s') AS d WHERE %s",
+			metricName,
+			snapshotID,
+			phaseName,
+			whereClause,
+		)
+	} else {
+		query = fmt.Sprintf(
+			"SELECT `value` FROM get_data_for_phase('%s', '%s', '%s') AS data",
+			metricName,
+			snapshotID,
+			phaseName,
+		)
+	}
 
 	// Execute query
 	results, err := h.couchbaseService.ExecuteQuery(req.Context(), query)
@@ -288,8 +347,8 @@ func (h *SnapshotHandler) HandleGetMetricPhaseSummary(w http.ResponseWriter, req
 		return
 	}
 
-	// Extract values and compute summary
-	summary := h.computeSummary(results)
+	// Extract values and compute summary with custom percentiles
+	summary := h.computeSummary(results, percentiles)
 	response := models.MetricSummaryResponse{
 		Success:  true,
 		Metric:   metricName,
@@ -377,11 +436,23 @@ func (h *SnapshotHandler) sendSummaryErrorResponse(w http.ResponseWriter, messag
 	h.sendJSONResponse(w, response, statusCode)
 }
 
+// formatPercentileKey formats a percentile value (0.0-1.0) as a string key
+// Returns clean format like "0.5", "0.9", "0.99" (removes trailing zeros)
+func formatPercentileKey(p float64) string {
+	key := fmt.Sprintf("%.2f", p)
+	// Remove trailing zeros for cleaner keys (e.g., "0.5" instead of "0.50")
+	key = strings.TrimRight(strings.TrimRight(key, "0"), ".")
+	return key
+}
+
 // computeSummary computes summary statistics from query results
-func (h *SnapshotHandler) computeSummary(results []map[string]interface{}) *models.MetricSummary {
+// Always computes default percentiles (P50, P90, P99) and stores them in Percentiles map
+// If customPercentiles are provided, they are added as extras to the Percentiles map
+func (h *SnapshotHandler) computeSummary(results []map[string]interface{}, customPercentiles []float64) *models.MetricSummary {
 	if len(results) == 0 {
 		return &models.MetricSummary{
-			Count: 0,
+			Count:      0,
+			Percentiles: make(map[string]float64),
 		}
 	}
 
@@ -416,7 +487,8 @@ func (h *SnapshotHandler) computeSummary(results []map[string]interface{}) *mode
 
 	if len(values) == 0 {
 		return &models.MetricSummary{
-			Count: 0,
+			Count:      0,
+			Percentiles: make(map[string]float64),
 		}
 	}
 
@@ -437,22 +509,35 @@ func (h *SnapshotHandler) computeSummary(results []map[string]interface{}) *mode
 
 	avg := sum / float64(count)
 
-	// Compute percentiles
-	p50 := percentile(sortedValues, 0.50)
-	p80 := percentile(sortedValues, 0.80)
-	p95 := percentile(sortedValues, 0.95)
-	p99 := percentile(sortedValues, 0.99)
-
-	return &models.MetricSummary{
-		Count: count,
-		Avg:   avg,
-		Min:   min,
-		Max:   max,
-		P50:   p50,
-		P80:   p80,
-		P95:   p95,
-		P99:   p99,
+	summary := &models.MetricSummary{
+		Count:      count,
+		Avg:        avg,
+		Min:        min,
+		Max:        max,
+		Percentiles: make(map[string]float64),
 	}
+
+	// Always compute default percentiles: P50, P90, P99
+	defaultPercentiles := []float64{0.50, 0.90, 0.99}
+	for _, p := range defaultPercentiles {
+		value := percentile(sortedValues, p)
+		key := formatPercentileKey(p)
+		summary.Percentiles[key] = value
+	}
+
+	// Add custom percentiles as extras (avoid duplicates)
+	if len(customPercentiles) > 0 {
+		for _, p := range customPercentiles {
+			key := formatPercentileKey(p)
+			// Only add if not already in map (avoid overwriting defaults)
+			if _, exists := summary.Percentiles[key]; !exists {
+				value := percentile(sortedValues, p)
+				summary.Percentiles[key] = value
+			}
+		}
+	}
+
+	return summary
 }
 
 // percentile computes the percentile value from a sorted slice
@@ -486,4 +571,102 @@ func getKeys(m map[string]interface{}) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+// Reserved parameter names that are NOT label filters
+var reservedParams = map[string]bool{
+	"percentiles": true,
+	"p":           true, // short form
+}
+
+// parseQueryParams parses query parameters into label filters and percentiles
+// Returns label filters map and list of percentile values (0.0-1.0)
+func parseQueryParams(req *http.Request) (labelFilters map[string]string, percentiles []float64) {
+	query := req.URL.Query()
+	labelFilters = make(map[string]string)
+
+	// First pass: extract percentiles
+	if pStr := query.Get("percentiles"); pStr != "" {
+		percentiles = parsePercentiles(pStr)
+	} else if pStr := query.Get("p"); pStr != "" {
+		percentiles = parsePercentiles(pStr)
+	}
+
+	// Second pass: everything else is a label filter
+	for key, values := range query {
+		if !reservedParams[strings.ToLower(key)] && len(values) > 0 {
+			labelFilters[key] = values[0] // Take first value
+		}
+	}
+
+	return labelFilters, percentiles
+}
+
+// parsePercentiles parses a comma-separated string of percentile values
+// Returns a slice of float64 values in the range [0.0, 1.0]
+func parsePercentiles(pStr string) []float64 {
+	parts := strings.Split(pStr, ",")
+	var percentiles []float64
+
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+
+		// Parse as float
+		p, err := strconv.ParseFloat(part, 64)
+		if err != nil {
+			log.Printf("Warning: Invalid percentile value '%s', skipping", part)
+			continue
+		}
+
+		// Validate range [0.0, 1.0]
+		if p < 0.0 || p > 1.0 {
+			log.Printf("Warning: Percentile value %.2f out of range [0.0, 1.0], skipping", p)
+			continue
+		}
+
+		percentiles = append(percentiles, p)
+	}
+
+	// Remove duplicates and sort
+	if len(percentiles) > 0 {
+		seen := make(map[float64]bool)
+		unique := []float64{}
+		for _, p := range percentiles {
+			if !seen[p] {
+				seen[p] = true
+				unique = append(unique, p)
+			}
+		}
+		sort.Float64s(unique)
+		percentiles = unique
+	}
+
+	return percentiles
+}
+
+// escapeLabel escapes label names for SQL++ by wrapping them in backticks
+func escapeLabel(label string) string {
+	return fmt.Sprintf("`%s`", label)
+}
+
+// buildLabelWhereClause builds a WHERE clause for label filters
+// Returns empty string if no filters, otherwise returns conditions joined with AND
+func buildLabelWhereClause(labelFilters map[string]string) string {
+	if len(labelFilters) == 0 {
+		return ""
+	}
+
+	conditions := []string{}
+	for labelName, labelValue := range labelFilters {
+		// Escape label name and value for SQL injection prevention
+		escapedLabel := escapeLabel(labelName)
+		// Basic SQL injection prevention - escape single quotes in value
+		escapedValue := strings.ReplaceAll(labelValue, "'", "''")
+		conditions = append(conditions, fmt.Sprintf(`d.labels.%s = '%s'`, escapedLabel, escapedValue))
+	}
+
+	return strings.Join(conditions, " AND ")
 }

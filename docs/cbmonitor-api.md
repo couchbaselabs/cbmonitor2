@@ -198,6 +198,26 @@ GET /api/v1/snapshots/faa940df-70a5-46fa-aeee-2f02747a903d/metrics/kv_ops/phases
 ```
 </details>
 
+### Parameters and label filters
+
+All endpoints support label filters. The label filters are specified as query parameters. The label filters are applied to the metric data.
+
+**Query Parameters:**
+- `percentiles` (`p`) (optional): Comma-separated list of percentile values (0.0-1.0). Defaults to `0.5,0.8,0.95,0.99`.
+- `key=value` (optional): Label filter. Can be specified multiple times.
+
+**Example Request:**
+```
+// Label filters
+GET /snapshots/{id}/metrics/{metric}?node=node1&bucket=mybucket
+GET /snapshots/{id}/metrics/{metric}/summary?instance=instance1
+
+// Percentiles
+GET /snapshots/{id}/metrics/{metric}/summary?percentiles=0.5,0.8,0.95,0.99
+
+// Both
+GET /snapshots/{id}/metrics/{metric}/summary?percentiles=0.9&node=node1&bucket=mybucket&instance=instance1
+```
 ---
 
 

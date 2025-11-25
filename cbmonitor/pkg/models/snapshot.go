@@ -57,14 +57,11 @@ type TimeRange struct {
 
 // MetricSummary represents pre-computed summary statistics
 type MetricSummary struct {
-	Count int     `json:"count"`
-	Avg   float64 `json:"avg"`
-	Min   float64 `json:"min"`
-	Max   float64 `json:"max"`
-	P50   float64 `json:"p50"`
-	P80   float64 `json:"p80"`
-	P95   float64 `json:"p95"`
-	P99   float64 `json:"p99"`
+	Count      int                `json:"count"`
+	Avg        float64            `json:"avg"`
+	Min        float64            `json:"min"`
+	Max        float64            `json:"max"`
+	Percentiles map[string]float64 `json:"percentiles"` // Always includes P50, P90, P99, plus any custom percentiles
 }
 
 // MetricSummaryResponse represents summary statistics for a metric
