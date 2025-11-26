@@ -2,182 +2,82 @@ import {
     EmbeddedScene,
     SceneFlexLayout,
     SceneFlexItem,
-    SceneQueryRunner,
+    SceneVariableSet,
 } from '@grafana/scenes';
 import { PanelBuilders } from '@grafana/scenes';
+import { ShowfastQueryBuilder, createShowfastQueries } from '../../../utils/utils.showfast';
 
 /**
- * Creates a KV throughput dashboard using Infinity datasource
+ * Creates a dynamic KV throughput dashboard using the ShowfastQueryBuilder
  * This dashboard shows performance metrics from external APIs via Showfast
  */
 export function kvThroughputDashboard(): EmbeddedScene {
+    // Create template variables for dynamic metric selection
+    const variables = ShowfastQueryBuilder.buildVariableSet(['kv']);
+
     return new EmbeddedScene({
+        $variables: variables,
         body: new SceneFlexLayout({
             minHeight: 50,
             direction: 'row',
             wrap: 'wrap',
             children: [
-                // KV Throughput Performance Panel
+                // KV Max Ops Performance Panel
                 new SceneFlexItem({
                     height: 400,
                     width: '50%',
                     minWidth: '45%',
                     body: PanelBuilders.barchart()
-                        .setTitle('KV Throughput Performance')
+                        .setTitle('KV Max Ops Performance')
                         .build(),
-                    $data: new SceneQueryRunner({
-                        datasource: {
-                            type: 'yesoreyeram-infinity-datasource',
-                            uid: 'Showfast'
-                        },
-                        queries: [
-                            {
-                                refId: 'A',
-                                queryType: 'infinity',
-                                type: 'json',
-                                source: 'url',
-                                format: 'table',
-                                url: '/api/v1/timeline/kv_max_ops_linux',
-                                parser: 'simple',
-                                root_selector: '$',
-                                columns: [
-                                    {
-                                        selector: 'build',
-                                        text: 'build',
-                                        type: 'string'
-                                    },
-                                    {
-                                        selector: 'metric',
-                                        text: 'metric',
-                                        type: 'number'
-                                    }
-                                ]
-                            }
-                        ]
-                    })
+                    $data: new ShowfastQueryBuilder('kv', 'max_ops')
+                        .setVisualizationType('barchart')
+                        .useTimelineData(true)
+                        .buildQueryRunner()
                 }),
 
-                // KV Max Ops Linux Panel
+                // KV Max Ops SSL Performance Panel
                 new SceneFlexItem({
                     height: 400,
                     width: '50%',
                     minWidth: '45%',
                     body: PanelBuilders.timeseries()
-                        .setTitle('KV Max Ops Linux')
+                        .setTitle('KV Max Ops SSL')
                         .setUnit('ops')
                         .build(),
-                    $data: new SceneQueryRunner({
-                        datasource: {
-                            type: 'yesoreyeram-infinity-datasource',
-                            uid: 'Showfast'
-                        },
-                        queries: [
-                            {
-                                refId: 'B',
-                                queryType: 'infinity',
-                                type: 'json',
-                                source: 'url',
-                                format: 'table',
-                                url: '/api/v1/metrics/kv/max_ops/all',
-                                parser: 'simple',
-                                root_selector: '$',
-                                columns: [
-                                    {
-                                        selector: 'build',
-                                        text: 'build',
-                                        type: 'string'
-                                    },
-                                    {
-                                        selector: 'metric',
-                                        text: 'metric',
-                                        type: 'number'
-                                    }
-                                ]
-                            }
-                        ]
-                    })
+                    $data: new ShowfastQueryBuilder('kv', 'max_ops_ssl')
+                        .setVisualizationType('timeseries')
+                        .useTimelineData(true)
+                        .buildQueryRunner()
                 }),
 
-                // KV Latency Panel
+                // KV 95th Percentile Latency Panel
                 new SceneFlexItem({
                     height: 400,
                     width: '50%',
                     minWidth: '45%',
                     body: PanelBuilders.timeseries()
-                        .setTitle('KV Latency Performance')
+                        .setTitle('KV 95th Percentile Latency')
                         .setUnit('ms')
                         .build(),
-                    $data: new SceneQueryRunner({
-                        datasource: {
-                            type: 'yesoreyeram-infinity-datasource',
-                            uid: 'Showfast'
-                        },
-                        queries: [
-                            {
-                                refId: 'C',
-                                queryType: 'infinity',
-                                type: 'json',
-                                source: 'url',
-                                format: 'table',
-                                url: '/api/v1/metrics/kv/latency_95th/all',
-                                parser: 'simple',
-                                root_selector: '$',
-                                columns: [
-                                    {
-                                        selector: 'build',
-                                        text: 'build',
-                                        type: 'string'
-                                    },
-                                    {
-                                        selector: 'metric',
-                                        text: 'metric',
-                                        type: 'number'
-                                    }
-                                ]
-                            }
-                        ]
-                    })
+                    $data: new ShowfastQueryBuilder('kv', 'latency_95th')
+                        .setVisualizationType('timeseries')
+                        .useTimelineData(true)
+                        .buildQueryRunner()
                 }),
 
-                // Mixed Workload Panel
+                // KV Metrics Table Panel
                 new SceneFlexItem({
                     height: 400,
                     width: '50%',
                     minWidth: '45%',
-                    body: PanelBuilders.barchart()
-                        .setTitle('Mixed Workload Performance')
-                        .setUnit('ops')
+                    body: PanelBuilders.table()
+                        .setTitle('Available KV Metrics')
                         .build(),
-                    $data: new SceneQueryRunner({
-                        datasource: {
-                            type: 'yesoreyeram-infinity-datasource',
-                            uid: 'Showfast'
-                        },
-                        queries: [
-                            {
-                                refId: 'D',
-                                queryType: 'infinity',
-                                type: 'json',
-                                source: 'url',
-                                format: 'table',
-                                url: '/api/v1/metrics/mixed/throughput/all',
-                                parser: 'simple',
-                                root_selector: '$',
-                                columns: [
-                                    {
-                                        selector: 'build',
-                                        text: 'build',
-                                        type: 'string'
-                                    },
-                                    {
-                                        selector: 'metric',
-                                        text: 'metric',
-                                        type: 'number'
-                                    }
-                                ]
-                            }
-                        ]
-                    })
+                    $data: new ShowfastQueryBuilder('kv', 'max_ops')
+                        .setVisualizationType('table')
+                        .useTimelineData(false) // Use metrics endpoint for table
+                        .buildQueryRunner()
                 })
             ]
         })
