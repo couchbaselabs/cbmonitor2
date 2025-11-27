@@ -3,6 +3,7 @@ package promql
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/prometheus/prometheus/promql/parser"
@@ -81,8 +82,20 @@ func ParseQueryContext(query string, timeStr string, startStr, endStr string, st
 
 // parseTime parses a time string (Unix timestamp or RFC3339)
 func parseTime(timeStr string) (time.Time, error) {
-	// Try Unix timestamp first
-	if timestamp, err := parseFloat(timeStr); err == nil {
+	// Try RFC3339 first (most common format from Prometheus API)
+	// This includes formats like: 2025-11-26T14:54:31.661792773Z
+	if t, err := time.Parse(time.RFC3339, timeStr); err == nil {
+		return t, nil
+	}
+
+	// Try RFC3339Nano for nanosecond precision
+	if t, err := time.Parse(time.RFC3339Nano, timeStr); err == nil {
+		return t, nil
+	}
+
+	// Try Unix timestamp (only if the entire string is numeric)
+	// Use strconv.ParseFloat which requires the entire string to be a number
+	if timestamp, err := strconv.ParseFloat(timeStr, 64); err == nil {
 		// Check if it's in seconds or milliseconds
 		if timestamp > 1e10 {
 			// Likely milliseconds
@@ -91,22 +104,10 @@ func parseTime(timeStr string) (time.Time, error) {
 		return time.Unix(int64(timestamp), 0), nil
 	}
 
-	// Try RFC3339
-	if t, err := time.Parse(time.RFC3339, timeStr); err == nil {
-		return t, nil
-	}
-
-	return time.Time{}, fmt.Errorf("unable to parse time: %s", timeStr)
+	return time.Time{}, fmt.Errorf("unable to parse time: %s (expected RFC3339 format or Unix timestamp)", timeStr)
 }
 
 // parseDuration parses a duration string (e.g., "5m", "1h", "30s")
 func parseDuration(durationStr string) (time.Duration, error) {
 	return time.ParseDuration(durationStr)
-}
-
-// parseFloat is a simple float parser
-func parseFloat(s string) (float64, error) {
-	var result float64
-	_, err := fmt.Sscanf(s, "%f", &result)
-	return result, err
 }

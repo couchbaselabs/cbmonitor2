@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/couchbase/cbmonitor/pkg/querybuilder"
 )
 
 // SQLBuilder builds SQL++ queries from query plans
@@ -116,56 +118,45 @@ func (b *SQLBuilder) buildSeriesQueryPart(seriesQuery SeriesQuery) string {
 	// Build SELECT clause
 	selectClause := b.buildSelectClause(seriesQuery)
 
-	// Build WHERE clause
-	whereClause := b.buildWhereClause(seriesQuery)
+	// Build time range condition
+	// Note: label filters are already embedded in metricFilter (before UNNEST)
+	// Time filtering happens after UNNEST but before final output
+	timeCondition := fmt.Sprintf("d.time_millis >= %d AND d.time_millis <= %d", fromMillis, toMillis)
 
-	// Construct full query
-	// Note: time_range(t._t) is handled by the datasource plugin, but we include it for completeness
-	if whereClause != "" {
-		query := fmt.Sprintf(
-			"SELECT %s FROM %s AS d UNNEST _timeseries(d, {'ts_ranges':[%d, %d]}) AS t WHERE %s",
-			selectClause,
-			metricFilter,
-			fromMillis,
-			toMillis,
-			whereClause,
-		)
-		return query
-	}
-
-	// If no WHERE clause, still include time_range for datasource plugin
 	query := fmt.Sprintf(
-		"SELECT %s FROM %s AS d UNNEST _timeseries(d, {'ts_ranges':[%d, %d]}) AS t WHERE time_range(t._t)",
+		"SELECT %s FROM %s AS d WHERE %s",
 		selectClause,
 		metricFilter,
-		fromMillis,
-		toMillis,
+		timeCondition,
 	)
 
 	return query
 }
 
-// buildMetricFilter builds the get_metric_for function call
+// buildMetricFilter builds the query with all label conditions embedded BEFORE UNNEST
+// This ensures optimal performance by filtering at the earliest possible point
 func (b *SQLBuilder) buildMetricFilter(seriesQuery SeriesQuery) string {
-	// get_metric_for(metric_name, snapshot)
-	// snapshot comes from 'job' label in PromQL
-	snapshot := seriesQuery.Snapshot
-	if snapshot == "" {
-		snapshot = b.queryCtx.SnapshotID
-	}
-	if snapshot == "" {
-		// If no snapshot provided, use placeholder (will need to be provided)
-		snapshot = "$snapshot"
+	// Build all label conditions including job/snapshot
+	labelConditions := b.buildLabelWhereClause(seriesQuery)
+
+	// Construct query inline with conditions embedded - filters BEFORE UNNEST
+	baseQuery := fmt.Sprintf(
+		"SELECT t._t AS time_millis, MILLIS_TO_STR(t._t) AS time, t._v0 AS `value`, d.labels AS labels FROM cbmonitor._default._default AS d UNNEST _timeseries(d, {'ts_ranges':[0, 9223372036854775807]}) AS t WHERE d.metric_name = '%s'",
+		seriesQuery.MetricName,
+	)
+
+	if labelConditions != "" {
+		baseQuery = fmt.Sprintf("%s AND %s", baseQuery, labelConditions)
 	}
 
-	return fmt.Sprintf("get_metric_for('%s', '%s')", seriesQuery.MetricName, snapshot)
+	return fmt.Sprintf("(%s)", baseQuery)
 }
 
 // buildSelectClause builds the SELECT clause
 func (b *SQLBuilder) buildSelectClause(seriesQuery SeriesQuery) string {
 	parts := []string{
-		"MILLIS_TO_STR(t._t) AS time",
-		"t._v0 AS `value`",
+		"d.time",
+		"d.`value`",
 	}
 
 	// Add label fields if needed
@@ -177,31 +168,82 @@ func (b *SQLBuilder) buildSelectClause(seriesQuery SeriesQuery) string {
 	return strings.Join(parts, ", ")
 }
 
-// buildWhereClause builds the WHERE clause
-func (b *SQLBuilder) buildWhereClause(seriesQuery SeriesQuery) string {
-	conditions := []string{}
+// buildLabelWhereClause builds the WHERE clause for label filters including job/snapshot
+func (b *SQLBuilder) buildLabelWhereClause(seriesQuery SeriesQuery) string {
+	// Convert seriesQuery.Labels to LabelFilter slice for shared utility
+	var filters []querybuilder.LabelFilter
 
-	// Add label filters
+	// Check if job label is already in Labels (could be with operators like !=, =~, !~)
+	hasJobInLabels := false
+	for labelName := range seriesQuery.Labels {
+		// Remove operator prefixes to get actual label name
+		actualLabel := labelName
+		if strings.HasPrefix(labelName, "!") {
+			actualLabel = strings.TrimPrefix(labelName, "!")
+		} else if strings.HasPrefix(labelName, "=~") {
+			actualLabel = strings.TrimPrefix(labelName, "=~")
+		} else if strings.HasPrefix(labelName, "!~") {
+			actualLabel = strings.TrimPrefix(labelName, "!~")
+		}
+		if actualLabel == "job" || actualLabel == "snapshot" || actualLabel == "snapshot_id" {
+			hasJobInLabels = true
+			break
+		}
+	}
+
+	// Add job/snapshot filter if not already present in Labels
+	if !hasJobInLabels {
+		snapshot := seriesQuery.Snapshot
+		if snapshot == "" {
+			snapshot = b.queryCtx.SnapshotID
+		}
+		if snapshot != "" {
+			// Add job label filter (snapshot is stored as job label)
+			filters = append(filters, querybuilder.LabelFilter{
+				Name:  "job",
+				Value: snapshot,
+				Op:    "=",
+			})
+		}
+	}
+
+	// Process all label filters from Labels
 	for labelName, labelValue := range seriesQuery.Labels {
 		if strings.HasPrefix(labelName, "!") {
 			// NOT EQUAL
 			actualLabel := strings.TrimPrefix(labelName, "!")
-			conditions = append(conditions, fmt.Sprintf(`d.labels.%s != '%s'`, escapeLabel(actualLabel), labelValue))
+			filters = append(filters, querybuilder.LabelFilter{
+				Name:  actualLabel,
+				Value: labelValue,
+				Op:    "!=",
+			})
 		} else if strings.HasPrefix(labelName, "=~") {
 			// REGEX MATCH
 			actualLabel := strings.TrimPrefix(labelName, "=~")
-			conditions = append(conditions, fmt.Sprintf(`d.labels.%s LIKE '%s'`, escapeLabel(actualLabel), labelValue))
+			filters = append(filters, querybuilder.LabelFilter{
+				Name:  actualLabel,
+				Value: labelValue,
+				Op:    "=~",
+			})
 		} else if strings.HasPrefix(labelName, "!~") {
 			// NOT REGEX MATCH
 			actualLabel := strings.TrimPrefix(labelName, "!~")
-			conditions = append(conditions, fmt.Sprintf(`d.labels.%s NOT LIKE '%s'`, escapeLabel(actualLabel), labelValue))
+			filters = append(filters, querybuilder.LabelFilter{
+				Name:  actualLabel,
+				Value: labelValue,
+				Op:    "!~",
+			})
 		} else {
-			// EQUAL
-			conditions = append(conditions, fmt.Sprintf(`d.labels.%s = '%s'`, escapeLabel(labelName), labelValue))
+			// EQUAL - process all labels (job will be handled above if not in Labels)
+			filters = append(filters, querybuilder.LabelFilter{
+				Name:  labelName,
+				Value: labelValue,
+				Op:    "=",
+			})
 		}
 	}
 
-	return strings.Join(conditions, " AND ")
+	return querybuilder.BuildLabelWhereClauseFromFilters(filters)
 }
 
 // applyFunction applies PromQL function transformations
@@ -230,10 +272,10 @@ func (b *SQLBuilder) wrapWithAggregation(query string) string {
 	var groupBy []string
 	if len(b.plan.Aggregation.By) > 0 {
 		for _, label := range b.plan.Aggregation.By {
-			groupBy = append(groupBy, fmt.Sprintf("d.labels.%s", escapeLabel(label)))
+			groupBy = append(groupBy, fmt.Sprintf("d.labels.%s", querybuilder.EscapeLabel(label)))
 		}
 	}
-	groupBy = append(groupBy, "t._t") // Always group by time
+	groupBy = append(groupBy, "d.time") // Always group by time
 
 	// Build aggregation function
 	aggFunc := strings.ToUpper(b.plan.Aggregation.Operation)
@@ -265,11 +307,6 @@ func (b *SQLBuilder) buildLabelSelect(groupBy []string) string {
 		return ", " + strings.Join(labels, ", ")
 	}
 	return ""
-}
-
-// escapeLabel escapes label names for SQL++ by wrapping them in backticks
-func escapeLabel(label string) string {
-	return fmt.Sprintf("`%s`", label)
 }
 
 // GetTimeRange returns the time range for the query

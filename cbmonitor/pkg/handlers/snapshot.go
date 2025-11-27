@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/couchbase/cbmonitor/pkg/models"
+	"github.com/couchbase/cbmonitor/pkg/querybuilder"
 	"github.com/couchbase/cbmonitor/pkg/services"
 )
 
@@ -130,22 +131,9 @@ func (h *SnapshotHandler) HandleGetMetric(w http.ResponseWriter, req *http.Reque
 
 	// Build query using get_data_for_snapshot UDF (bucket name is hardcoded in UDF)
 	// Select only time and value for debugging - clients only need raw data
-	whereClause := buildLabelWhereClause(labelFilters)
-	var query string
-	if whereClause != "" {
-		query = fmt.Sprintf(
-			"SELECT time, `value` FROM get_data_for_snapshot('%s', '%s') AS d WHERE %s",
-			metricName,
-			snapshotID,
-			whereClause,
-		)
-	} else {
-		query = fmt.Sprintf(
-			"SELECT time, `value` FROM get_data_for_snapshot('%s', '%s') AS data",
-			metricName,
-			snapshotID,
-		)
-	}
+	// get_data_for_snapshot already filters by job=snapshotID, so we only add additional label filters
+	whereClause := querybuilder.BuildLabelWhereClause(labelFilters)
+	query := querybuilder.BuildSnapshotQuery(metricName, snapshotID, []string{"time", "value"}, whereClause)
 
 	// Execute query
 	results, err := h.couchbaseService.ExecuteQuery(req.Context(), query)
@@ -195,24 +183,8 @@ func (h *SnapshotHandler) HandleGetMetricPhase(w http.ResponseWriter, req *http.
 
 	// Build query using get_data_for_phase UDF (bucket name is hardcoded in UDF)
 	// Select only time and value for debugging - clients only need raw data
-	whereClause := buildLabelWhereClause(labelFilters)
-	var query string
-	if whereClause != "" {
-		query = fmt.Sprintf(
-			"SELECT time, `value` FROM get_data_for_phase('%s', '%s', '%s') AS d WHERE %s",
-			metricName,
-			snapshotID,
-			phaseName,
-			whereClause,
-		)
-	} else {
-		query = fmt.Sprintf(
-			"SELECT time, `value` FROM get_data_for_phase('%s', '%s', '%s') AS data",
-			metricName,
-			snapshotID,
-			phaseName,
-		)
-	}
+	whereClause := querybuilder.BuildLabelWhereClause(labelFilters)
+	query := querybuilder.BuildPhaseQuery(metricName, snapshotID, phaseName, []string{"time", "value"}, whereClause)
 
 	// Execute query
 	results, err := h.couchbaseService.ExecuteQuery(req.Context(), query)
@@ -255,22 +227,8 @@ func (h *SnapshotHandler) HandleGetMetricSummary(w http.ResponseWriter, req *htt
 	}
 
 	// Build query using get_data_for_snapshot UDF to get all values
-	whereClause := buildLabelWhereClause(labelFilters)
-	var query string
-	if whereClause != "" {
-		query = fmt.Sprintf(
-			"SELECT `value` FROM get_data_for_snapshot('%s', '%s') AS d WHERE %s",
-			metricName,
-			snapshotID,
-			whereClause,
-		)
-	} else {
-		query = fmt.Sprintf(
-			"SELECT `value` FROM get_data_for_snapshot('%s', '%s') AS data",
-			metricName,
-			snapshotID,
-		)
-	}
+	whereClause := querybuilder.BuildLabelWhereClause(labelFilters)
+	query := querybuilder.BuildSnapshotQuery(metricName, snapshotID, []string{"value"}, whereClause)
 
 	// Execute query
 	results, err := h.couchbaseService.ExecuteQuery(req.Context(), query)
@@ -320,24 +278,8 @@ func (h *SnapshotHandler) HandleGetMetricPhaseSummary(w http.ResponseWriter, req
 	}
 
 	// Build query using get_data_for_phase UDF to get all values
-	whereClause := buildLabelWhereClause(labelFilters)
-	var query string
-	if whereClause != "" {
-		query = fmt.Sprintf(
-			"SELECT `value` FROM get_data_for_phase('%s', '%s', '%s') AS d WHERE %s",
-			metricName,
-			snapshotID,
-			phaseName,
-			whereClause,
-		)
-	} else {
-		query = fmt.Sprintf(
-			"SELECT `value` FROM get_data_for_phase('%s', '%s', '%s') AS data",
-			metricName,
-			snapshotID,
-			phaseName,
-		)
-	}
+	whereClause := querybuilder.BuildLabelWhereClause(labelFilters)
+	query := querybuilder.BuildPhaseQuery(metricName, snapshotID, phaseName, []string{"value"}, whereClause)
 
 	// Execute query
 	results, err := h.couchbaseService.ExecuteQuery(req.Context(), query)
@@ -645,28 +587,4 @@ func parsePercentiles(pStr string) []float64 {
 	}
 
 	return percentiles
-}
-
-// escapeLabel escapes label names for SQL++ by wrapping them in backticks
-func escapeLabel(label string) string {
-	return fmt.Sprintf("`%s`", label)
-}
-
-// buildLabelWhereClause builds a WHERE clause for label filters
-// Returns empty string if no filters, otherwise returns conditions joined with AND
-func buildLabelWhereClause(labelFilters map[string]string) string {
-	if len(labelFilters) == 0 {
-		return ""
-	}
-
-	conditions := []string{}
-	for labelName, labelValue := range labelFilters {
-		// Escape label name and value for SQL injection prevention
-		escapedLabel := escapeLabel(labelName)
-		// Basic SQL injection prevention - escape single quotes in value
-		escapedValue := strings.ReplaceAll(labelValue, "'", "''")
-		conditions = append(conditions, fmt.Sprintf(`d.labels.%s = '%s'`, escapedLabel, escapedValue))
-	}
-
-	return strings.Join(conditions, " AND ")
 }
