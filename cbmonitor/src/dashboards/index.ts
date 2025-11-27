@@ -28,7 +28,7 @@ export function indexMetricsDashboard(snapshotId: string): EmbeddedScene {
                     unit: 'binBps'
                 }),
                 createMetricPanel(snapshotId, 'index_avg_mutation_rate', 'Index Mutation Rate', {
-                    unit: 'short'
+                    unit: 'ops'
                 }),
                 createMetricPanel(snapshotId, 'index_net_avg_scan_rate', 'Index Average Scan Rate', {
                     unit: 'ops'

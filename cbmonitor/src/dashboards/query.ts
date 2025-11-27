@@ -22,22 +22,22 @@ export function queryMetricsDashboard(snapshotId: string): EmbeddedScene {
                     unit: 'bytes'
                 }),
                 createMetricPanel(snapshotId, 'n1ql_requests', 'Query Requests',{
-                    unit: 'ops'
+                    unit: 'short'
                 }),
                 createMetricPanel(snapshotId, 'n1ql_selects', 'Query Selects', {
-                    unit: 'ops'
+                    unit: 'short'
                 }),
                 createMetricPanel(snapshotId, 'n1ql_active_requests', 'Query Active Requests', {
                     unit: 'short'
                 }),
                 createMetricPanel(snapshotId, 'n1ql_requests_250ms', 'Query Requests > 250ms', {
-                    unit: 'ops'
+                    unit: 'short'
                 }),
                 createMetricPanel(snapshotId, 'n1ql_requests_500ms', 'Query Requests > 500ms', {
-                    unit: 'ops'
+                    unit: 'short'
                 }),
                 createMetricPanel(snapshotId, 'n1ql_requests_1000ms', 'Query Requests > 1000ms', {
-                    unit: 'ops'
+                    unit: 'short'
                 }),
                 createMetricPanel(snapshotId, 'n1ql_errors', 'Query Errors', {
                     unit: 'short'
@@ -45,20 +45,11 @@ export function queryMetricsDashboard(snapshotId: string): EmbeddedScene {
                 createMetricPanel(snapshotId, 'n1ql_result_count', 'Query Result Count', {
                     unit: 'short'
                 }),
-                createMetricPanel(snapshotId, 'n1ql_service_time', 'Query Service Time', {
-                    unit: 'ms'
-                }),
                 createMetricPanel(snapshotId, 'n1ql_result_size', 'Query Result Size (Bytes)', {
                     unit: 'bytes'
                 }),
                 createMetricPanel(snapshotId, 'n1ql_invalid_requests', 'Query Invalid Requests', {
                     unit: 'short'
-                }),
-                createMetricPanel(snapshotId, 'n1ql_result_count', 'Query Result Count', {
-                    unit: 'short'
-                }),
-                createMetricPanel(snapshotId, 'n1ql_service_time', 'Query Service Time', {
-                    unit: 'ms'
                 }),
             ]
         })

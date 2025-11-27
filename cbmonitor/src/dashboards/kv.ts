@@ -23,12 +23,13 @@ export function kvMetricsDashboard(snapshotId: string): EmbeddedScene {
                 }),
                 // Operations & Performance (most important high-level metrics first)
                 createMetricPanel(snapshotId, 'kv_ops', 'KV Operations (ops)', {
-                    unit: 'ops'
+                    extraFields: ['d.labels.`instance`' ,'d.labels.`op`', 'd.labels.`result`','d.labels.`bucket`'],
+                    unit: 'short'
                 }),
                 createMetricPanel(snapshotId, 'kv_vb_ops_get', 'vBucket GET Ops', {
-                    unit: 'ops'
+                    extraFields: ['d.labels.`instance`' ,'d.labels.`op`', 'd.labels.`result`','d.labels.`bucket`'],
+                    unit: 'short' 
                 }),
-                
                 // Data & Items (what we're storing)
                 createMetricPanel(snapshotId, 'kv_curr_items', 'Current Items Count', {
                     unit: 'short'
@@ -57,12 +58,12 @@ export function kvMetricsDashboard(snapshotId: string): EmbeddedScene {
                 createMetricPanel(snapshotId, 'kv_ep_queue_size', 'KV Engine Queue Size', {
                     unit: 'short'
                 }),
-                createMetricPanel(snapshotId, 'kv_vb_queue_size', 'vBucket Queue Size (Bytes)', {
-                    unit: 'bytes'
+                createMetricPanel(snapshotId, 'kv_vb_queue_size', 'vBucket Queue Size', {
+                    unit: 'short'
                 }),
                 createMetricPanel(snapshotId, 'kv_vb_queue_age_seconds', 'vBucket Queue Age (Seconds)', {
-                    unit: 'ns'
-                }),
+                    unit: 's'
+                }), 
             ],
         })
     });
