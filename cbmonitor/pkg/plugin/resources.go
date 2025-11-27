@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/couchbase/cbmonitor/pkg/handlers"
 	"github.com/couchbase/cbmonitor/pkg/services"
@@ -52,6 +53,9 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 
 	// Initialize snapshot routes
 	a.setupSnapshotRoutes(mux)
+
+	// Initialize Prometheus Query API routes
+	a.setupPrometheusRoutes(mux)
 }
 
 // setupMetricsRoutes initializes the metrics API routes
@@ -103,25 +107,85 @@ func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
 		snapshotService = nil
 	}
 
-	// Initialize snapshot handler
-	snapshotHandler := handlers.NewSnapshotHandler(snapshotService)
+	// Initialize Couchbase service for metric queries
+	bucketName := getEnvWithDefault("COUCHBASE_BUCKET", "showfast")
+	couchbaseService, err := services.NewCouchbaseService(connectionString, username, password, bucketName)
+	if err != nil {
+		log.Printf("Warning: Failed to initialize Couchbase service for snapshot metrics: %v", err)
+		couchbaseService = nil
+	}
 
-	// Register snapshot routes
+	// Initialize snapshot handler
+	snapshotHandler := handlers.NewSnapshotHandler(snapshotService, couchbaseService, snapshotBucket)
+
+	// Register snapshot routes with nested path handling
 	mux.HandleFunc("/snapshots/", func(w http.ResponseWriter, r *http.Request) {
 		// Extract path after /snapshots/
-		path := r.URL.Path[len("/snapshots/"):]
+		path := strings.TrimPrefix(r.URL.Path, "/snapshots/")
+		pathParts := strings.Split(strings.Trim(path, "/"), "/")
 
-		// If path is empty, list snapshots
-		if path == "" || path == "/" {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		} else {
-			// Otherwise, get specific snapshot
+		// Route based on path structure
+		if len(pathParts) == 1 && pathParts[0] != "" {
+			// /snapshots/{id}
 			snapshotHandler.HandleGetSnapshot(w, r)
+		} else if len(pathParts) >= 3 && pathParts[1] == "metrics" {
+			// Handle metric-related paths
+			if len(pathParts) == 3 {
+				// /snapshots/{id}/metrics/{metric_name}
+				snapshotHandler.HandleGetMetric(w, r)
+			} else if len(pathParts) == 4 && pathParts[3] == "summary" {
+				// /snapshots/{id}/metrics/{metric_name}/summary
+				snapshotHandler.HandleGetMetricSummary(w, r)
+			} else if len(pathParts) >= 5 && pathParts[3] == "phases" {
+				if len(pathParts) == 5 {
+					// /snapshots/{id}/metrics/{metric_name}/phases/{phase_name}
+					snapshotHandler.HandleGetMetricPhase(w, r)
+				} else if len(pathParts) == 6 && pathParts[5] == "summary" {
+					// /snapshots/{id}/metrics/{metric_name}/phases/{phase_name}/summary
+					snapshotHandler.HandleGetMetricPhaseSummary(w, r)
+				} else {
+					http.Error(w, "Invalid path", http.StatusBadRequest)
+				}
+			} else {
+				http.Error(w, "Invalid path", http.StatusBadRequest)
+			}
+		} else if path == "" || path == "/" {
+			// /snapshots/ or /snapshots
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		} else {
+			// Unknown path
+			http.Error(w, "Not found", http.StatusNotFound)
 		}
 	})
 
-	log.Printf("Snapshot routes registered on /snapshots/")
+	log.Printf("Snapshot routes registered: /snapshots/{id}, /snapshots/{id}/metrics/{metric}, /snapshots/{id}/metrics/{metric}/phases/{phase}")
+}
+
+// setupPrometheusRoutes initializes the Prometheus Query API routes
+func (a *App) setupPrometheusRoutes(mux *http.ServeMux) {
+	// Get Couchbase connection details from environment variables
+	connectionString := getEnvWithDefault("COUCHBASE_CONNECTION_STRING", "couchbase://localhost")
+	username := getEnvWithDefault("COUCHBASE_USERNAME", "Administrator")
+	password := getEnvWithDefault("COUCHBASE_PASSWORD", "password")
+	bucketName := getEnvWithDefault("COUCHBASE_BUCKET", "showfast")
+
+	// Initialize Couchbase service (reuse if already initialized)
+	couchbaseService, err := services.NewCouchbaseService(connectionString, username, password, bucketName)
+	if err != nil {
+		log.Printf("Warning: Failed to initialize Couchbase service for Prometheus API: %v", err)
+		log.Printf("Prometheus Query API endpoints will not be available")
+		couchbaseService = nil
+	}
+
+	// Initialize PromQL handler
+	promQLHandler := handlers.NewPromQLHandler(couchbaseService)
+
+	// Register Prometheus Query API routes
+	mux.HandleFunc("/query", promQLHandler.HandleQuery)
+	mux.HandleFunc("/query_range", promQLHandler.HandleQueryRange)
+	mux.HandleFunc("/series", promQLHandler.HandleSeries)
+
+	log.Printf("PromQL Query API routes registered: /query, /query_range, /series")
 }
 
 // getEnvWithDefault gets environment variable with a default value

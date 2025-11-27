@@ -248,11 +248,6 @@ func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request) {
 		hasPhaseUpdate := payload.Phase != "" && (payload.Mode == "start" || payload.Mode == "end")
 		hasServiceUpdate := len(payload.Services) > 0
 
-		if !hasPhaseUpdate && !hasServiceUpdate {
-			http.Error(w, "At least one operation must be specified: phase update (phase + mode) or services update (services)", http.StatusBadRequest)
-			return
-		}
-
 		// Handle phase update
 		if hasPhaseUpdate {
 			if err := h.metadataStorage.UpdatePhase(snapshotID, payload.Phase, payload.Mode); err != nil {
