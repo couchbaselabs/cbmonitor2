@@ -14,26 +14,33 @@ export function xdcrMetricsDashboard(snapshotId: string): EmbeddedScene {
             children: [
                 // XDCR Replication Progress Metrics
                 createMetricPanel(snapshotId, 'xdcr_changes_left_total', 'Changes Left Total', {
+                    labelFilters: { pipelineType: 'Main' },
                     unit: 'short'
                 }),
                 createMetricPanel(snapshotId, 'xdcr_docs_cloned_total', 'Documents Cloned Total', {
+                    labelFilters: { pipelineType: 'Main' },
                     unit: 'short'
                 }),
                 createMetricPanel(snapshotId, 'xdcr_docs_checked_total', 'Documents Checked Total', {
+                    labelFilters: { pipelineType: 'Main' },
                     unit: 'short'
                 }),
                 createMetricPanel(snapshotId, 'xdcr_docs_written_total', 'Documents Written Total',{ 
+                    labelFilters: { pipelineType: 'Main' },
                     unit: 'short'
                 }),
                 // XDCR Performance Metrics
                 createMetricPanel(snapshotId, 'xdcr_wtavg_docs_latency_seconds', 'Weighted Average Document Latency (Seconds)', {
+                    labelFilters: { pipelineType: 'Main' },
                     unit: 's'
                 }),
                 createMetricPanel(snapshotId, 'xdcr_wtavg_meta_latency_seconds', 'Weighted Average Metadata Latency (Seconds)', {
+                    labelFilters: { pipelineType: 'Main' },
                     unit: 's'
                 }),
                 // XDCR Volume Metrics
                 createMetricPanel(snapshotId, 'xdcr_data_replicated_bytes', 'Data Replicated (Bytes)', {
+                    labelFilters: { pipelineType: 'Main' },
                     unit: 'bytes'
                 }),
             ],
