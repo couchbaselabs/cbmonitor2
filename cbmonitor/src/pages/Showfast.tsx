@@ -34,7 +34,6 @@ function Showfast() {
   const { metrics, loading, error, refetch } = useMetrics(activeTab);
 
   const renderTabContent = (componentId: ComponentId) => {
-
     return (
       <div className={s.tabContent}>
         {/* Real metrics display */}
@@ -51,6 +50,13 @@ function Showfast() {
   return (
     <PluginPage>
       <div data-testid={testIds.showfast.container} className={s.dashboard}>
+        <div className={s.header}>
+          <h1 className={s.title}>Welcome to the Showfast dashboard.</h1>
+          <p className={s.description}>
+            Explore comprehensive performance metrics across different Couchbase components and services.
+          </p>
+        </div>
+        
         <div className={s.tabsContainer}>
           <TabsBar className={s.tabsBar}>
             {COMPONENTS.map((component) => (
@@ -113,6 +119,11 @@ const getStyles = (theme: GrafanaTheme2) => ({
   `,
   tabContent: css`
     padding: 16px 0;
+  `,
+  sceneContainer: css`
+    width: 100%;
+    min-height: 600px;
+    background-color: ${theme.colors.background.primary};
   `,
   contentHeader: css`
     margin-bottom: 24px;

@@ -1,11 +1,12 @@
 import React from 'react';
 import { AppRootProps } from '@grafana/data';
 import { config } from '@grafana/runtime';
-import { CB_DATASOURCE_REF } from '../../constants';
+import { CB_DATASOURCE_REF, ROUTES } from '../../constants';
 import { SceneApp, useSceneApp } from '@grafana/scenes';
 import { Alert } from '@grafana/ui';
 import { PluginPropsContext } from 'utils/utils.plugin';
 import { snapshotPage } from 'components/SnapshotDisplay/snapshotInstance';
+import Showfast from '../../pages/Showfast';
 
 // Defines the app and its pages
 function getCBMonitorApp(){
@@ -42,7 +43,24 @@ function CBMonitorHome() {
   );
 }
 
+// Showfast component wrapper that doesn't check for couchbase datasource
+function ShowfastHome() {
+  return <Showfast />;
+}
+
 function App(props: AppRootProps) {
+  const { path } = props;
+  
+  // Route based on the path
+  if (path?.includes(ROUTES.Showfast)) {
+    return (
+      <PluginPropsContext.Provider value={props}>
+        <ShowfastHome />
+      </PluginPropsContext.Provider>
+    );
+  }
+  
+  // Default to CBMonitor
   return (
     <PluginPropsContext.Provider value={props}>
       <CBMonitorHome />

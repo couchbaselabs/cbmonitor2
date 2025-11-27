@@ -18,6 +18,12 @@ export const CB_DATASOURCE_REF = {
   type: 'couchbase-datasource'
 } as const;
 
+// Showfast Datasource Reference
+export const SHOWFAST_DATASOURCE_REF = {
+  uid: 'Showfast',
+  type: 'yesoreyeram-infinity-datasource'
+} as const;
+
 export type DashboardId = keyof typeof DASHBOARD_UIDS;
 
 // Helper function to get UID from dashboard name
