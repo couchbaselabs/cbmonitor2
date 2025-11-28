@@ -13,9 +13,9 @@ export function queryMetricsDashboard(snapshotId: string): EmbeddedScene {
             wrap: 'wrap',
             children: [
                 // Query Engine
-                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'Query Engine CPU Utilization (%)', {
+                createMetricPanel(snapshotId, 'sysproc_cpu_seconds_total', 'Query Engine CPU Time (Cumulative Seconds)', {
                     labelFilters: { proc: 'cbq-engine' },
-                    unit: 'percent'
+                    unit: 's'
                 }),
                 createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Query Engine Resident Memory (Bytes)', {
                     labelFilters: { proc: 'cbq-engine' },

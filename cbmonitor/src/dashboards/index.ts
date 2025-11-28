@@ -15,9 +15,9 @@ export function indexMetricsDashboard(snapshotId: string): EmbeddedScene {
             wrap: 'wrap',
             children: [
                 // Indexer
-                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'Indexer CPU Utilization (%)', {
+                createMetricPanel(snapshotId, 'sysproc_cpu_seconds_total', 'Indexer CPU Time (Cumulative Seconds)', {
                     labelFilters: { proc: 'indexer' },
-                    unit: 'percent'
+                    unit: 's'
                 }),
                 createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Indexer Resident Memory (Bytes)', {
                     labelFilters: { proc: 'indexer' },

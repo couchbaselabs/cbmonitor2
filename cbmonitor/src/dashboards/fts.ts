@@ -13,9 +13,9 @@ export function ftsMetricsDashboard(snapshotId: string): EmbeddedScene {
             wrap: 'wrap',
             children: [
                  // Search (FTS)
-                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'Search CPU Utilization (%)', {
+                createMetricPanel(snapshotId, 'sysproc_cpu_seconds_total', 'Search CPU Time (Cumulative Seconds)', {
                     labelFilters: { proc: 'cbft' },
-                    unit: 'percent'
+                    unit: 's'
                 }),
                 createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Search Resident Memory (Bytes)', {
                     labelFilters: { proc: 'cbft' },

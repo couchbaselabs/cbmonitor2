@@ -13,9 +13,9 @@ export function kvMetricsDashboard(snapshotId: string): EmbeddedScene {
             wrap: 'wrap',
             children: [
                 // memcached
-                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'memcached CPU Utilization (%)', {
+                createMetricPanel(snapshotId, 'sysproc_cpu_seconds_total', 'memcached CPU Time (Cumulative Seconds)', {
                     labelFilters: { proc: 'memcached' },
-                    unit: 'percent'
+                    unit: 's'
                 }),
                 createMetricPanel(snapshotId, 'sysproc_mem_resident', 'memcached Resident Memory (Bytes)', {
                     labelFilters: { proc: 'memcached' },

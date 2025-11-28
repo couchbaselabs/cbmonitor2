@@ -14,9 +14,9 @@ export function clusterManagerMetricsDashboard(snapshotId: string): EmbeddedScen
             wrap: 'wrap',
             children: [
                 // ns_server
-                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'ns_server CPU Utilization (%)', {
+                createMetricPanel(snapshotId, 'sysproc_cpu_seconds_total', 'ns_server CPU Time (Cumulative Seconds)', {
                     labelFilters: { proc: 'ns_server' },
-                    unit: 'percent'
+                    unit: 's'
                 }),
                 createMetricPanel(snapshotId, 'sysproc_mem_resident', 'ns_server Resident Memory (Bytes)', {
                     labelFilters: { proc: 'ns_server' },
@@ -24,9 +24,9 @@ export function clusterManagerMetricsDashboard(snapshotId: string): EmbeddedScen
                 }),
 
                  // Prometheus
-                createMetricPanel(snapshotId, 'sysproc_cpu_utilization', 'Prometheus CPU Utilization (%)', {
+                createMetricPanel(snapshotId, 'sysproc_cpu_seconds_total', 'Prometheus CPU Time (Cumulative Seconds)', {
                     labelFilters: { proc: 'prometheus' },
-                    unit: 'percent'
+                    unit: 's'
                 }),
                 createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Prometheus Resident Memory (Bytes)', {
                     labelFilters: { proc: 'prometheus' },
