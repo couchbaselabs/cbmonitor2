@@ -18,15 +18,24 @@ export function systemMetricsDashboard(snapshotId: string): EmbeddedScene {
                 createMetricPanel(snapshotId, 'sys_cpu_utilization_rate', 'CPU Utilization (%)', {
                     unit: 'percent'
                 }),
-                createMetricPanel(snapshotId, 'sys_mem_free', 'Free Memory (Bytes)', {
+                createMetricPanel(snapshotId, 'sys_mem_free_sys', 'Free Memory (Bytes)', {
+                    unit: 'bytes'
+                }),
+                createMetricPanel(snapshotId, 'sys_mem_used_sys', 'Used Memory (Bytes)', {
                     unit: 'bytes'
                 }),
                 // Overall Disk utilisation
                 createMetricPanel(snapshotId, 'sys_disk_queue', 'Disk Queue (Aggregate)', {
                     unit: 'short'
                 }),
+                createMetricPanel(snapshotId, 'sys_disk_read_bytes', 'Disk Read Bytes', {
+                    unit: 'bytes'
+                }),
+                createMetricPanel(snapshotId, 'sys_disk_write_bytes', 'Disk Write Bytes', {
+                    unit: 'bytes'
+                }),
                 createMetricPanel(snapshotId, 'couch_docs_actual_disk_size', 'Couch Docs Actual Disk Size (Bytes)', {
-                    extraFields: ['d.labels.`bucket`'], 
+                    extraFields: ['d.labels.`bucket`', 'd.labels.`instance`'], 
                     unit: 'bytes'
                 }),
             ],
