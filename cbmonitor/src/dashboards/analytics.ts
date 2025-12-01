@@ -12,6 +12,14 @@ export function analyticsMetricsDashboard(snapshotId: string): EmbeddedScene {
             direction: 'row',
             wrap: 'wrap',
             children: [
+                createMetricPanel(snapshotId, 'sysproc_cpu_seconds_total', 'Java CPU Time (Cumulative Seconds)', {
+                    labelFilters: { proc: 'java' },
+                    unit: 's'
+                }),
+                createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Java Resident Memory (Bytes)', {
+                    labelFilters: { proc: 'java' },
+                    unit: 'bytes'
+                }),
                  // Search (FTS)
                 createMetricPanel(snapshotId, 'cbas_disk_used_bytes', 'Disk Used (Bytes)', {
                     unit: 'bytes'
@@ -37,19 +45,26 @@ export function analyticsMetricsDashboard(snapshotId: string): EmbeddedScene {
                 createMetricPanel(snapshotId, 'cbas_io_writes_total', 'Total IO Writes', {
                     unit: 'short'
                 }),
-                createMetricPanel(snapshotId, 'cbas_system_load_average', 'System WorkLoad Average', {
+                createMetricPanel(snapshotId, 'cbas_running_jobs', 'Running Jobs', {
                     unit: 'short'
                 }),
-                createMetricPanel(snapshotId, 'cbas_running_jobs', 'Running Jobs', {
+                createMetricPanel(snapshotId, 'cbas_queued_jobs', 'Queued Jobs', {
+                    unit: 'short'
+                }),
+                createMetricPanel(snapshotId, 'cbas_jobs_total', 'Total Jobs', {
+                    extraFields: ['d.labels.`result`', 'd.labels.`instance`'],
+                    unit: 'short'
+                }),
+                createMetricPanel(snapshotId, 'cbas_system_load_average', 'System WorkLoad Average', {
                     unit: 'short'
                 }),
                 // Disk usage metrics
                 createMetricPanel(snapshotId, 'cbas_requests_total', 'Total Received Requests', {
                     unit: 'short'
                 }),
-                createMetricPanel(snapshotId, 'cbas_jobs_total', 'Total Jobs', {
+                createMetricPanel(snapshotId, 'cbas_http_requests_total', 'HTTP Requests Total', {
                     unit: 'short'
-                }),
+                }),                
                 // RAM usage metrics
                 createMetricPanel(snapshotId, 'cbas_thread_count', 'Thread Count', {
                     unit: 'short'
