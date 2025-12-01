@@ -33,6 +33,7 @@ export interface MetricsApiResponse {
 export const METRIC_DEFINITIONS: Record<string, string[]> = {
   kv: [
     'kv_99p_throughput',
+    'kv_90th_throughput',
     'kv_95p_latency', 
     'kv_set_latency',
     'kv_get_latency',
