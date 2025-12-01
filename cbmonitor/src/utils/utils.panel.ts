@@ -23,7 +23,6 @@ export function getNewTimeSeriesDataTransformer(queryRunner: SceneQueryRunner) {
 /**
  * Create a new metric panel using the CBQueryBuilder and TimeSeriesDataTransformer
  */
-// TO DO: add a way to assign a unit to each panel
 export function createMetricPanel(
     snapshotId: string,
     metricName: string,
@@ -70,3 +69,4 @@ export function createMetricPanel(
         $data: getNewTimeSeriesDataTransformer(builder.buildQueryRunner()),
     });
 }
+
