@@ -50,7 +50,7 @@ export function systemMetricsDashboard(snapshotId: string): EmbeddedScene {
                     createMetricPanel(snapshotId, 'sys_disk_read_bytes', `Disk Read Bytes (${i})`, {
                         labelFilters: { instance: i },
                         extraFields: ['d.labels.`disk`'],
-                        unit: 'bps',
+                        unit: 'short',
                         width: '49%',
                         displayNameTemplate: '${__series.labels.disk}',
                     })
@@ -60,7 +60,7 @@ export function systemMetricsDashboard(snapshotId: string): EmbeddedScene {
                     createMetricPanel(snapshotId, 'sys_disk_write_bytes', `Disk Write Bytes (${i})`, {
                         labelFilters: { instance: i },
                         extraFields: ['d.labels.`disk`'],
-                        unit: 'bps',
+                        unit: 'short',
                         width: '49%',
                         displayNameTemplate: '${__series.labels.disk}',
                     })
@@ -71,13 +71,13 @@ export function systemMetricsDashboard(snapshotId: string): EmbeddedScene {
             perInstancePanels = [
                 createMetricPanel(snapshotId, 'sys_disk_read_bytes', 'Disk Read Bytes', {
                     extraFields: ['d.labels.`disk`'],
-                    unit: 'bps',
+                    unit: 'short',
                     width: '100%',
                     displayNameTemplate: '${__series.labels.disk}',
                 }),
                 createMetricPanel(snapshotId, 'sys_disk_write_bytes', 'Disk Write Bytes', {
                     extraFields: ['d.labels.`disk`'],
-                    unit: 'bps',
+                    unit: 'short',
                     width: '100%',
                     displayNameTemplate: '${__series.labels.disk}',
                 }),
