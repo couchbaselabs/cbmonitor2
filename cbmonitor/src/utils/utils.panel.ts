@@ -33,6 +33,7 @@ export function createMetricPanel(
         unit?: string;
         width?: string;
         height?: number;
+        displayNameTemplate?: string;
     } = {}
 ): SceneFlexItem {
     const builder = new CBQueryBuilder(snapshotId, metricName);
@@ -61,11 +62,36 @@ export function createMetricPanel(
         panelBuilder.setUnit(options.unit);
     }
 
+    const panel = panelBuilder.build();
+
+    // Apply legend display name override when requested
+    if (options.displayNameTemplate) {
+        const currentState: any = (panel as any).state ?? {};
+        const currentOptions: any = currentState.options ?? {};
+        const fieldConfig: any = currentOptions.fieldConfig ?? { defaults: {}, overrides: [] };
+        const overrides = Array.isArray(fieldConfig.overrides) ? fieldConfig.overrides.slice() : [];
+
+        overrides.push({
+            matcher: { id: 'byType', options: 'number' },
+            properties: [{ id: 'displayName', value: options.displayNameTemplate }],
+        });
+
+        (panel as any).setState({
+            options: {
+                ...currentOptions,
+                fieldConfig: {
+                    ...fieldConfig,
+                    overrides,
+                },
+            },
+        });
+    }
+
     return new SceneFlexItem({
         height: options.height ?? 300,
         width: panelWidth,
         minWidth: panelWidth === '100%' ? '100%' : '45%',
-        body: panelBuilder.build(),
+        body: panel,
         $data: getNewTimeSeriesDataTransformer(builder.buildQueryRunner()),
     });
 }
