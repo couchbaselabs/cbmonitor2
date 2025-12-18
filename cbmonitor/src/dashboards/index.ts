@@ -9,10 +9,12 @@ export function indexMetricsDashboard(snapshotId: string): EmbeddedScene {
         // Indexer
         createMetricPanel(snapshotId, 'sysproc_cpu_seconds_total', 'Indexer CPU Time (Cumulative Seconds)', {
             labelFilters: { proc: 'indexer' },
+            extraFields: ['d.labels.`instance`', `d.labels.mode`],
             unit: 's',
         }),
         createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Indexer Resident Memory (Bytes)', {
             labelFilters: { proc: 'indexer' },
+            extraFields: ['d.labels.`instance`', `d.labels.mode`],
             unit: 'bytes',
         }),
         // Latency and throughput metrics

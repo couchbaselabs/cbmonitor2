@@ -9,6 +9,7 @@ export function systemMetricsDashboard(snapshotId: string): EmbeddedScene {
         // Overall (per node) CPU and Memory utilisation
         createMetricPanel(snapshotId, 'sys_cpu_utilization_rate', 'CPU Utilization (%)', {
             unit: 'percent',
+            width: '100%'
         }),
         createMetricPanel(snapshotId, 'sys_mem_free_sys', 'Free Memory (Bytes)', {
             unit: 'bytes',
