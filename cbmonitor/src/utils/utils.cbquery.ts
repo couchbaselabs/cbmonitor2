@@ -114,7 +114,7 @@ export class AggregationQueryBuilder extends CBQueryBuilder {
         const remappedExtras = this.extraFields.map(f => f.replace(/^d\./, `${alias}.`));
         const fields = [
             't._t AS time',
-            `t._v0 AS ${this.transformFunction}(\`${this.metricName}\`)`,
+            `t._v0 AS \`${this.metricName}\``,
             ...remappedExtras,
         ];
         return fields.join(', ');
