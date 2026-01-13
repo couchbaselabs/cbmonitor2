@@ -144,7 +144,7 @@ export class AggregationQueryBuilder extends CBQueryBuilder {
         const selectClause = this.buildSelectClause();
         const whereClause = this.buildWhereClause();
         const innerWhere = this.buildInnerWhereClause();
-        const query = `SELECT ${selectClause} FROM ( SELECT RAW OBJECT_PUT(${this.innerAlias}, "ts_data", ${this.transformFunction}(${this.innerAlias}.ts_data)) FROM get_metric_for('${this.metricName}', '${this.snapshotId}') AS ${this.innerAlias}${innerWhere} ) AS ${this.outerAlias} UNNEST _timeseries(${this.outerAlias},{'ts_ranges':[\${__from}, \${__to}]}) AS t WHERE ${whereClause}`;
+        const query = `SELECT ${selectClause} FROM ( SELECT RAW OBJECT_PUT(${this.innerAlias}, "ts_data", ${this.transformFunction}(${this.innerAlias}.ts_data, 40)) FROM get_metric_for('${this.metricName}', '${this.snapshotId}') AS ${this.innerAlias}${innerWhere} ) AS ${this.outerAlias} UNNEST _timeseries(${this.outerAlias},{'ts_ranges':[\${__from}, \${__to}]}) AS t WHERE ${whereClause}`;
         return query;
     }
 }
