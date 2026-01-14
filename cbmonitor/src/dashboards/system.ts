@@ -1,5 +1,5 @@
 import { EmbeddedScene, SceneFlexLayout } from '@grafana/scenes';
-import { createMetricPanel } from 'utils/utils.panel';
+import { createMetricPanel, createAggregatedMetricPanel } from 'utils/utils.panel';
 import { getInstancesFromMetricRunner, parseInstancesFromFrames } from 'services/instanceService';
 
 export function systemMetricsDashboard(snapshotId: string): EmbeddedScene {
@@ -48,39 +48,43 @@ export function systemMetricsDashboard(snapshotId: string): EmbeddedScene {
             for (const i of instances) {
                 // Read bytes per instance (series by disk)
                 perInstancePanels.push(
-                    createMetricPanel(snapshotId, 'sys_disk_read_bytes', `Disk Read Bytes (${i})`, {
+                    createAggregatedMetricPanel(snapshotId, 'sys_disk_read_bytes', `Rate Disk Read Bytes (${i})`, {
                         labelFilters: { instance: i },
                         extraFields: ['d.labels.`disk`'],
-                        unit: 'short',
+                        unit: 'Bps',
                         width: '49%',
                         displayNameTemplate: '${__series.labels.disk}',
+                        transformFunction: 'rate',
                     })
                 );
                 // Write bytes per instance (series by disk)
                 perInstancePanels.push(
-                    createMetricPanel(snapshotId, 'sys_disk_write_bytes', `Disk Write Bytes (${i})`, {
+                    createAggregatedMetricPanel(snapshotId, 'sys_disk_write_bytes', `Rate Disk Write Bytes (${i})`, {
                         labelFilters: { instance: i },
                         extraFields: ['d.labels.`disk`'],
-                        unit: 'short',
+                        unit: 'Bps',
                         width: '49%',
                         displayNameTemplate: '${__series.labels.disk}',
+                        transformFunction: 'rate',
                     })
                 );
             }
         } else {
             // Fallback aggregated panels (series by disk, all instances)
             perInstancePanels = [
-                createMetricPanel(snapshotId, 'sys_disk_read_bytes', 'Disk Read Bytes', {
+                createAggregatedMetricPanel(snapshotId, 'sys_disk_read_bytes', 'Rate Disk Read Bytes', {
                     extraFields: ['d.labels.`disk`'],
-                    unit: 'short',
+                    unit: 'Bps',
                     width: '100%',
                     displayNameTemplate: '${__series.labels.disk}',
+                    transformFunction: 'rate',
                 }),
-                createMetricPanel(snapshotId, 'sys_disk_write_bytes', 'Disk Write Bytes', {
+                createAggregatedMetricPanel(snapshotId, 'sys_disk_write_bytes', 'Rate Disk Write Bytes', {
                     extraFields: ['d.labels.`disk`'],
-                    unit: 'short',
+                    unit: 'Bps',
                     width: '100%',
                     displayNameTemplate: '${__series.labels.disk}',
+                    transformFunction: 'rate',
                 }),
             ];
         }

@@ -7,10 +7,10 @@ import { CB_DATASOURCE_REF } from "../constants";
  */
 export class CBQueryBuilder {
     // Required parameters
-    private snapshotId: string;
-    private metricName: string;
-    private labelFilters: Map<string, string | string[]> = new Map();
-    private extraFields: string[] = ['d.labels.instance']; // Most panels will select the instance label by default
+    protected snapshotId: string;
+    protected metricName: string;
+    protected labelFilters: Map<string, string | string[]> = new Map();
+    protected extraFields: string[] = ['d.labels.instance']; // Most panels will select the instance label by default
 
 
     constructor(snapshotId: string, metricName: string) {
@@ -42,9 +42,9 @@ export class CBQueryBuilder {
         }
         return this;
     }
-
+ 
     // Build the WHERE clause
-    private buildWhereClause(): string {
+    protected buildWhereClause(): string {
         const conditions: string[] = [
             `time_range(t._t)`,
         ];
@@ -63,7 +63,7 @@ export class CBQueryBuilder {
     }
 
     // Build the SELECT clause
-    private buildSelectClause(): string {
+    protected buildSelectClause(): string {
         const fields = [
             'MILLIS_TO_STR(t._t) AS time',
             `t._v0 AS \`${this.metricName}\``, // Use metric name as the label for the metric value so it can be displayed in the legend
@@ -91,5 +91,70 @@ export class CBQueryBuilder {
                 query: this.build(),
             }],
         });
+    }
+}
+
+/**
+ * Builder that applies a timeseries transformation (e.g. rate) via a derived subquery.
+ * Output schema: t._t as time, t._v0 as value.
+ */
+export class AggregationQueryBuilder extends CBQueryBuilder {
+    private transformFunction: string = 'rate';
+    private outerAlias: string = 'd2';
+    private innerAlias: string = 'd';
+    // Allowlist of supported transformation functions to avoid SQL injection via function name
+    private static readonly ALLOWED_TRANSFORMS: Set<string> = new Set([
+        'rate',
+        'irate',
+        'increase'
+    ]);
+
+    setTransformFunction(fnName: string): this {
+        const normalized = fnName.trim();
+        if (!AggregationQueryBuilder.ALLOWED_TRANSFORMS.has(normalized)) {
+            throw new Error(`Invalid transform function: ${fnName}`);
+        }
+        this.transformFunction = normalized;
+        return this;
+    }
+
+
+    protected buildSelectClause(): string {
+        const alias = this.outerAlias;
+        const remappedExtras = this.extraFields.map(f => f.replace(/^d\./, `${alias}.`));
+        const fields = [
+            't._t AS time',
+            `t._v0 AS \`${this.metricName}\``,
+            ...remappedExtras,
+        ];
+        return fields.join(', ');
+    }
+
+    protected buildWhereClause(): string {
+        const conditions: string[] = [
+            'time_range(t._t)'
+        ];
+        return conditions.join(' AND ');
+    }
+
+    private buildInnerWhereClause(): string {
+        const innerConds: string[] = [];
+        for (const [label, value] of this.labelFilters.entries()) {
+            if (Array.isArray(value)) {
+                const valueList = value.map(v => `'${v}'`).join(', ');
+                innerConds.push(`${this.innerAlias}.labels.\`${label}\` IN [${valueList}]`);
+            } else {
+                innerConds.push(`${this.innerAlias}.labels.\`${label}\` = '${value}'`);
+            }
+        }
+        return innerConds.length ? ` WHERE ${innerConds.join(' AND ')}` : '';
+    }
+
+    build(): string {
+        const selectClause = this.buildSelectClause();
+        const whereClause = this.buildWhereClause();
+        const innerWhere = this.buildInnerWhereClause();
+        const query = `SELECT ${selectClause} FROM ( SELECT RAW OBJECT_PUT(${this.innerAlias}, "ts_data", ${this.transformFunction}(${this.innerAlias}.ts_data, 40)) FROM get_metric_for('${this.metricName}', '${this.snapshotId}') AS ${this.innerAlias}${innerWhere} ) AS ${this.outerAlias} UNNEST _timeseries(${this.outerAlias},{'ts_ranges':[\${__from}, \${__to}]}) AS t WHERE ${whereClause}`;
+        return query;
     }
 }
