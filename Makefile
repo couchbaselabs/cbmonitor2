@@ -27,7 +27,6 @@ build-plugin-docker: build-plugin move-datasource-build-artifacts
 build-couchbase-datasource:
 	@cd mfork-grafana-plugin && cd couchbase-datasource && \
     yarn install && \
-    yarn upgrade && \
     yarn build && \
     mage -v
 
