@@ -102,9 +102,19 @@ export class AggregationQueryBuilder extends CBQueryBuilder {
     private transformFunction: string = 'rate';
     private outerAlias: string = 'd2';
     private innerAlias: string = 'd';
+    // Allowlist of supported transformation functions to avoid SQL injection via function name
+    private static readonly ALLOWED_TRANSFORMS: Set<string> = new Set([
+        'rate',
+        'irate',
+        'increase'
+    ]);
 
     setTransformFunction(fnName: string): this {
-        this.transformFunction = fnName;
+        const normalized = fnName.trim();
+        if (!AggregationQueryBuilder.ALLOWED_TRANSFORMS.has(normalized)) {
+            throw new Error(`Invalid transform function: ${fnName}`);
+        }
+        this.transformFunction = normalized;
         return this;
     }
 
