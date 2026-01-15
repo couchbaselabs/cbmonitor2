@@ -20,48 +20,48 @@ export function getNewTimeSeriesDataTransformer(queryRunner: SceneQueryRunner) {
     });
 }
 
-/**
- * Create a new metric panel using the CBQueryBuilder and TimeSeriesDataTransformer
- */
-export function createMetricPanel(
-    snapshotId: string,
-    metricName: string,
-    title: string,
-    options: {
-        labelFilters?: Record<string, string | string[]>;
-        extraFields?: string[];
-        unit?: string;
-        width?: string;
-        height?: number;
-        displayNameTemplate?: string;
-    } = {}
-): SceneFlexItem {
-    const builder = new CBQueryBuilder(snapshotId, metricName);
+// Common options shared between panel builders
+type PanelCommonOptions = {
+    labelFilters?: Record<string, string | string[]>;
+    extraFields?: string[];
+    unit?: string;
+    width?: string;
+    height?: number;
+};
 
-    // Apply label filters
+// Apply common builder options (label filters, extra fields)
+function applyBuilderOptions(
+    builder: CBQueryBuilder | AggregationQueryBuilder,
+    options: PanelCommonOptions
+) {
     if (options.labelFilters) {
         for (const [label, value] of Object.entries(options.labelFilters)) {
             builder.addLabelFilter(label, value);
         }
     }
-
-    // Apply extra fields
     if (options.extraFields) {
         builder.setExtraFields(options.extraFields);
     }
+}
 
-    // Get width from explicit option, otherwise use layout service
+// Create a SceneFlexItem using a prepared builder and shared UI logic
+function createSceneItemFromBuilder(
+    builder: CBQueryBuilder | AggregationQueryBuilder,
+    metricName: string,
+    title: string,
+    options: PanelCommonOptions,
+    extraDescriptionLines?: string[]
+): SceneFlexItem {
     const panelWidth = options.width ?? layoutService.getPanelWidth();
 
-    // Build the panel with unit configuration if provided
-    const panelBuilder = PanelBuilders.timeseries()
-        .setTitle(title);
+    const panelBuilder = PanelBuilders.timeseries().setTitle(title);
 
-    // Use Markdown for a clean multiline hover tooltip
+    // Add markdown description with query details
     try {
         const queryText = builder.build();
         const descriptionMd = [
             `**Metric:** ${metricName}`,
+            ...(extraDescriptionLines ?? []),
             '',
             '**Query:**',
             '```sql',
@@ -72,36 +72,12 @@ export function createMetricPanel(
     } catch (e) {
         // Skip description if query build fails
     }
-    
-    // Apply unit if specified
+
     if (options.unit) {
         panelBuilder.setUnit(options.unit);
     }
 
     const panel = panelBuilder.build();
-
-    // Apply legend display name override when requested
-    if (options.displayNameTemplate) {
-        const currentState: any = (panel as any).state ?? {};
-        const currentOptions: any = currentState.options ?? {};
-        const fieldConfig: any = currentOptions.fieldConfig ?? { defaults: {}, overrides: [] };
-        const overrides = Array.isArray(fieldConfig.overrides) ? fieldConfig.overrides.slice() : [];
-
-        overrides.push({
-            matcher: { id: 'byType', options: 'number' },
-            properties: [{ id: 'displayName', value: options.displayNameTemplate }],
-        });
-
-        (panel as any).setState({
-            options: {
-                ...currentOptions,
-                fieldConfig: {
-                    ...fieldConfig,
-                    overrides,
-                },
-            },
-        });
-    }
 
     return new SceneFlexItem({
         height: options.height ?? 300,
@@ -110,6 +86,20 @@ export function createMetricPanel(
         body: panel,
         $data: getNewTimeSeriesDataTransformer(builder.buildQueryRunner()),
     });
+}
+
+/**
+ * Create a new metric panel using the CBQueryBuilder and TimeSeriesDataTransformer
+ */
+export function createMetricPanel(
+    snapshotId: string,
+    metricName: string,
+    title: string,
+    options: PanelCommonOptions = {}
+): SceneFlexItem {
+    const builder = new CBQueryBuilder(snapshotId, metricName);
+    applyBuilderOptions(builder, options);
+    return createSceneItemFromBuilder(builder, metricName, title, options);
 }
 
 /**
@@ -132,63 +122,12 @@ export function createAggregatedMetricPanel(
     } = {}
 ): SceneFlexItem {
     const builder = new AggregationQueryBuilder(snapshotId, metricName);
-
-    // Optional transform function (defaults in builder)
     if (options.transformFunction) {
         builder.setTransformFunction(options.transformFunction);
     }
+    applyBuilderOptions(builder, options);
 
-    // Apply label filters
-    if (options.labelFilters) {
-        for (const [label, value] of Object.entries(options.labelFilters)) {
-            builder.addLabelFilter(label, value);
-        }
-    }
-
-    // Apply extra fields (use d.* fields; builder remaps aliases)
-    if (options.extraFields) {
-        builder.setExtraFields(options.extraFields);
-    }
-
-    // Get width from explicit option, otherwise use layout service
-    const panelWidth = options.width ?? layoutService.getPanelWidth();
-
-    // Build the panel with unit configuration if provided
-    const panelBuilder = PanelBuilders.timeseries()
-        .setTitle(title);
-
-    // Add description hover with metric and query details
-    try {
-        const builtQuery = builder.build();
-        // Preserve explicit blank lines and use single newline separators
-        const descriptionMd = [
-            `**Metric:** ${metricName}`,
-            options.transformFunction ? `**Transform:** ${options.transformFunction}` : undefined,
-            '', // explicit blank line between header and query section
-            '**Query:**',
-            '```sql',
-            builtQuery,
-            '```',
-        ].filter((s) => s !== undefined).join('\n');
-        panelBuilder.setDescription(descriptionMd);
-    } catch (e) {
-        // If query generation fails, skip description to avoid breaking panel creation
-    }
-
-    // Apply unit if specified
-    if (options.unit) {
-        panelBuilder.setUnit(options.unit);
-    }
-
-    const panel = panelBuilder.build();
-
-
-    return new SceneFlexItem({
-        height: options.height ?? 300,
-        width: panelWidth,
-        minWidth: panelWidth === '100%' ? '100%' : '45%',
-        body: panel,
-        $data: getNewTimeSeriesDataTransformer(builder.buildQueryRunner()),
-    });
+    const extraDesc = options.transformFunction ? [`**Transform:** ${options.transformFunction}`] : undefined;
+    return createSceneItemFromBuilder(builder, metricName, title, options, extraDesc);
 }
 
