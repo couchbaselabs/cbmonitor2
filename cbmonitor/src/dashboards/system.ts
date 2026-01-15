@@ -53,7 +53,6 @@ export function systemMetricsDashboard(snapshotId: string): EmbeddedScene {
                         extraFields: ['d.labels.`disk`'],
                         unit: 'Bps',
                         width: '49%',
-                        displayNameTemplate: '${__series.labels.disk}',
                         transformFunction: 'rate',
                     })
                 );
@@ -64,7 +63,6 @@ export function systemMetricsDashboard(snapshotId: string): EmbeddedScene {
                         extraFields: ['d.labels.`disk`'],
                         unit: 'Bps',
                         width: '49%',
-                        displayNameTemplate: '${__series.labels.disk}',
                         transformFunction: 'rate',
                     })
                 );
@@ -76,14 +74,12 @@ export function systemMetricsDashboard(snapshotId: string): EmbeddedScene {
                     extraFields: ['d.labels.`disk`'],
                     unit: 'Bps',
                     width: '100%',
-                    displayNameTemplate: '${__series.labels.disk}',
                     transformFunction: 'rate',
                 }),
                 createAggregatedMetricPanel(snapshotId, 'sys_disk_write_bytes', 'Rate Disk Write Bytes', {
                     extraFields: ['d.labels.`disk`'],
                     unit: 'Bps',
                     width: '100%',
-                    displayNameTemplate: '${__series.labels.disk}',
                     transformFunction: 'rate',
                 }),
             ];
