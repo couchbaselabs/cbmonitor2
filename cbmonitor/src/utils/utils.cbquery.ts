@@ -66,7 +66,7 @@ export class CBQueryBuilder {
     protected buildSelectClause(): string {
         const fields = [
             'MILLIS_TO_STR(t._t) AS time',
-            `t._v0 AS \`${this.metricName}\``, // Use metric name as the label for the metric value so it can be displayed in the legend
+            `t._v0 as  \`${this.metricName}\`` , // Use metric name as the label for the metric value so it can be displayed in the legend
             ...this.extraFields
         ];
         return fields.join(', ');
@@ -123,8 +123,8 @@ export class AggregationQueryBuilder extends CBQueryBuilder {
         const alias = this.outerAlias;
         const remappedExtras = this.extraFields.map(f => f.replace(/^d\./, `${alias}.`));
         const fields = [
-            't._t AS time',
-            `t._v0 AS \`${this.metricName}\``,
+            'millis_to_str(t._t) AS time',
+            `t._v0 AS  \`${this.metricName}\``,
             ...remappedExtras,
         ];
         return fields.join(', ');

@@ -56,6 +56,36 @@ function createSceneItemFromBuilder(
 
     const panelBuilder = PanelBuilders.timeseries().setTitle(title);
 
+    // Legend: prefer labels-only (extraFields) and fallback to metric name
+    const makeLegendTemplate = (): string => {
+        const ef = options.extraFields ?? [];
+        const labelKeys = ef
+            .map((f) => {
+                // Expect formats like 'd.labels.instance' or 'd.labels.`database`'
+                const matchBackticks = f.match(/d\.labels\.\`([^`]+)\`/);
+                if (matchBackticks) {
+                    return matchBackticks[1];
+                }
+                const matchDot = f.match(/d\.labels\.([^`\.]+)/);
+                return matchDot ? matchDot[1] : undefined;
+            })
+            .filter((v): v is string => Boolean(v));
+
+        if (labelKeys.length > 0) {
+            // Build legend from labels only using field label macros
+            const parts = labelKeys.map((k) => '${__field.labels.' + k + '}');
+            return parts.join(' , ');
+        }
+        // Fallback: show instance label for clearer identification
+        return '${__field.labels.instance}';
+    };
+
+    const legendTemplate = makeLegendTemplate();
+    panelBuilder.setOverrides((b) => {
+        // Match all fields coming from this query (by refId) and override display name
+        b.matchFieldsByQuery(metricName).overrideDisplayName(legendTemplate);
+    });
+
     // Add markdown description with query details
     try {
         const queryText = builder.build();

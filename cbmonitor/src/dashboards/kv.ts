@@ -18,7 +18,7 @@ export function kvMetricsDashboard(snapshotId: string): EmbeddedScene {
 
         // Operations & Performance (keep GET ops aggregated for now)
         createMetricPanel(snapshotId, 'kv_vb_ops_get', 'vBucket GET Ops', {
-            extraFields: ['d.labels.`instance`', 'd.labels.`op`', 'd.labels.`result`', 'd.labels.`bucket`'],
+            extraFields: ['d.labels.`instance`', 'd.labels.`bucket`'],
             unit: 'short',
         }),
 
