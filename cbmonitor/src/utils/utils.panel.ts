@@ -2,9 +2,9 @@
 // using the cbdatasource plugin
 
 import { PanelBuilders, SceneDataTransformer, SceneFlexItem, SceneQueryRunner } from '@grafana/scenes';
+import { TooltipDisplayMode } from '@grafana/schema';
 import { CBQueryBuilder, AggregationQueryBuilder } from './utils.cbquery';
 import { layoutService } from '../services/layoutService';
-
 
 export function getNewTimeSeriesDataTransformer(queryRunner: SceneQueryRunner) {
     return new SceneDataTransformer({
@@ -55,6 +55,8 @@ function createSceneItemFromBuilder(
     const panelWidth = options.width ?? layoutService.getPanelWidth();
 
     const panelBuilder = PanelBuilders.timeseries().setTitle(title);
+    // Tooltip: show values from all series at the hovered time
+    panelBuilder.setOption('tooltip', { mode: TooltipDisplayMode.Multi });
 
     // Legend: prefer labels-only (extraFields) and fallback to metric name
     const makeLegendTemplate = (): string => {
