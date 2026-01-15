@@ -56,6 +56,22 @@ export function createMetricPanel(
     // Build the panel with unit configuration if provided
     const panelBuilder = PanelBuilders.timeseries()
         .setTitle(title);
+
+    // Use Markdown for a clean multiline hover tooltip
+    try {
+        const queryText = builder.build();
+        const descriptionMd = [
+            `**Metric:** ${metricName}`,
+            '',
+            '**Query:**',
+            '```sql',
+            queryText,
+            '```',
+        ].join('\n');
+        panelBuilder.setDescription(descriptionMd);
+    } catch (e) {
+        // Skip description if query build fails
+    }
     
     // Apply unit if specified
     if (options.unit) {
@@ -141,6 +157,24 @@ export function createAggregatedMetricPanel(
     // Build the panel with unit configuration if provided
     const panelBuilder = PanelBuilders.timeseries()
         .setTitle(title);
+
+    // Add description hover with metric and query details
+    try {
+        const builtQuery = builder.build();
+        // Preserve explicit blank lines and use single newline separators
+        const descriptionMd = [
+            `**Metric:** ${metricName}`,
+            options.transformFunction ? `**Transform:** ${options.transformFunction}` : undefined,
+            '', // explicit blank line between header and query section
+            '**Query:**',
+            '```sql',
+            builtQuery,
+            '```',
+        ].filter((s) => s !== undefined).join('\n');
+        panelBuilder.setDescription(descriptionMd);
+    } catch (e) {
+        // If query generation fails, skip description to avoid breaking panel creation
+    }
 
     // Apply unit if specified
     if (options.unit) {
