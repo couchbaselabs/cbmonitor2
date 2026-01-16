@@ -9,12 +9,12 @@ export function indexMetricsDashboard(snapshotId: string): EmbeddedScene {
         // Indexer
         createMetricPanel(snapshotId, 'sysproc_cpu_seconds_total', 'Indexer CPU Time (Cumulative Seconds)', {
             labelFilters: { proc: 'indexer' },
-            extraFields: ['d.labels.`instance`', `d.labels.mode`],
+            extraFields: ['d.labels.`instance`', 'd.labels.`mode`'],
             unit: 's',
         }),
         createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Indexer Resident Memory (Bytes)', {
             labelFilters: { proc: 'indexer' },
-            extraFields: ['d.labels.`instance`', `d.labels.mode`],
+            extraFields: ['d.labels.`instance`', 'd.labels.`index`', 'd.labels.`mode`'],
             unit: 'bytes',
         }),
         // Latency and throughput metrics
@@ -31,6 +31,7 @@ export function indexMetricsDashboard(snapshotId: string): EmbeddedScene {
             unit: 'bytes',
         }),
         createMetricPanel(snapshotId, 'index_memory_used', 'Index Memory Used', {
+            extraFields: ['d.labels.`bucket`', 'd.labels.`index`', 'd.labels.`scope`', 'd.labels.`collection`'],
             unit: 'bytes',
         }),
         createMetricPanel(snapshotId, 'index_total_data_size', 'Index Total Data Size', {
