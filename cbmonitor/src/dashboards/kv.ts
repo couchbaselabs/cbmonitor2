@@ -1,11 +1,9 @@
-import { EmbeddedScene, SceneFlexLayout } from '@grafana/scenes';
+import { EmbeddedScene } from '@grafana/scenes';
 import { createMetricPanel } from 'utils/utils.panel';
-import { getInstancesFromMetricRunner, parseInstancesFromFrames } from 'services/instanceService';
+import { createInstanceAwareScene } from 'utils/instanceScene';
 
 export function kvMetricsDashboard(snapshotId: string): EmbeddedScene {
-
-    // Base panels (excluding the per-instance KV Ops panel which we add dynamically)
-    const baseChildren = [
+    const buildBaseChildren = () => [
         // memcached
         createMetricPanel(snapshotId, 'sysproc_cpu_seconds_total', 'memcached CPU Time (Cumulative Seconds)', {
             labelFilters: { proc: 'memcached' },
@@ -58,49 +56,22 @@ export function kvMetricsDashboard(snapshotId: string): EmbeddedScene {
         }),
     ];
 
-    const layout = new SceneFlexLayout({
-        minHeight: 50, // Intentional to allow the layout to be visible when  no data is available
-        direction: 'row',
-        wrap: 'wrap',
-        children: [...baseChildren],
-    });
-
-    // Build per-instance KV Ops panels
-    const instancesRunner = getInstancesFromMetricRunner(snapshotId, 'kv_ops');
-    layout.setState({ $data: instancesRunner });
-    (instancesRunner as any).run?.();
-
-    instancesRunner.subscribeToState((state: any) => {
-        const frames = state?.data?.series ?? [];
-        const instances = parseInstancesFromFrames(frames);
-
-        let perInstancePanels = [] as ReturnType<typeof createMetricPanel>[];
-        if (instances && instances.length > 0) {
-            for (const i of instances) {
-                perInstancePanels.push(
-                    createMetricPanel(snapshotId, 'kv_ops', `KV Operations (ops) (${i})`, {
-                        labelFilters: { instance: i },
-                        extraFields: ['d.labels.`op`', 'd.labels.`result`', 'd.labels.`bucket`'],
-                        unit: 'short',
-                        width: '49%',
-                    })
-                );
-            }
-        } else {
-            // Fallback: aggregated KV Ops across instances
-            perInstancePanels = [
-                createMetricPanel(snapshotId, 'kv_ops', 'KV Operations (ops)', {
-                    extraFields: ['d.labels.`instance`', 'd.labels.`op`', 'd.labels.`result`', 'd.labels.`bucket`'],
-                    unit: 'short',
-                    width: '100%',
-                }),
-            ];
-        }
-
-        layout.setState({ children: [...baseChildren, ...perInstancePanels] });
-    });
-
-    return new EmbeddedScene({
-        body: layout,
-    });
+    return createInstanceAwareScene(
+        snapshotId,
+        'kv_ops',
+        buildBaseChildren,
+        (i: string) => [
+            createMetricPanel(snapshotId, 'kv_ops', `KV Operations (ops) (${i})`, {
+                labelFilters: { instance: i },
+                extraFields: ['d.labels.`bucket`', 'd.labels.`op`', 'd.labels.`result`'],
+                unit: 'short',
+            }),
+        ],
+        () => [
+            createMetricPanel(snapshotId, 'kv_ops', 'KV Operations (ops)', {
+                extraFields: ['d.labels.`instance`','d.labels.`bucket`', 'd.labels.`op`', 'd.labels.`result`'],
+                unit: 'short',
+            }),
+        ]
+    );
 }
