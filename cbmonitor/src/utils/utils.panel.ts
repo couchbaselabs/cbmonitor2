@@ -2,7 +2,7 @@
 // using the cbdatasource plugin
 
 import { PanelBuilders, SceneDataTransformer, SceneFlexItem, SceneQueryRunner } from '@grafana/scenes';
-import { TooltipDisplayMode } from '@grafana/schema';
+import { TooltipDisplayMode, LegendDisplayMode } from '@grafana/schema';
 import { CBQueryBuilder, AggregationQueryBuilder } from './utils.cbquery';
 import { layoutService } from '../services/layoutService';
 
@@ -57,8 +57,16 @@ function createSceneItemFromBuilder(
     const panelBuilder = PanelBuilders.timeseries().setTitle(title);
     // Tooltip: show values from all series at the hovered time
     panelBuilder.setOption('tooltip', { mode: TooltipDisplayMode.Multi });
+    // Legend: sort rendered entries by display name (lexicographic)
+    panelBuilder.setOption('legend', {
+        showLegend: true,
+        placement: 'bottom',
+        displayMode: LegendDisplayMode.List,
+        sortBy: 'Name',
+        sortDesc: false,
+    });
 
-    // Legend: prefer labels-only (extraFields) and fallback to metric name
+    // Legend: prefer labels-only (extraFields) and fallback to instance label
     const makeLegendTemplate = (): string => {
         const ef = options.extraFields ?? [];
         const labelKeys = ef

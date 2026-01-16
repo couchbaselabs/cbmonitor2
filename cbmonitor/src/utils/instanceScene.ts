@@ -25,7 +25,7 @@ export function createInstanceAwareScene(
   }
 
   const layout = new SceneFlexLayout({
-    minHeight: 50,
+    minHeight: 55,
     direction: layoutService.getLayout() === 'rows' ? 'column' : 'row',
     wrap: 'wrap',
     children: buildBaseChildren(),
