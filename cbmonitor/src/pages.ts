@@ -1,6 +1,6 @@
 // Create all the Scene pages to be used in the app
 
-import { EmbeddedScene, SceneAppPage } from '@grafana/scenes';
+import { EmbeddedScene, SceneAppPage, SceneDataLayerSet } from '@grafana/scenes';
 import { prefixRoute } from './utils/utils.routing';
 import { ROUTES } from './constants';
 import { systemMetricsDashboard } from 'dashboards/system';
@@ -13,6 +13,7 @@ import { xdcrMetricsDashboard } from 'dashboards/xdcr';
 import { sgwMetricsDashboard } from 'dashboards/sgw';
 import { eventingMetricsDashboard } from 'dashboards/eventing';
 import { analyticsMetricsDashboard } from 'dashboards/analytics';
+import { SnapshotPhaseRegionsLayer } from './layers/SnapshotPhaseRegionsLayer';
 
 /**
  * Cache for dashboard scenes to avoid recreating them on tab switches
@@ -115,6 +116,16 @@ function getMetricsDashboardPage(
             if (!sceneCache.has(cacheKey)) {
                 // Create and cache the scene
                 sceneCache.set(cacheKey, dashboardComponent(snapshotId));
+                // Attach global phase regions layer to scenes that don't already set one
+                const scene = sceneCache.get(cacheKey)!;
+                const globalLayers = new SceneDataLayerSet({
+                    layers: [new SnapshotPhaseRegionsLayer({ isEnabled: true, snapshotId, name: 'Snapshot Phases' })],
+                });
+                // If the scene doesn't already have a $data provider, set the global layer set
+                const currentState: any = (scene as any).state || {};
+                if (!currentState.$data) {
+                    scene.setState({ $data: globalLayers });
+                }
             }
             // Return cached scene
             return sceneCache.get(cacheKey)!;

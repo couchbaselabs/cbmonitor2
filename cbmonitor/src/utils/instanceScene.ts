@@ -1,6 +1,7 @@
-import { EmbeddedScene, SceneFlexLayout, SceneFlexItem } from '@grafana/scenes';
+import { EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneDataLayerSet } from '@grafana/scenes';
 import { getInstancesFromMetricRunner, parseInstancesFromFrames } from 'services/instanceService';
 import { layoutService } from '../services/layoutService';
+import { SnapshotPhaseRegionsLayer } from '../layers/SnapshotPhaseRegionsLayer';
 
 /**
  * Build an EmbeddedScene with base panels and dynamic per-instance panels.
@@ -63,5 +64,10 @@ export function createInstanceAwareScene(
 
   rebuild();
 
-  return new EmbeddedScene({ body: layout });
+  // Attach global snapshot phase regions as a data layer so all panels inherit annotations
+  const globalLayers = new SceneDataLayerSet({
+    layers: [new SnapshotPhaseRegionsLayer({ isEnabled: true, snapshotId, name: 'Snapshot Phases' })],
+  });
+
+  return new EmbeddedScene({ body: layout, $data: globalLayers });
 }

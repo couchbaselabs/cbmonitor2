@@ -100,7 +100,7 @@ function createSceneItemFromBuilder(
     try {
         const queryText = builder.build();
         const descriptionMd = [
-            `**Metric:** ${metricName}/n`,
+            `**Metric:** ${metricName} \n`,
             ...(extraDescriptionLines ?? []),
             '',
             '**Query:**',
@@ -170,4 +170,5 @@ export function createAggregatedMetricPanel(
     const extraDesc = options.transformFunction ? [`**Transform:** ${options.transformFunction}`] : undefined;
     return createSceneItemFromBuilder(builder, metricName, title, options, extraDesc);
 }
+
 
