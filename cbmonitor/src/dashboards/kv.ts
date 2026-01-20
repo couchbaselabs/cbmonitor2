@@ -1,5 +1,5 @@
 import { EmbeddedScene } from '@grafana/scenes';
-import { createMetricPanel } from 'utils/utils.panel';
+import { createAggregatedMetricPanel, createMetricPanel } from 'utils/utils.panel';
 import { createInstanceAwareScene } from 'utils/instanceScene';
 
 export function kvMetricsDashboard(snapshotId: string): EmbeddedScene {
@@ -53,6 +53,23 @@ export function kvMetricsDashboard(snapshotId: string): EmbeddedScene {
         }),
         createMetricPanel(snapshotId, 'kv_vb_queue_age_seconds', 'vBucket Queue Age (Seconds)', {
             unit: 's',
+        }),
+        createAggregatedMetricPanel(snapshotId, "kv_dcp_items_sent", "DCP Items Sent (Items/Sec)", {
+            transformFunction: "rate",
+            unit: 'short',
+            extraFields: ['d.labels.`instance`', 'd.labels.`bucket`', 'd.labels.connection_type'],
+        }),
+        createMetricPanel(snapshotId, "kv_dcp_connection_count", 'Current DCP Connection Count', {
+            extraFields: ['d.labels.`instance`', 'd.labels.`bucket`', 'd.labels.connection_type'],
+            unit: 'short',  
+        }),
+        createMetricPanel(snapshotId, "kv_dcp_backoff", 'DCP Backoff', {
+            extraFields: ['d.labels.`instance`', 'd.labels.`bucket`', 'd.labels.connection_type'],
+            unit: 'short',  
+        }),
+        createMetricPanel(snapshotId, "kv_dcp_items_remaining", 'DCP Items Remaining', {
+            extraFields: ['d.labels.`instance`', 'd.labels.`bucket`', 'd.labels.connection_type'],
+            unit: 'short',  
         }),
     ];
 
