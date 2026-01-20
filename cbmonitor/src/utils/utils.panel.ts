@@ -100,7 +100,7 @@ function createSceneItemFromBuilder(
     try {
         const queryText = builder.build();
         const descriptionMd = [
-            `**Metric:** ${metricName}`,
+            `**Metric:** ${metricName}/n`,
             ...(extraDescriptionLines ?? []),
             '',
             '**Query:**',
