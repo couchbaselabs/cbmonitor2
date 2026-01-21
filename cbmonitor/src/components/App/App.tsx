@@ -6,11 +6,12 @@ import { SceneApp, useSceneApp } from '@grafana/scenes';
 import { Alert } from '@grafana/ui';
 import { PluginPropsContext } from 'utils/utils.plugin';
 import { snapshotPage } from 'components/SnapshotDisplay/snapshotInstance';
+import { comparisonPage } from '../SnapshotDisplay/comparisonInstance';
 
 // Defines the app and its pages
 function getCBMonitorApp(){
   return new SceneApp({
-    pages: [snapshotPage],
+    pages: [snapshotPage, comparisonPage],
     urlSyncOptions: {
       updateUrlOnInit: false,
       createBrowserHistorySteps: true,
