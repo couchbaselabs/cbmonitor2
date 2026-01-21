@@ -66,7 +66,7 @@ export class CBQueryBuilder {
     protected buildSelectClause(): string {
         const fields = [
             'MILLIS_TO_STR(t._t) AS time',
-            `t._v0 AS \`${this.metricName}\``, // Use metric name as the label for the metric value so it can be displayed in the legend
+            `t._v0 AS \`${this.metricName}\`` , // Use metric name as the label for the metric value so it can be displayed in the legend
             ...this.extraFields
         ];
         return fields.join(', ');
@@ -78,6 +78,14 @@ export class CBQueryBuilder {
         const whereClause = this.buildWhereClause();
 
         let query = `SELECT ${selectClause} FROM get_metric_for('${this.metricName}', '${this.snapshotId}') AS d UNNEST _timeseries(d,{'ts_ranges':[\${__from}, \${__to}]}) AS t WHERE ${whereClause}`;
+
+        // Ensure deterministic series ordering by label fields when the datasource materializes series
+        if (this.extraFields && this.extraFields.length > 0) {
+            const orderable = this.extraFields.filter(f => f.startsWith('d.labels'));
+            if (orderable.length > 0) {
+                query += ` ORDER BY ${orderable.join(', ')}`;
+            }
+        }
 
         return query;
     }
@@ -123,8 +131,8 @@ export class AggregationQueryBuilder extends CBQueryBuilder {
         const alias = this.outerAlias;
         const remappedExtras = this.extraFields.map(f => f.replace(/^d\./, `${alias}.`));
         const fields = [
-            't._t AS time',
-            `t._v0 AS \`${this.metricName}\``,
+            'millis_to_str(t._t) AS time',
+            `t._v0 AS  \`${this.metricName}\``,
             ...remappedExtras,
         ];
         return fields.join(', ');
@@ -154,7 +162,17 @@ export class AggregationQueryBuilder extends CBQueryBuilder {
         const selectClause = this.buildSelectClause();
         const whereClause = this.buildWhereClause();
         const innerWhere = this.buildInnerWhereClause();
-        const query = `SELECT ${selectClause} FROM ( SELECT RAW OBJECT_PUT(${this.innerAlias}, "ts_data", ${this.transformFunction}(${this.innerAlias}.ts_data, 40)) FROM get_metric_for('${this.metricName}', '${this.snapshotId}') AS ${this.innerAlias}${innerWhere} ) AS ${this.outerAlias} UNNEST _timeseries(${this.outerAlias},{'ts_ranges':[\${__from}, \${__to}]}) AS t WHERE ${whereClause}`;
+        let query = `SELECT ${selectClause} FROM ( SELECT RAW OBJECT_PUT(${this.innerAlias}, "ts_data", ${this.transformFunction}(${this.innerAlias}.ts_data, 40)) FROM get_metric_for('${this.metricName}', '${this.snapshotId}') AS ${this.innerAlias}${innerWhere} ) AS ${this.outerAlias} UNNEST _timeseries(${this.outerAlias},{'ts_ranges':[\${__from}, \${__to}]}) AS t WHERE ${whereClause}`;
+
+        // Deterministic series ordering by label fields
+        if (this.extraFields && this.extraFields.length > 0) {
+            const orderable = this.extraFields
+                .map(f => f.replace(/^d\./, `${this.outerAlias}.`))
+                .filter(f => f.startsWith(`${this.outerAlias}.labels`));
+            if (orderable.length > 0) {
+                query += ` ORDER BY ${orderable.join(', ')}`;
+            }
+        }
         return query;
     }
 }

@@ -17,6 +17,7 @@ export function eventingMetricsDashboard(snapshotId: string): EmbeddedScene {
                 // mara here: couldnt find the label eventing, did find eventing-produc though 
                 createMetricPanel(snapshotId, 'sysproc_cpu_seconds_total', 'Eventing CPU Time (Cumulative Seconds)', {
                     labelFilters: { proc: 'eventing-produc' },
+                    extraFields: ['d.labels.`instance`', 'd.labels.`mode`'],
                     unit: 's'
                 }),
                 createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Eventing Resident Memory (Bytes)', {
