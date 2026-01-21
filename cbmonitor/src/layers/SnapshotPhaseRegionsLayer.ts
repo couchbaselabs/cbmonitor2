@@ -77,20 +77,37 @@ export class SnapshotPhaseRegionsLayer extends SceneDataLayerBase<SnapshotPhaseR
     const endTexts: string[] = [];
     const endColors: string[] = [];
 
-    for (const p of phases) {
-      const start = dateTime(p.ts_start).toDate();
-      let end = dateTime(p.ts_end).toDate();
-      if (snapshotEnd !== undefined && end.getTime() >= snapshotEnd - epsilonMs) {
-        end = new Date(snapshotEnd - epsilonMs);
-      }
-      regionStarts.push(start);
-      regionEnds.push(end);
-      regionTexts.push(`Phase: ${p.label}`);
-      regionColors.push(palette[(regionStarts.length - 1) % palette.length]);
+    // Start-only point annotations for ongoing phases
+    const startOnlyTimes: Date[] = [];
+    const startOnlyTexts: string[] = [];
+    const startOnlyColors: string[] = [];
 
-      endTimes.push(end);
-      endTexts.push(`Phase End: ${p.label}`);
-      endColors.push(regionColors[regionColors.length - 1]);
+    let phaseIndex = 0;
+    for (const p of phases) {
+      const color = palette[phaseIndex % palette.length];
+      phaseIndex++;
+      const hasEnd = Boolean(p.ts_end);
+      const start = dateTime(p.ts_start).toDate();
+      if (hasEnd) {
+        let end = dateTime(p.ts_end).toDate();
+        if (snapshotEnd !== undefined && end.getTime() >= snapshotEnd - epsilonMs) {
+          end = new Date(snapshotEnd - epsilonMs);
+        }
+        // Only add region and end markers when an explicit end exists in the JSON
+        regionStarts.push(start);
+        regionEnds.push(end);
+        regionTexts.push(`Phase: ${p.label}`);
+        regionColors.push(color);
+
+        endTimes.push(end);
+        endTexts.push(`Phase End: ${p.label}`);
+        endColors.push(color);
+      } else {
+        // Ongoing phase: add a start-only point annotation
+        startOnlyTimes.push(start);
+        startOnlyTexts.push(`Phase Start: ${p.label}`);
+        startOnlyColors.push(color);
+      }
     }
 
     const regionFrame: DataFrame = toDataFrame({
@@ -114,6 +131,21 @@ export class SnapshotPhaseRegionsLayer extends SceneDataLayerBase<SnapshotPhaseR
     });
     endFrame.meta = { ...(endFrame.meta || {}), dataTopic: DataTopic.Annotations };
 
+    // Build starts-only frame (if any)
+    const frames: DataFrame[] = [regionFrame, endFrame];
+    if (startOnlyTimes.length > 0) {
+      const startFrame: DataFrame = toDataFrame({
+        name: 'snapshot_phase_starts',
+        fields: [
+          { name: 'time', type: FieldType.time, values: startOnlyTimes },
+          { name: 'text', type: FieldType.string, values: startOnlyTexts },
+          { name: 'color', type: FieldType.string, values: startOnlyColors },
+        ],
+      });
+      startFrame.meta = { ...(startFrame.meta || {}), dataTopic: DataTopic.Annotations };
+      frames.push(startFrame);
+    }
+
     const tr: any = snapshot?.metadata
       ? {
           from: dateTime(snapshot.metadata.ts_start),
@@ -124,7 +156,7 @@ export class SnapshotPhaseRegionsLayer extends SceneDataLayerBase<SnapshotPhaseR
     const stateUpdate: any = {
       state: LoadingState.Done,
       timeRange: tr,
-      series: [regionFrame, endFrame]
+      series: frames
     };
     this.publishResults(stateUpdate);
   }
