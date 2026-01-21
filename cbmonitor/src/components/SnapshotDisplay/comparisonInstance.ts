@@ -5,6 +5,7 @@ import { snapshotService } from '../../services/snapshotService';
 import { locationService } from '@grafana/runtime';
 import React from 'react';
 import { Alert } from '@grafana/ui';
+import CompareHeader from './CompareHeader';
 
 // State interface for ComparisonStatusScene
 interface ComparisonStatusSceneState extends SceneObjectState {
@@ -62,6 +63,14 @@ export const comparisonPage = new SceneAppPage({
     hideFromBreadcrumbs: false,
     tabs: [initialPlaceholderTab]
 });
+
+// Holds the last computed comparison context (snapshot IDs and common services)
+let lastComparisonContext: { snapshotIds: string[]; commonServices: string[] } | null = null;
+
+// Public getter for other modules to use when building dashboards
+export function getComparisonContext() {
+    return lastComparisonContext;
+}
 
 // Add activation handler to fetch and validate snapshots
 comparisonPage.addActivationHandler(() => {
@@ -123,20 +132,61 @@ comparisonPage.addActivationHandler(() => {
                     })
                 );
 
+                // Compute common services (case-insensitive), preserving a canonical order
+                const svcOrder = ['system', 'kv', 'index', 'query', 'fts', 'eventing', 'sgw', 'sync-gateway', 'xdcr', 'analytics', 'cbas', 'cluster_manager'];
+                const servicesA = new Set(snapshots[0].snapshot.metadata.services.map((s: string) => s.toLowerCase()));
+                const servicesB = new Set(snapshots[1].snapshot.metadata.services.map((s: string) => s.toLowerCase()));
+
+                // Treat aliases
+                const normalize = (svc: string) => {
+                    if (svc === 'n1ql') return 'query';
+                    if (svc === 'sync-gateway') return 'sgw';
+                    if (svc === 'cbas') return 'analytics';
+                    return svc;
+                };
+
+                const normA = new Set(Array.from(servicesA).map(normalize));
+                const normB = new Set(Array.from(servicesB).map(normalize));
+
+                const commonServices = svcOrder.filter((svc) => {
+                    const nsvc = normalize(svc);
+                    return normA.has(nsvc) && normB.has(nsvc);
+                })
+                // remove duplicates introduced by aliases and non-canonical names
+                .filter((v, i, arr) => arr.indexOf(v) === i)
+                // finally, drop synthetic entries not used for dashboards except 'system'
+                .filter((svc) => ['system','kv','index','query','fts','eventing','sgw','xdcr','analytics','cluster_manager'].includes(svc));
+
                 // Build success message with snapshot info
                 const snapshotInfo = snapshots.map((s, idx) => {
                     const meta = s.snapshot.metadata;
                     return `${idx + 1}. Snapshot ID: ${s.id}\n   Services: ${meta.services.join(', ')}\n   Time Range: ${meta.ts_start} to ${meta.ts_end}`;
                 }).join('\n\n');
 
-                const successMessage = `Successfully loaded ${snapshots.length} snapshots:\n\n${snapshotInfo}\n\n✓ All snapshots validated and ready for comparison!`;
+                // Persist comparison context for later use when building dashboards
+                lastComparisonContext = { snapshotIds: [...snapshotIds], commonServices };
+
+                const successMessage = `Successfully loaded ${snapshots.length} snapshots:\n\n${snapshotInfo}\n\nCommon services (${commonServices.length}): ${commonServices.join(', ') || 'none'}\n\n✓ All snapshots validated and ready for comparison!`;
 
                 showStatusMessage(successMessage, 'success');
+
+                // Phase 1: Render comparison header above tabs with snapshot details
+                const [left, right] = snapshots;
+                comparisonPage.setState({
+                    renderTitle: () => React.createElement(CompareHeader as any, {
+                        leftId: left.id,
+                        rightId: right.id,
+                        leftMeta: left.snapshot.metadata,
+                        rightMeta: right.snapshot.metadata,
+                        commonServices,
+                    }),
+                });
 
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : 'Failed to load snapshots';
                 showStatusMessage(`Error loading snapshots: ${errorMessage}`, 'error');
                 currentLoadedSnapshotIds = [];
+                lastComparisonContext = null;
             }
         };
 
