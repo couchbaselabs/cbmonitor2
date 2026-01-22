@@ -5,7 +5,7 @@ import { prefixRoute } from '../../utils/utils.routing';
 import { snapshotService } from '../../services/snapshotService';
 import { locationService } from '@grafana/runtime';
 import React from 'react';
-import { Alert } from '@grafana/ui';
+import { Alert, Button, Input, useStyles2, Icon } from '@grafana/ui';
 import CompareHeader from './CompareHeader';
 import { systemMetricsDashboard } from '../../dashboards/system';
 import { kvMetricsDashboard } from '../../dashboards/kv';
@@ -50,6 +50,76 @@ function ComparisonStatusRenderer({ model }: SceneComponentProps<ComparisonStatu
     );
 }
 
+// Input scene state
+interface CompareInputSceneState extends SceneObjectState {
+    errorMessage?: string;
+}
+
+// Scene to render inputs for snapshot IDs
+class CompareInputScene extends SceneObjectBase<CompareInputSceneState> {
+    public static Component = CompareInputRenderer;
+    public constructor(state?: Partial<CompareInputSceneState>) {
+        super({ errorMessage: state?.errorMessage });
+    }
+}
+
+// Renderer for CompareInputScene (no JSX)
+function CompareInputRenderer({ model }: SceneComponentProps<CompareInputScene>) {
+    const { errorMessage } = model.useState();
+    const s = useStyles2(() => ({
+        container: {
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: 16,
+        } as React.CSSProperties,
+        header: { display: 'flex', alignItems: 'center', gap: 8 } as React.CSSProperties,
+        subtitle: { color: '#9CA3AF', fontSize: 14 } as React.CSSProperties,
+        form: { display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' } as React.CSSProperties,
+        input: { minWidth: 320, maxWidth: 600 } as React.CSSProperties,
+        info: { fontSize: 12, color: '#9CA3AF' } as React.CSSProperties,
+    }));
+
+    const [text, setText] = React.useState('');
+    const [localError, setLocalError] = React.useState<string | undefined>(undefined);
+
+    const onSubmit = () => {
+        const parts = text.split(',').map((p) => p.trim()).filter((p) => p.length > 0);
+        if (parts.length < 2 || parts.length > 6) {
+            setLocalError('Please enter between 2 and 6 snapshot IDs, comma-separated.');
+            return;
+        }
+        const query = parts.map((id) => `snapshot=${encodeURIComponent(id)}`).join('&');
+        const url = prefixRoute(`${ROUTES.CBMonitor}/${ROUTES.Compare}`) + `?${query}`;
+        locationService.push(url);
+    };
+
+    const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') { onSubmit(); }
+    };
+
+    return React.createElement('div', { style: s.container },
+        React.createElement('div', { style: s.header },
+            React.createElement(Icon as any, { name: 'swap-horiz', size: 'xl' }),
+            React.createElement('h2', null, 'Compare Snapshots')
+        ),
+        React.createElement('div', { style: s.subtitle }, 'Enter 2–6 snapshot IDs (comma-separated), then Compare.'),
+        errorMessage && React.createElement(Alert as any, { severity: 'info', title: 'Info' }, errorMessage),
+        localError && React.createElement(Alert as any, { severity: 'error', title: 'Validation' }, localError),
+        React.createElement('div', { style: s.form },
+            React.createElement(Input as any, {
+                value: text,
+                placeholder: 'id1, id2, id3',
+                onChange: (e: any) => setText(e.currentTarget.value),
+                onKeyDown,
+                style: s.input,
+                prefix: React.createElement(Icon as any, { name: 'search' }),
+                autoFocus: true,
+            }),
+            React.createElement(Button as any, { onClick: onSubmit, size: 'md' }, 'Compare'),
+            React.createElement(Button as any, { onClick: () => locationService.push(prefixRoute(ROUTES.CBMonitor)), size: 'md' }, 'Back to Search')
+        ),
+        React.createElement('div', { style: s.info }, 'Tip: paste multiple IDs separated by commas.')
+    );
+}
+
 // Initial placeholder page
 const initialPlaceholderTab = new SceneAppPage({
     title: 'Compare Snapshots',
@@ -60,7 +130,7 @@ const initialPlaceholderTab = new SceneAppPage({
             direction: 'column',
             children: [
                 new SceneFlexItem({
-                    body: new ComparisonStatusScene('Please provide snapshot IDs in the URL', 'info') as any,
+                    body: new CompareInputScene({ errorMessage: 'Provide 2–6 snapshot IDs to compare.' }) as any,
                 }),
             ],
         }),
@@ -121,12 +191,9 @@ comparisonPage.addActivationHandler(() => {
         // Filter out empty strings
         snapshotIds = snapshotIds.filter(id => id && id.trim().length > 0);
 
-        // Validate we have between 2 and 6 snapshots
+        // When snapshot count is invalid, show input page instead of error
         if (snapshotIds.length < 2 || snapshotIds.length > 6) {
-            showStatusMessage(
-                `Please provide between 2 and 6 snapshot IDs. Found: ${snapshotIds.length}. Example: /a/cbmonitor/cbmonitor/compare?snapshot=id1&snapshot=id2[&snapshot=id3...]`,
-                'error'
-            );
+            showCompareInput(`Found ${snapshotIds.length}. Enter 2–6 IDs to proceed.`);
             currentLoadedSnapshotIds = [];
             return;
         }
@@ -382,5 +449,28 @@ function showStatusMessage(message: string, status: 'success' | 'error' | 'info'
         title: 'Compare Snapshots',
         subTitle: status === 'error' ? 'Error occurred' : status === 'success' ? 'Ready' : 'Loading',
         tabs: [statusTab],
+    });
+}
+
+// Helper: Show input page for entering snapshot IDs
+function showCompareInput(infoMessage?: string) {
+    const inputTab = new SceneAppPage({
+        title: 'Compare Snapshots',
+        url: prefixRoute(`${ROUTES.CBMonitor}/${ROUTES.Compare}`),
+        routePath: '/',
+        getScene: () => new EmbeddedScene({
+            body: new SceneFlexLayout({
+                direction: 'column',
+                children: [
+                    new SceneFlexItem({ body: new CompareInputScene({ errorMessage: infoMessage }) as any }),
+                ],
+            }),
+        }),
+    });
+
+    comparisonPage.setState({
+        title: 'Compare Snapshots',
+        subTitle: 'Input',
+        tabs: [inputTab],
     });
 }
