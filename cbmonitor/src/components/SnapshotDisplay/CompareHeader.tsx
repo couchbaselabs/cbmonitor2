@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { Icon } from '@grafana/ui';
 import { SnapshotMetadata } from 'types/snapshot';
 
 export interface CompareHeaderItem {
@@ -110,8 +111,10 @@ export function CompareHeader({ items, commonServices }: CompareHeaderProps) {
               minWidth: 0
             }}>
               <div style={{ fontWeight: 600, marginBottom: 4, fontSize: isCompact ? 12 : 14 }}>{title}</div>
-              <div style={{ fontSize: isCompact ? 11 : 12 }}>
-                <b>ID:</b> {item.id}
+              <div style={{ fontSize: isCompact ? 11 : 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <b>ID:</b>
+                <span style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{item.id}</span>
+                <CopyButton text={item.id} compact={isCompact} />
               </div>
               <div style={{ fontSize: isCompact ? 11 : 12 }}>
                 <b>Server Version:</b> {item.meta.version}
@@ -148,3 +151,38 @@ export function CompareHeader({ items, commonServices }: CompareHeaderProps) {
 }
 
 export default CompareHeader;
+
+// Small copy-to-clipboard button used near the ID
+function CopyButton({ text, compact }: { text: string; compact: boolean }) {
+  const [copied, setCopied] = React.useState(false);
+
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      // ignore
+    }
+  };
+
+  return (
+    <button
+      onClick={onCopy}
+      title={copied ? 'Copied' : 'Copy ID'}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        border: '1px solid #374151',
+        background: copied ? '#064e3b' : '#1f2937',
+        color: '#E5E7EB',
+        borderRadius: 4,
+        padding: compact ? '2px 4px' : '4px 6px',
+        cursor: 'pointer'
+      }}
+    >
+      <Icon name={copied ? 'check' : 'copy'} size={compact ? 'sm' : 'md'} />
+    </button>
+  );
+}
