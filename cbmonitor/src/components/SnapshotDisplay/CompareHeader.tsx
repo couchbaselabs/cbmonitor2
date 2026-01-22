@@ -7,6 +7,8 @@ export interface CompareHeaderProps {
   leftMeta: SnapshotMetadata;
   rightMeta: SnapshotMetadata;
   commonServices: string[];
+  renderLeftPickerScene?: () => React.ReactNode;
+  renderRightPickerScene?: () => React.ReactNode;
 }
 
 function formatRange(meta: SnapshotMetadata) {
@@ -63,7 +65,7 @@ function PhasesRow({ meta }: { meta: SnapshotMetadata }) {
   );
 }
 
-export function CompareHeader({ leftId, rightId, leftMeta, rightMeta, commonServices }: CompareHeaderProps) {
+export function CompareHeader({ leftId, rightId, leftMeta, rightMeta, commonServices, renderLeftPickerScene, renderRightPickerScene }: CompareHeaderProps) {
   const leftLabel = leftMeta.label;
   const rightLabel = rightMeta.label;
 
@@ -118,6 +120,11 @@ export function CompareHeader({ leftId, rightId, leftMeta, rightMeta, commonServ
               <PhasesRow meta={leftMeta} />
             </div>
           </div>
+          {renderLeftPickerScene && (
+            <div style={{ marginTop: 10 }}>
+              {renderLeftPickerScene()}
+            </div>
+          )}
         </div>
         <div style={{
           background: '#111827',
@@ -146,6 +153,11 @@ export function CompareHeader({ leftId, rightId, leftMeta, rightMeta, commonServ
               <PhasesRow meta={rightMeta} />
             </div>
           </div>
+          {renderRightPickerScene && (
+            <div style={{ marginTop: 10 }}>
+              {renderRightPickerScene()}
+            </div>
+          )}
         </div>
       </div>
     </div>

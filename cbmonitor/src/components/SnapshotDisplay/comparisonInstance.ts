@@ -1,4 +1,5 @@
-import { SceneAppPage, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectBase, SceneObjectState, SceneComponentProps } from '@grafana/scenes';
+import { SceneAppPage, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectBase, SceneObjectState, SceneComponentProps, SceneTimeRange, SceneTimePicker } from '@grafana/scenes';
+import { dateTime, TimeOption } from '@grafana/data';
 import { ROUTES } from '../../constants';
 import { prefixRoute } from '../../utils/utils.routing';
 import { snapshotService } from '../../services/snapshotService';
@@ -70,6 +71,18 @@ let lastComparisonContext: { snapshotIds: string[]; commonServices: string[] } |
 // Public getter for other modules to use when building dashboards
 export function getComparisonContext() {
     return lastComparisonContext;
+}
+
+// Local non-URL-synced time ranges for left/right snapshots
+class NoUrlSyncTimeRange extends SceneTimeRange {
+    public getUrlState() { return {}; }
+}
+
+let leftTimeRange: NoUrlSyncTimeRange | null = null;
+let rightTimeRange: NoUrlSyncTimeRange | null = null;
+
+export function getComparisonTimeRanges() {
+    return { leftTimeRange, rightTimeRange };
 }
 
 // Add activation handler to fetch and validate snapshots
@@ -170,8 +183,68 @@ comparisonPage.addActivationHandler(() => {
 
                 showStatusMessage(successMessage, 'success');
 
-                // Phase 1: Render comparison header above tabs with snapshot details
+                // Prepare header + pickers; final render happens below together with tabs
                 const [left, right] = snapshots;
+
+                // Create dual, non-URL-synced time ranges and pickers
+                leftTimeRange = new NoUrlSyncTimeRange({ from: 'now-15m', to: 'now' });
+                rightTimeRange = new NoUrlSyncTimeRange({ from: 'now-15m', to: 'now' });
+
+                // Initialize to each snapshot's full range, triggering listeners
+                leftTimeRange.onTimeRangeChange({
+                    from: dateTime(left.snapshot.metadata.ts_start),
+                    to: dateTime(left.snapshot.metadata.ts_end),
+                    raw: { from: left.snapshot.metadata.ts_start, to: left.snapshot.metadata.ts_end }
+                });
+
+                rightTimeRange.onTimeRangeChange({
+                    from: dateTime(right.snapshot.metadata.ts_start),
+                    to: dateTime(right.snapshot.metadata.ts_end),
+                    raw: { from: right.snapshot.metadata.ts_start, to: right.snapshot.metadata.ts_end }
+                });
+
+                // Build quick ranges for each side: full range + phases
+                const quickRangesLeft: TimeOption[] = [
+                    { from: left.snapshot.metadata.ts_start, to: left.snapshot.metadata.ts_end, display: 'Full Snapshot Range' }
+                ];
+                const quickRangesRight: TimeOption[] = [
+                    { from: right.snapshot.metadata.ts_start, to: right.snapshot.metadata.ts_end, display: 'Full Snapshot Range' }
+                ];
+
+                if (left.snapshot.metadata.phases && left.snapshot.metadata.phases.length > 0) {
+                    for (const p of left.snapshot.metadata.phases) {
+                        quickRangesLeft.push({ from: p.ts_start, to: p.ts_end, display: `Phase: ${p.label}` });
+                    }
+                }
+
+                if (right.snapshot.metadata.phases && right.snapshot.metadata.phases.length > 0) {
+                    for (const p of right.snapshot.metadata.phases) {
+                        quickRangesRight.push({ from: p.ts_start, to: p.ts_end, display: `Phase: ${p.label}` });
+                    }
+                }
+
+                // Instantiate time picker scene objects for left/right
+                const leftPicker = new SceneTimePicker({ isOnCanvas: true, $timeRange: leftTimeRange, quickRanges: quickRangesLeft });
+                const rightPicker = new SceneTimePicker({ isOnCanvas: true, $timeRange: rightTimeRange, quickRanges: quickRangesRight });
+
+                // Create small scenes to host each picker inside the header cards (ensures Scenes context)
+                const leftPickerScene = new EmbeddedScene({
+                    body: new SceneFlexLayout({
+                        direction: 'column',
+                        children: [new SceneFlexItem({ body: leftPicker })],
+                    }),
+                });
+                const rightPickerScene = new EmbeddedScene({
+                    body: new SceneFlexLayout({
+                        direction: 'column',
+                        children: [new SceneFlexItem({ body: rightPicker })],
+                    }),
+                });
+
+                // Build tabs from common services without pulling dashboards yet
+                const tabs = buildComparisonServiceTabs(commonServices);
+
+                // Render header and inject pickers under each card via CompareHeader, then set tabs
                 comparisonPage.setState({
                     renderTitle: () => React.createElement(CompareHeader as any, {
                         leftId: left.id,
@@ -179,7 +252,12 @@ comparisonPage.addActivationHandler(() => {
                         leftMeta: left.snapshot.metadata,
                         rightMeta: right.snapshot.metadata,
                         commonServices,
+                        renderLeftPickerScene: () => React.createElement((leftPickerScene as any).Component, { model: leftPickerScene }),
+                        renderRightPickerScene: () => React.createElement((rightPickerScene as any).Component, { model: rightPickerScene }),
                     }),
+                    // Clear controls to avoid duplicate pickers above tabs
+                    controls: [],
+                    tabs,
                 });
 
             } catch (error) {
@@ -207,6 +285,58 @@ comparisonPage.addActivationHandler(() => {
         urlSubscription();
     };
 });
+
+// Helper: Build comparison service tabs with placeholder side-by-side scenes
+function buildComparisonServiceTabs(services: string[]): SceneAppPage[] {
+    const svcOrder: Array<{ key: string; title: string; segment: string }> = [
+        { key: 'system', title: 'System Metrics', segment: '' },
+        { key: 'kv', title: 'KV Metrics', segment: 'kv' },
+        { key: 'index', title: 'Index Metrics', segment: 'index' },
+        { key: 'query', title: 'Query Engine Metrics', segment: 'query' },
+        { key: 'fts', title: 'FTS Metrics', segment: 'fts' },
+        { key: 'eventing', title: 'Eventing Metrics', segment: 'eventing' },
+        { key: 'sgw', title: 'Sync Gateway Metrics', segment: 'sgw' },
+        { key: 'xdcr', title: 'XDCR Metrics', segment: 'xdcr' },
+        { key: 'analytics', title: 'Analytics Metrics', segment: 'analytics' },
+        { key: 'cluster_manager', title: 'Cluster Manager Metrics', segment: 'cluster-manager' },
+    ];
+
+    const normalized = new Set(services.map((s) => s.toLowerCase()));
+
+    const pages: SceneAppPage[] = [];
+    for (const svc of svcOrder) {
+        const alwaysInclude = svc.key === 'system' || svc.key === 'cluster_manager';
+        if (!alwaysInclude && !normalized.has(svc.key)) { continue; }
+
+        const urlPath = svc.segment ? `${ROUTES.CBMonitor}/${ROUTES.Compare}/${svc.segment}` : `${ROUTES.CBMonitor}/${ROUTES.Compare}`;
+        const routePath = svc.segment ? `/${svc.segment}` : '/';
+
+        const page = new SceneAppPage({
+            title: svc.title,
+            url: prefixRoute(urlPath),
+            routePath,
+            getScene: () => new EmbeddedScene({
+                body: new SceneFlexLayout({
+                    direction: 'row',
+                    children: [
+                        new SceneFlexItem({
+                            width: '50%',
+                            body: new ComparisonStatusScene('Left snapshot view will appear here (Phase 4)', 'info') as any,
+                        }),
+                        new SceneFlexItem({
+                            width: '50%',
+                            body: new ComparisonStatusScene('Right snapshot view will appear here (Phase 4)', 'info') as any,
+                        }),
+                    ],
+                }),
+            }),
+        });
+        pages.push(page);
+    }
+
+
+    return pages;
+}
 
 // Helper function to show status message
 function showStatusMessage(message: string, status: 'success' | 'error' | 'info') {
