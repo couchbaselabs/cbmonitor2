@@ -94,7 +94,7 @@ export function CompareHeader({ items, commonServices }: CompareHeaderProps) {
         <span style={{ color: '#9CA3AF', marginRight: 6 }}>Services (common):</span>
         <span style={{ color: '#E5E7EB' }}>{commonServicesText}</span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: isCompact ? 8 : 16, overflowX: isCompact ? 'auto' : 'visible' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: isCompact ? 8 : 16 }}>
         {items.map((item, idx) => {
           const label = item.meta.label;
           const letter = String.fromCharCode(65 + idx);
@@ -104,7 +104,10 @@ export function CompareHeader({ items, commonServices }: CompareHeaderProps) {
               background: '#111827',
               border: '1px solid #374151',
               borderRadius: 8,
-              padding: isCompact ? '8px 10px' : '10px 12px'
+              padding: isCompact ? '8px 10px' : '10px 12px',
+              display: 'flex',
+              flexDirection: 'column',
+              minWidth: 0
             }}>
               <div style={{ fontWeight: 600, marginBottom: 4, fontSize: isCompact ? 12 : 14 }}>{title}</div>
               <div style={{ fontSize: isCompact ? 11 : 12 }}>
@@ -128,7 +131,11 @@ export function CompareHeader({ items, commonServices }: CompareHeaderProps) {
                 </div>
               </div>
               {item.renderPickerScene && (
-                <div style={{ marginTop: isCompact ? 8 : 10 }}>
+                <div style={{
+                  marginTop: isCompact ? 6 : 10,
+                  maxWidth: isCompact ? 240 : '100%',
+                  overflow: 'visible'
+                }}>
                   {item.renderPickerScene()}
                 </div>
               )}
