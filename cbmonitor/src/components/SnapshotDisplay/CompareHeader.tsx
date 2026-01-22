@@ -121,9 +121,9 @@ export function CompareHeader({ items, commonServices }: CompareHeaderProps) {
                   <b>Label:</b> {renderLabel(label)}
                 </div>
               )}
-              <div style={{ fontSize: isCompact ? 11 : 12 }}>
+              {/* <div style={{ fontSize: isCompact ? 11 : 12 }}>
                 <b>Range:</b> {formatRange(item.meta)}
-              </div>
+              </div> */}
               <div style={{ marginTop: 4 }}>
                 <b style={{ fontSize: isCompact ? 11 : 12 }}>Phases:</b>
                 <div style={{ marginTop: 4 }}>
