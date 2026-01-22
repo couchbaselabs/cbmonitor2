@@ -72,16 +72,20 @@ function CompareInputRenderer({ model }: SceneComponentProps<CompareInputScene>)
         } as React.CSSProperties,
         header: { display: 'flex', alignItems: 'center', gap: 8 } as React.CSSProperties,
         subtitle: { color: '#9CA3AF', fontSize: 14 } as React.CSSProperties,
-        form: { display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' } as React.CSSProperties,
-        input: { minWidth: 320, maxWidth: 600 } as React.CSSProperties,
+        form: { display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'stretch', width: '100%', maxWidth: 720 } as React.CSSProperties,
+        inputsList: { display: 'flex', flexDirection: 'column', gap: 8 } as React.CSSProperties,
+        row: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' } as React.CSSProperties,
+        input: { flex: 1, minWidth: 280 } as React.CSSProperties,
+        actions: { display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-start' } as React.CSSProperties,
         info: { fontSize: 12, color: '#9CA3AF' } as React.CSSProperties,
     }));
 
-    const [text, setText] = React.useState('');
+    // Maintain a dynamic list of input boxes; start with two
+    const [ids, setIds] = React.useState<string[]>(['', '']);
     const [localError, setLocalError] = React.useState<string | undefined>(undefined);
 
     const onSubmit = () => {
-        const parts = text.split(',').map((p) => p.trim()).filter((p) => p.length > 0);
+        const parts = ids.map((p) => p.trim()).filter((p) => p.length > 0);
         if (parts.length < 2 || parts.length > 6) {
             setLocalError('Please enter between 2 and 6 snapshot IDs, comma-separated.');
             return;
@@ -95,6 +99,23 @@ function CompareInputRenderer({ model }: SceneComponentProps<CompareInputScene>)
         if (e.key === 'Enter') { onSubmit(); }
     };
 
+    const updateId = (idx: number, value: string) => {
+        setIds((prev) => prev.map((v, i) => (i === idx ? value : v)));
+    };
+
+    const addInput = () => {
+        setLocalError(undefined);
+        setIds((prev) => (prev.length >= 6 ? prev : [...prev, '']));
+    };
+
+    const removeInput = (idx: number) => {
+        setLocalError(undefined);
+        setIds((prev) => {
+            if (prev.length <= 2) return prev; // keep minimum two inputs
+            return prev.filter((_, i) => i !== idx);
+        });
+    };
+
     return React.createElement('div', { style: s.container },
         React.createElement('div', { style: s.header },
             React.createElement(Icon as any, { name: 'swap-horiz', size: 'xl' }),
@@ -104,19 +125,27 @@ function CompareInputRenderer({ model }: SceneComponentProps<CompareInputScene>)
         errorMessage && React.createElement(Alert as any, { severity: 'info', title: 'Info' }, errorMessage),
         localError && React.createElement(Alert as any, { severity: 'error', title: 'Validation' }, localError),
         React.createElement('div', { style: s.form },
-            React.createElement(Input as any, {
-                value: text,
-                placeholder: 'id1, id2, id3',
-                onChange: (e: any) => setText(e.currentTarget.value),
-                onKeyDown,
-                style: s.input,
-                prefix: React.createElement(Icon as any, { name: 'search' }),
-                autoFocus: true,
-            }),
-            React.createElement(Button as any, { onClick: onSubmit, size: 'md' }, 'Compare'),
-            React.createElement(Button as any, { onClick: () => locationService.push(prefixRoute(ROUTES.CBMonitor)), size: 'md' }, 'Back to Search')
+            React.createElement('div', { style: s.inputsList },
+                ...ids.map((val, idx) => React.createElement('div', { key: idx, style: s.row },
+                    React.createElement(Input as any, {
+                        value: val,
+                        placeholder: `Snapshot ID #${idx + 1}`,
+                        onChange: (e: any) => updateId(idx, e.currentTarget.value),
+                        onKeyDown,
+                        style: s.input,
+                        prefix: React.createElement(Icon as any, { name: 'search' }),
+                        autoFocus: idx === 0,
+                    }),
+                    idx >= 2 && React.createElement(Button as any, { onClick: () => removeInput(idx), size: 'sm' }, '-')
+                ))
+            ),
+            React.createElement('div', { style: s.actions },
+                React.createElement(Button as any, { onClick: addInput, size: 'sm', disabled: ids.length >= 6 }, '+'),
+                React.createElement(Button as any, { onClick: onSubmit, size: 'md' }, 'Compare'),
+                React.createElement(Button as any, { onClick: () => locationService.push(prefixRoute(ROUTES.CBMonitor)), size: 'md' }, 'Back to Search')
+            )
         ),
-        React.createElement('div', { style: s.info }, 'Tip: paste multiple IDs separated by commas.')
+        React.createElement('div', { style: s.info }, 'Tip: at least two IDs; max six.')
     );
 }
 
