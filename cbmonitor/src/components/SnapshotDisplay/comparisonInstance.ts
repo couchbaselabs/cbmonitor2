@@ -7,6 +7,16 @@ import { locationService } from '@grafana/runtime';
 import React from 'react';
 import { Alert } from '@grafana/ui';
 import CompareHeader from './CompareHeader';
+import { systemMetricsDashboard } from '../../dashboards/system';
+import { kvMetricsDashboard } from '../../dashboards/kv';
+import { indexMetricsDashboard } from '../../dashboards/index';
+import { queryMetricsDashboard } from '../../dashboards/query';
+import { ftsMetricsDashboard } from '../../dashboards/fts';
+import { eventingMetricsDashboard } from '../../dashboards/eventing';
+import { sgwMetricsDashboard } from '../../dashboards/sgw';
+import { xdcrMetricsDashboard } from '../../dashboards/xdcr';
+import { analyticsMetricsDashboard } from '../../dashboards/analytics';
+import { clusterManagerMetricsDashboard } from '../../dashboards/clusterManager';
 
 // State interface for ComparisonStatusScene
 interface ComparisonStatusSceneState extends SceneObjectState {
@@ -301,6 +311,19 @@ function buildComparisonServiceTabs(services: string[]): SceneAppPage[] {
         { key: 'cluster_manager', title: 'Cluster Manager Metrics', segment: 'cluster-manager' },
     ];
 
+    const builders: Record<string, (snapshotId: string) => EmbeddedScene> = {
+        system: systemMetricsDashboard,
+        kv: kvMetricsDashboard,
+        index: indexMetricsDashboard,
+        query: queryMetricsDashboard,
+        fts: ftsMetricsDashboard,
+        eventing: eventingMetricsDashboard,
+        sgw: sgwMetricsDashboard,
+        xdcr: xdcrMetricsDashboard,
+        analytics: analyticsMetricsDashboard,
+        cluster_manager: clusterManagerMetricsDashboard,
+    };
+
     const normalized = new Set(services.map((s) => s.toLowerCase()));
 
     const pages: SceneAppPage[] = [];
@@ -315,21 +338,49 @@ function buildComparisonServiceTabs(services: string[]): SceneAppPage[] {
             title: svc.title,
             url: prefixRoute(urlPath),
             routePath,
-            getScene: () => new EmbeddedScene({
-                body: new SceneFlexLayout({
-                    direction: 'row',
-                    children: [
-                        new SceneFlexItem({
-                            width: '50%',
-                            body: new ComparisonStatusScene('Left snapshot view will appear here (Phase 4)', 'info') as any,
+            getScene: () => {
+                const ctx = getComparisonContext();
+                const { leftTimeRange, rightTimeRange } = getComparisonTimeRanges();
+                if (!ctx || !ctx.snapshotIds || ctx.snapshotIds.length !== 2 || !leftTimeRange || !rightTimeRange) {
+                    return new EmbeddedScene({
+                        body: new SceneFlexLayout({
+                            direction: 'column',
+                            children: [
+                                new SceneFlexItem({ body: new ComparisonStatusScene('Comparison context not ready. Reload the page.', 'error') as any }),
+                            ],
                         }),
-                        new SceneFlexItem({
-                            width: '50%',
-                            body: new ComparisonStatusScene('Right snapshot view will appear here (Phase 4)', 'info') as any,
+                    });
+                }
+
+                const [leftId, rightId] = ctx.snapshotIds;
+                const builder = builders[svc.key];
+                if (!builder) {
+                    return new EmbeddedScene({
+                        body: new SceneFlexLayout({
+                            direction: 'column',
+                            children: [
+                                new SceneFlexItem({ body: new ComparisonStatusScene(`No builder for service: ${svc.key}`, 'error') as any }),
+                            ],
                         }),
-                    ],
-                }),
-            }),
+                    });
+                }
+
+                const leftScene = builder(leftId);
+                const rightScene = builder(rightId);
+                // Bind each scene to its respective time range
+                leftScene.setState({ $timeRange: leftTimeRange });
+                rightScene.setState({ $timeRange: rightTimeRange });
+
+                return new EmbeddedScene({
+                    body: new SceneFlexLayout({
+                        direction: 'row',
+                        children: [
+                            new SceneFlexItem({ width: '50%', body: leftScene }),
+                            new SceneFlexItem({ width: '50%', body: rightScene }),
+                        ],
+                    }),
+                });
+            },
         });
         pages.push(page);
     }
