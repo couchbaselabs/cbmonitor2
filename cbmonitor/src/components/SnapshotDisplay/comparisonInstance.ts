@@ -89,11 +89,10 @@ class NoUrlSyncTimeRange extends SceneTimeRange {
     public getUrlState() { return {}; }
 }
 
-let leftTimeRange: NoUrlSyncTimeRange | null = null;
-let rightTimeRange: NoUrlSyncTimeRange | null = null;
+let timeRanges: NoUrlSyncTimeRange[] = [];
 
 export function getComparisonTimeRanges() {
-    return { leftTimeRange, rightTimeRange };
+    return timeRanges;
 }
 
 // Add activation handler to fetch and validate snapshots
@@ -122,10 +121,10 @@ comparisonPage.addActivationHandler(() => {
         // Filter out empty strings
         snapshotIds = snapshotIds.filter(id => id && id.trim().length > 0);
 
-        // Validate we have exactly 2 snapshots
-        if (snapshotIds.length < 2) {
+        // Validate we have between 2 and 6 snapshots
+        if (snapshotIds.length < 2 || snapshotIds.length > 6) {
             showStatusMessage(
-                `Please provide more than 1 snapshot ID. Found: ${snapshotIds.length}. Example URL: /a/cbmonitor/cbmonitor/compare?snapshot=id1&snapshot=id2`,
+                `Please provide between 2 and 6 snapshot IDs. Found: ${snapshotIds.length}. Example: /a/cbmonitor/cbmonitor/compare?snapshot=id1&snapshot=id2[&snapshot=id3...]`,
                 'error'
             );
             currentLoadedSnapshotIds = [];
@@ -163,9 +162,6 @@ comparisonPage.addActivationHandler(() => {
 
                 // Compute common services (case-insensitive), preserving a canonical order
                 const svcOrder = ['system', 'kv', 'index', 'query', 'fts', 'eventing', 'sgw', 'sync-gateway', 'xdcr', 'analytics', 'cbas', 'cluster_manager'];
-                const servicesA = new Set(snapshots[0].snapshot.metadata.services.map((s: string) => s.toLowerCase()));
-                const servicesB = new Set(snapshots[1].snapshot.metadata.services.map((s: string) => s.toLowerCase()));
-
                 // Treat aliases
                 const normalize = (svc: string) => {
                     if (svc === 'n1ql') return 'query';
@@ -174,12 +170,13 @@ comparisonPage.addActivationHandler(() => {
                     return svc;
                 };
 
-                const normA = new Set(Array.from(servicesA).map(normalize));
-                const normB = new Set(Array.from(servicesB).map(normalize));
+                const normalizedSets = snapshots.map(s => new Set(
+                    s.snapshot.metadata.services.map((svc: string) => normalize(svc.toLowerCase()))
+                ));
 
                 const commonServices = svcOrder.filter((svc) => {
                     const nsvc = normalize(svc);
-                    return normA.has(nsvc) && normB.has(nsvc);
+                    return normalizedSets.every(set => set.has(nsvc));
                 })
                 // remove duplicates introduced by aliases and non-canonical names
                 .filter((v, i, arr) => arr.indexOf(v) === i)
@@ -200,61 +197,30 @@ comparisonPage.addActivationHandler(() => {
                 showStatusMessage(successMessage, 'success');
 
                 // Prepare header + pickers; final render happens below together with tabs
-                const [left, right] = snapshots;
-
-                // Create dual, non-URL-synced time ranges and pickers
-                leftTimeRange = new NoUrlSyncTimeRange({ from: 'now-15m', to: 'now' });
-                rightTimeRange = new NoUrlSyncTimeRange({ from: 'now-15m', to: 'now' });
-
-                // Initialize to each snapshot's full range, triggering listeners
-                leftTimeRange.onTimeRangeChange({
-                    from: dateTime(left.snapshot.metadata.ts_start),
-                    to: dateTime(left.snapshot.metadata.ts_end),
-                    raw: { from: left.snapshot.metadata.ts_start, to: left.snapshot.metadata.ts_end }
+                // Create per-snapshot, non-URL-synced time ranges and pickers
+                timeRanges = snapshots.map(() => new NoUrlSyncTimeRange({ from: 'now-15m', to: 'now' }));
+                timeRanges.forEach((tr, idx) => {
+                    const meta = snapshots[idx].snapshot.metadata;
+                    tr.onTimeRangeChange({
+                        from: dateTime(meta.ts_start),
+                        to: dateTime(meta.ts_end),
+                        raw: { from: meta.ts_start, to: meta.ts_end }
+                    });
                 });
 
-                rightTimeRange.onTimeRangeChange({
-                    from: dateTime(right.snapshot.metadata.ts_start),
-                    to: dateTime(right.snapshot.metadata.ts_end),
-                    raw: { from: right.snapshot.metadata.ts_start, to: right.snapshot.metadata.ts_end }
-                });
-
-                // Build quick ranges for each side: full range + phases
-                const quickRangesLeft: TimeOption[] = [
-                    { from: left.snapshot.metadata.ts_start, to: left.snapshot.metadata.ts_end, display: 'Full Snapshot Range' }
-                ];
-                const quickRangesRight: TimeOption[] = [
-                    { from: right.snapshot.metadata.ts_start, to: right.snapshot.metadata.ts_end, display: 'Full Snapshot Range' }
-                ];
-
-                if (left.snapshot.metadata.phases && left.snapshot.metadata.phases.length > 0) {
-                    for (const p of left.snapshot.metadata.phases) {
-                        quickRangesLeft.push({ from: p.ts_start, to: p.ts_end, display: `Phase: ${p.label}` });
+                const pickerScenes = snapshots.map((s, idx) => {
+                    const quickRanges: TimeOption[] = [
+                        { from: s.snapshot.metadata.ts_start, to: s.snapshot.metadata.ts_end, display: 'Full Snapshot Range' }
+                    ];
+                    if (s.snapshot.metadata.phases && s.snapshot.metadata.phases.length > 0) {
+                        for (const p of s.snapshot.metadata.phases) {
+                            quickRanges.push({ from: p.ts_start, to: p.ts_end, display: `Phase: ${p.label}` });
+                        }
                     }
-                }
-
-                if (right.snapshot.metadata.phases && right.snapshot.metadata.phases.length > 0) {
-                    for (const p of right.snapshot.metadata.phases) {
-                        quickRangesRight.push({ from: p.ts_start, to: p.ts_end, display: `Phase: ${p.label}` });
-                    }
-                }
-
-                // Instantiate time picker scene objects for left/right
-                const leftPicker = new SceneTimePicker({ isOnCanvas: true, $timeRange: leftTimeRange, quickRanges: quickRangesLeft });
-                const rightPicker = new SceneTimePicker({ isOnCanvas: true, $timeRange: rightTimeRange, quickRanges: quickRangesRight });
-
-                // Create small scenes to host each picker inside the header cards (ensures Scenes context)
-                const leftPickerScene = new EmbeddedScene({
-                    body: new SceneFlexLayout({
-                        direction: 'column',
-                        children: [new SceneFlexItem({ body: leftPicker })],
-                    }),
-                });
-                const rightPickerScene = new EmbeddedScene({
-                    body: new SceneFlexLayout({
-                        direction: 'column',
-                        children: [new SceneFlexItem({ body: rightPicker })],
-                    }),
+                    const picker = new SceneTimePicker({ isOnCanvas: true, $timeRange: timeRanges[idx], quickRanges });
+                    return new EmbeddedScene({
+                        body: new SceneFlexLayout({ direction: 'column', children: [new SceneFlexItem({ body: picker })] }),
+                    });
                 });
 
                 // Build tabs from common services without pulling dashboards yet
@@ -263,13 +229,13 @@ comparisonPage.addActivationHandler(() => {
                 // Render header and inject pickers under each card via CompareHeader, then set tabs
                 comparisonPage.setState({
                     renderTitle: () => React.createElement(CompareHeader as any, {
-                        leftId: left.id,
-                        rightId: right.id,
-                        leftMeta: left.snapshot.metadata,
-                        rightMeta: right.snapshot.metadata,
+                        items: snapshots.map((s, idx) => ({
+                            id: s.id,
+                            meta: s.snapshot.metadata,
+                            title: `Snapshot ${String.fromCharCode(65 + idx)}`,
+                            renderPickerScene: () => React.createElement((pickerScenes[idx] as any).Component, { model: pickerScenes[idx] }),
+                        })),
                         commonServices,
-                        renderLeftPickerScene: () => React.createElement((leftPickerScene as any).Component, { model: leftPickerScene }),
-                        renderRightPickerScene: () => React.createElement((rightPickerScene as any).Component, { model: rightPickerScene }),
                     }),
                     // Clear controls to avoid duplicate pickers above tabs
                     controls: [],
@@ -350,8 +316,8 @@ function buildComparisonServiceTabs(services: string[]): SceneAppPage[] {
             routePath,
             getScene: () => {
                 const ctx = getComparisonContext();
-                const { leftTimeRange, rightTimeRange } = getComparisonTimeRanges();
-                if (!ctx || !ctx.snapshotIds || ctx.snapshotIds.length !== 2 || !leftTimeRange || !rightTimeRange) {
+                const ranges = getComparisonTimeRanges();
+                if (!ctx || !ctx.snapshotIds || ctx.snapshotIds.length < 2 || !ranges || ranges.length !== ctx.snapshotIds.length) {
                     return new EmbeddedScene({
                         body: new SceneFlexLayout({
                             direction: 'column',
@@ -362,7 +328,6 @@ function buildComparisonServiceTabs(services: string[]): SceneAppPage[] {
                     });
                 }
 
-                const [leftId, rightId] = ctx.snapshotIds;
                 const builder = builders[svc.key];
                 if (!builder) {
                     return new EmbeddedScene({
@@ -375,20 +340,16 @@ function buildComparisonServiceTabs(services: string[]): SceneAppPage[] {
                     });
                 }
 
-                const leftScene = builder(leftId);
-                const rightScene = builder(rightId);
-                // Bind each scene to its respective time range
-                leftScene.setState({ $timeRange: leftTimeRange });
-                rightScene.setState({ $timeRange: rightTimeRange });
+                const count = ctx.snapshotIds.length;
+                const width = `${(100 / count).toFixed(2)}%`;
+                const children = ctx.snapshotIds.map((sid, idx) => {
+                    const scene = builder(sid);
+                    scene.setState({ $timeRange: ranges[idx] });
+                    return new SceneFlexItem({ width, body: scene });
+                });
 
                 return new EmbeddedScene({
-                    body: new SceneFlexLayout({
-                        direction: 'row',
-                        children: [
-                            new SceneFlexItem({ width: '50%', body: leftScene }),
-                            new SceneFlexItem({ width: '50%', body: rightScene }),
-                        ],
-                    }),
+                    body: new SceneFlexLayout({ direction: 'row', children }),
                 });
             },
         });

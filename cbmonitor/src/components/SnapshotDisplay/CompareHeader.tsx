@@ -1,14 +1,16 @@
 import React, { useMemo } from 'react';
 import { SnapshotMetadata } from 'types/snapshot';
 
+export interface CompareHeaderItem {
+  id: string;
+  meta: SnapshotMetadata;
+  title?: string;
+  renderPickerScene?: () => React.ReactNode;
+}
+
 export interface CompareHeaderProps {
-  leftId: string;
-  rightId: string;
-  leftMeta: SnapshotMetadata;
-  rightMeta: SnapshotMetadata;
+  items: CompareHeaderItem[];
   commonServices: string[];
-  renderLeftPickerScene?: () => React.ReactNode;
-  renderRightPickerScene?: () => React.ReactNode;
 }
 
 function formatRange(meta: SnapshotMetadata) {
@@ -35,13 +37,13 @@ function renderLabel(label?: string): React.ReactNode {
         href={label}
         target="_blank"
         rel="noopener noreferrer"
-        style={{ color: '#5794F2', textDecoration: 'none' }}
+        style={{ color: '#5794F2', textDecoration: 'none', wordBreak: 'break-word' }}
       >
         {label}
       </a>
     );
   }
-  return <span>{label}</span>;
+  return <span style={{ wordBreak: 'break-word' }}>{label}</span>;
 }
 
 function PhasesRow({ meta }: { meta: SnapshotMetadata }) {
@@ -65,20 +67,20 @@ function PhasesRow({ meta }: { meta: SnapshotMetadata }) {
   );
 }
 
-export function CompareHeader({ leftId, rightId, leftMeta, rightMeta, commonServices, renderLeftPickerScene, renderRightPickerScene }: CompareHeaderProps) {
-  const leftLabel = leftMeta.label;
-  const rightLabel = rightMeta.label;
-
+export function CompareHeader({ items, commonServices }: CompareHeaderProps) {
   const commonServicesText = useMemo(() => {
     if (commonServices.length === 0) return 'None';
     return commonServices.join(', ');
   }, [commonServices]);
 
+  const cols = Math.min(Math.max(items.length, 1), 6);
+  const isCompact = items.length >= 5;
+
   return (
     <div style={{
       display: 'flex',
       flexDirection: 'column',
-      gap: 10,
+      gap: isCompact ? 8 : 10,
       padding: '12px 0'
     }}>
       <div style={{
@@ -87,78 +89,52 @@ export function CompareHeader({ leftId, rightId, leftMeta, rightMeta, commonServ
         background: '#1f2937',
         border: '1px solid #374151',
         borderRadius: 8,
-        padding: '6px 10px'
+        padding: isCompact ? '4px 8px' : '6px 10px'
       }}>
         <span style={{ color: '#9CA3AF', marginRight: 6 }}>Services (common):</span>
         <span style={{ color: '#E5E7EB' }}>{commonServicesText}</span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <div style={{
-          background: '#111827',
-          border: '1px solid #374151',
-          borderRadius: 8,
-          padding: '10px 12px'
-        }}>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>Snapshot A</div>
-          <div style={{ fontSize: 12 }}>
-            <b>ID:</b> {leftId}
-          </div>
-          <div style={{ fontSize: 12 }}>
-            <b>Server Version:</b> {leftMeta.version}
-          </div>
-          {leftLabel && (
-            <div style={{ fontSize: 12 }}>
-              <b>Label:</b> {renderLabel(leftLabel)}
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: isCompact ? 8 : 16, overflowX: isCompact ? 'auto' : 'visible' }}>
+        {items.map((item, idx) => {
+          const label = item.meta.label;
+          const letter = String.fromCharCode(65 + idx);
+          const title = item.title ?? (isCompact ? letter : `Snapshot ${letter}`);
+          return (
+            <div key={item.id} style={{
+              background: '#111827',
+              border: '1px solid #374151',
+              borderRadius: 8,
+              padding: isCompact ? '8px 10px' : '10px 12px'
+            }}>
+              <div style={{ fontWeight: 600, marginBottom: 4, fontSize: isCompact ? 12 : 14 }}>{title}</div>
+              <div style={{ fontSize: isCompact ? 11 : 12 }}>
+                <b>ID:</b> {item.id}
+              </div>
+              <div style={{ fontSize: isCompact ? 11 : 12 }}>
+                <b>Server Version:</b> {item.meta.version}
+              </div>
+              {label && (
+                <div style={{ fontSize: isCompact ? 11 : 12 }}>
+                  <b>Label:</b> {renderLabel(label)}
+                </div>
+              )}
+              <div style={{ fontSize: isCompact ? 11 : 12 }}>
+                <b>Range:</b> {formatRange(item.meta)}
+              </div>
+              <div style={{ marginTop: 4 }}>
+                <b style={{ fontSize: isCompact ? 11 : 12 }}>Phases:</b>
+                <div style={{ marginTop: 4 }}>
+                  <PhasesRow meta={item.meta} />
+                </div>
+              </div>
+              {item.renderPickerScene && (
+                <div style={{ marginTop: isCompact ? 8 : 10 }}>
+                  {item.renderPickerScene()}
+                </div>
+              )}
             </div>
-          )}
-          <div style={{ fontSize: 12 }}>
-            <b>Range:</b> {formatRange(leftMeta)}
-          </div>
-          <div style={{ marginTop: 4 }}>
-            <b style={{ fontSize: 12 }}>Phases:</b>
-            <div style={{ marginTop: 4 }}>
-              <PhasesRow meta={leftMeta} />
-            </div>
-          </div>
-          {renderLeftPickerScene && (
-            <div style={{ marginTop: 10 }}>
-              {renderLeftPickerScene()}
-            </div>
-          )}
-        </div>
-        <div style={{
-          background: '#111827',
-          border: '1px solid #374151',
-          borderRadius: 8,
-          padding: '10px 12px'
-        }}>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>Snapshot B</div>
-          <div style={{ fontSize: 12 }}>
-            <b>ID:</b> {rightId}
-          </div>
-          <div style={{ fontSize: 12 }}>
-            <b>Server Version:</b> {rightMeta.version}
-          </div>
-          {rightLabel && (
-            <div style={{ fontSize: 12 }}>
-              <b>Label:</b> {renderLabel(rightLabel)}
-            </div>
-          )}
-          <div style={{ fontSize: 12 }}>
-            <b>Range:</b> {formatRange(rightMeta)}
-          </div>
-          <div style={{ marginTop: 4 }}>
-            <b style={{ fontSize: 12 }}>Phases:</b>
-            <div style={{ marginTop: 4 }}>
-              <PhasesRow meta={rightMeta} />
-            </div>
-          </div>
-          {renderRightPickerScene && (
-            <div style={{ marginTop: 10 }}>
-              {renderRightPickerScene()}
-            </div>
-          )}
-        </div>
+          );
+        })}
       </div>
     </div>
   );
