@@ -17,6 +17,7 @@ import { sgwMetricsDashboard } from '../../dashboards/sgw';
 import { xdcrMetricsDashboard } from '../../dashboards/xdcr';
 import { analyticsMetricsDashboard } from '../../dashboards/analytics';
 import { clusterManagerMetricsDashboard } from '../../dashboards/clusterManager';
+import { layoutService } from '../../services/layoutService';
 
 // State interface for ComparisonStatusScene
 interface ComparisonStatusSceneState extends SceneObjectState {
@@ -97,6 +98,11 @@ export function getComparisonTimeRanges() {
 
 // Add activation handler to fetch and validate snapshots
 comparisonPage.addActivationHandler(() => {
+    // Force single-panel-per-row layout while on compare page; restore on leave
+    const previousLayout = layoutService.getLayout();
+    if (previousLayout !== 'rows') {
+        layoutService.setLayout('rows');
+    }
     // Track currently loaded snapshot IDs to avoid reloading
     let currentLoadedSnapshotIds: string[] = [];
 
@@ -117,9 +123,9 @@ comparisonPage.addActivationHandler(() => {
         snapshotIds = snapshotIds.filter(id => id && id.trim().length > 0);
 
         // Validate we have exactly 2 snapshots
-        if (snapshotIds.length !== 2) {
+        if (snapshotIds.length < 2) {
             showStatusMessage(
-                `Please provide exactly 2 snapshot IDs. Found: ${snapshotIds.length}. Example URL: /a/cbmonitor/cbmonitor/compare?snapshot=id1&snapshot=id2`,
+                `Please provide more than 1 snapshot ID. Found: ${snapshotIds.length}. Example URL: /a/cbmonitor/cbmonitor/compare?snapshot=id1&snapshot=id2`,
                 'error'
             );
             currentLoadedSnapshotIds = [];
@@ -293,6 +299,10 @@ comparisonPage.addActivationHandler(() => {
     return () => {
         console.log('ComparisonPage deactivation handler triggered');
         urlSubscription();
+        // Restore previous layout mode when leaving compare page
+        if (layoutService.getLayout() !== previousLayout) {
+            layoutService.setLayout(previousLayout);
+        }
     };
 });
 
