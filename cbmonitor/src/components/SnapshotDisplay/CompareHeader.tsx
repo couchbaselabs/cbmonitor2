@@ -11,12 +11,13 @@ export interface CompareHeaderItem {
 
 export interface CompareHeaderProps {
   items: CompareHeaderItem[];
-  commonServices: string[];
+  commonServices?: string[];
+  commonPhases?: string[];
 }
 
-function formatRange(meta: SnapshotMetadata) {
-  return `${meta.ts_start} → ${meta.ts_end}`;
-}
+// function formatRange(meta: SnapshotMetadata) {
+//   return `${meta.ts_start} → ${meta.ts_end}`;
+// }
 
 // Helper: detect if a string is a valid http(s) URL
 function isValidURL(str?: string): boolean {
@@ -68,20 +69,24 @@ function PhasesRow({ meta }: { meta: SnapshotMetadata }) {
   );
 }
 
-export function CompareHeader({ items, commonServices }: CompareHeaderProps) {
+export function CompareHeader({ items, commonServices = [], commonPhases = [] }: CompareHeaderProps) {
   const commonServicesText = useMemo(() => {
     if (commonServices.length === 0) return 'None';
     return commonServices.join(', ');
   }, [commonServices]);
 
+  const commonPhasesText = useMemo(() => {
+    if (commonPhases.length === 0) return 'None';
+    return commonPhases.join(', ');
+  }, [commonPhases]);
+
   const cols = Math.min(Math.max(items.length, 1), 6);
-  const isCompact = items.length >= 5;
 
   return (
     <div style={{
       display: 'flex',
       flexDirection: 'column',
-      gap: isCompact ? 8 : 10,
+      gap: 10,
       padding: '12px 0'
     }}>
       <div style={{
@@ -90,37 +95,49 @@ export function CompareHeader({ items, commonServices }: CompareHeaderProps) {
         background: '#1f2937',
         border: '1px solid #374151',
         borderRadius: 8,
-        padding: isCompact ? '4px 8px' : '6px 10px'
+        padding: '6px 10px'
       }}>
         <span style={{ color: '#9CA3AF', marginRight: 6 }}>Services (common):</span>
         <span style={{ color: '#E5E7EB' }}>{commonServicesText}</span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: isCompact ? 8 : 16 }}>
+      <div style={{
+        fontSize: 12,
+        color: '#E5E7EB',
+        background: '#1f2937',
+        border: '1px solid #374151',
+        borderRadius: 8,
+        padding: '6px 10px',
+        marginTop: 8
+      }}>
+        <span style={{ color: '#9CA3AF', marginRight: 6 }}>Phases (common):</span>
+        <span style={{ color: '#E5E7EB' }}>{commonPhasesText}</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 16, overflowX: 'auto', overflowY: 'visible' }}>
         {items.map((item, idx) => {
           const label = item.meta.label;
           const letter = String.fromCharCode(65 + idx);
-          const title = item.title ?? (isCompact ? letter : `Snapshot ${letter}`);
+          const title = item.title ?? `Snapshot ${letter}`;
           return (
             <div key={item.id} style={{
               background: '#111827',
               border: '1px solid #374151',
               borderRadius: 8,
-              padding: isCompact ? '8px 10px' : '10px 12px',
+              padding: '10px 12px',
               display: 'flex',
               flexDirection: 'column',
               minWidth: 0
             }}>
-              <div style={{ fontWeight: 600, marginBottom: 4, fontSize: isCompact ? 12 : 14 }}>{title}</div>
-              <div style={{ fontSize: isCompact ? 11 : 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 14 }}>{title}</div>
+              <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <b>ID:</b>
                 <span style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{item.id}</span>
-                <CopyButton text={item.id} compact={isCompact} />
+                <CopyButton text={item.id} />
               </div>
-              <div style={{ fontSize: isCompact ? 11 : 12 }}>
+              <div style={{ fontSize: 12 }}>
                 <b>Server Version:</b> {item.meta.version}
               </div>
               {label && (
-                <div style={{ fontSize: isCompact ? 11 : 12 }}>
+                <div style={{ fontSize: 12 }}>
                   <b>Label:</b> {renderLabel(label)}
                 </div>
               )}
@@ -128,20 +145,20 @@ export function CompareHeader({ items, commonServices }: CompareHeaderProps) {
                 <b>Range:</b> {formatRange(item.meta)}
               </div> */}
               <div style={{ marginTop: 4 }}>
-                <b style={{ fontSize: isCompact ? 11 : 12 }}>Phases:</b>
+                <b style={{ fontSize: 12 }}>Phases:</b>
                 <div style={{ marginTop: 4 }}>
                   <PhasesRow meta={item.meta} />
                 </div>
               </div>
-              {item.renderPickerScene && (
+              {/* {item.renderPickerScene && (
                 <div style={{
-                  marginTop: isCompact ? 6 : 10,
-                  maxWidth: isCompact ? 240 : '100%',
+                  marginTop: 6,
+                  maxWidth: '100%',
                   overflow: 'visible'
                 }}>
                   {item.renderPickerScene()}
                 </div>
-              )}
+              )} */}
             </div>
           );
         })}
@@ -153,7 +170,7 @@ export function CompareHeader({ items, commonServices }: CompareHeaderProps) {
 export default CompareHeader;
 
 // Small copy-to-clipboard button used near the ID
-function CopyButton({ text, compact }: { text: string; compact: boolean }) {
+function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = React.useState(false);
 
   const onCopy = async () => {
@@ -178,11 +195,11 @@ function CopyButton({ text, compact }: { text: string; compact: boolean }) {
         background: copied ? '#064e3b' : '#1f2937',
         color: '#E5E7EB',
         borderRadius: 4,
-        padding: compact ? '2px 4px' : '4px 6px',
+        padding: '4px 6px',
         cursor: 'pointer'
       }}
     >
-      <Icon name={copied ? 'check' : 'copy'} size={compact ? 'sm' : 'md'} />
+      <Icon name={copied ? 'check' : 'copy'} size={'md'} />
     </button>
   );
 }
