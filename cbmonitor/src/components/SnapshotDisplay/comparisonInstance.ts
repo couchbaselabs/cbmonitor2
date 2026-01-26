@@ -19,6 +19,22 @@ import { analyticsMetricsDashboard } from '../../dashboards/analytics';
 import { clusterManagerMetricsDashboard } from '../../dashboards/clusterManager';
 import { layoutService } from '../../services/layoutService';
 
+// Local header row showing Ready + Overlap button (non-functional)
+function CompareTopBar() {
+    const [overlap, setOverlap] = React.useState(false);
+    return React.createElement('div', {
+        style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' }
+    },
+        React.createElement('span', { style: { color: '#9CA3AF', fontSize: 12 } }, 'Ready'),
+        React.createElement((Button as any), {
+            variant: 'secondary',
+            size: 'sm',
+            onClick: () => setOverlap(!overlap),
+            style: overlap ? { background: '#065f46', borderColor: '#065f46', color: '#E5E7EB' } : undefined
+        }, 'Overlap')
+    );
+}
+
 // State interface for ComparisonStatusScene
 interface ComparisonStatusSceneState extends SceneObjectState {
     message: string;
@@ -376,23 +392,27 @@ comparisonPage.addActivationHandler(() => {
                     });
                 };
 
-                // Render header and inject pickers under each card via CompareHeader, then set tabs
+                // Render header with a top status row (Ready + Overlap toggle) and compare cards below, then set tabs
                 comparisonPage.setState({
-                    renderTitle: () => React.createElement(CompareHeader as any, {
-                        items: snapshots.map((s, idx) => ({
-                            id: s.id,
-                            meta: s.snapshot.metadata,
-                            title: `Snapshot ${String.fromCharCode(65 + idx)}`,
-                            renderPickerScene: () => React.createElement((pickerScenes[idx] as any).Component, { model: pickerScenes[idx] }),
-                        })),
-                        commonServices,
-                        commonPhases,
-                        onSelectCommonPhase,
-                        onSelectFullRange,
-                    }),
+                    renderTitle: () => React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 0' } },
+                        React.createElement(CompareTopBar as any, {}),
+                        React.createElement(CompareHeader as any, {
+                            items: snapshots.map((s, idx) => ({
+                                id: s.id,
+                                meta: s.snapshot.metadata,
+                                title: `Snapshot ${String.fromCharCode(65 + idx)}`,
+                                renderPickerScene: () => React.createElement((pickerScenes[idx] as any).Component, { model: pickerScenes[idx] }),
+                            })),
+                            commonServices,
+                            commonPhases,
+                            onSelectCommonPhase,
+                            onSelectFullRange,
+                        })
+                    ),
                     // Clear controls to avoid duplicate pickers above tabs
                     controls: [],
                     tabs,
+                    subTitle: '',
                 });
 
             } catch (error) {
