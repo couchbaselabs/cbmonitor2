@@ -72,6 +72,7 @@ function PhasesRow({ meta }: { meta: SnapshotMetadata }) {
 }
 
 export function CompareHeader({ items, commonServices = [], commonPhases = [], onSelectCommonPhase, onSelectFullRange }: CompareHeaderProps) {
+  const [activePhase, setActivePhase] = React.useState<string | 'FULL' | null>(null);
   const commonServicesText = useMemo(() => {
     if (commonServices.length === 0) return 'None';
     return commonServices.join(', ');
@@ -119,7 +120,8 @@ export function CompareHeader({ items, commonServices = [], commonPhases = [], o
         <Button
           size={'sm'}
           variant={'secondary'}
-          onClick={() => onSelectFullRange?.()}
+          onClick={() => { setActivePhase('FULL'); onSelectFullRange?.(); }}
+          style={activePhase === 'FULL' ? { background: '#b45309', borderColor: '#b45309', color: '#111827' } : undefined}
         >
           Full Snapshot Range
         </Button>
@@ -131,7 +133,8 @@ export function CompareHeader({ items, commonServices = [], commonPhases = [], o
               key={label}
               size={'sm'}
               variant={'secondary'}
-              onClick={() => onSelectCommonPhase?.(label)}
+              onClick={() => { setActivePhase(label); onSelectCommonPhase?.(label); }}
+              style={activePhase === label ? { background: '#b45309', borderColor: '#b45309', color: '#111827' } : undefined}
             >
               {label}
             </Button>
