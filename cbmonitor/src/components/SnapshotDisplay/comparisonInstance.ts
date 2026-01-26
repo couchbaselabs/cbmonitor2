@@ -176,7 +176,7 @@ export const comparisonPage = new SceneAppPage({
 });
 
 // Holds the last computed comparison context (snapshot IDs and common services)
-let lastComparisonContext: { snapshotIds: string[]; commonServices: string[] } | null = null;
+let lastComparisonContext: { snapshotIds: string[]; commonServices: string[]; commonPhases: string[] } | null = null;
 
 // Public getter for other modules to use when building dashboards
 export function getComparisonContext() {
@@ -279,6 +279,30 @@ comparisonPage.addActivationHandler(() => {
                 // finally, drop synthetic entries not used for dashboards except 'system'
                 .filter((svc) => ['system','kv','index','query','fts','eventing','sgw','xdcr','analytics','cluster_manager'].includes(svc));
 
+                // Compute common phase labels (case-insensitive, trimmed), preserving first snapshot's order
+                const phaseLabelSets = snapshots.map((s) => {
+                    const phases = Array.isArray(s.snapshot.metadata.phases) ? s.snapshot.metadata.phases : [];
+                    return new Set(
+                        phases
+                            .map((p: any) => (typeof p?.label === 'string' ? p.label.trim().toLowerCase() : ''))
+                            .filter((lbl: string) => lbl.length > 0)
+                    );
+                });
+
+                const commonPhaseNorms = phaseLabelSets.length > 0
+                    ? [...phaseLabelSets[0]].filter((lbl) => phaseLabelSets.every((set) => set.has(lbl)))
+                    : [];
+
+                const firstLabelsOrdered: string[] = (Array.isArray(snapshots[0].snapshot.metadata.phases)
+                    ? snapshots[0].snapshot.metadata.phases
+                    : [])
+                    .map((p: any) => (typeof p?.label === 'string' ? p.label : ''))
+                    .filter((lbl: string) => lbl.length > 0);
+
+                const commonPhases = firstLabelsOrdered
+                    .filter((lbl) => commonPhaseNorms.includes(lbl.trim().toLowerCase()))
+                    .filter((v, i, arr) => arr.indexOf(v) === i);
+
                 // Build success message with snapshot info
                 const snapshotInfo = snapshots.map((s, idx) => {
                     const meta = s.snapshot.metadata;
@@ -286,9 +310,9 @@ comparisonPage.addActivationHandler(() => {
                 }).join('\n\n');
 
                 // Persist comparison context for later use when building dashboards
-                lastComparisonContext = { snapshotIds: [...snapshotIds], commonServices };
+                lastComparisonContext = { snapshotIds: [...snapshotIds], commonServices, commonPhases };
 
-                const successMessage = `Successfully loaded ${snapshots.length} snapshots:\n\n${snapshotInfo}\n\nCommon services (${commonServices.length}): ${commonServices.join(', ') || 'none'}\n\n✓ All snapshots validated and ready for comparison!`;
+                const successMessage = `Successfully loaded ${snapshots.length} snapshots:\n\n${snapshotInfo}\n\nCommon services (${commonServices.length}): ${commonServices.join(', ') || 'none'}\nCommon phases (${commonPhases.length}): ${commonPhases.join(', ') || 'none'}\n\n✓ All snapshots validated and ready for comparison!`;
 
                 showStatusMessage(successMessage, 'success');
 
@@ -322,6 +346,36 @@ comparisonPage.addActivationHandler(() => {
                 // Build tabs from common services without pulling dashboards yet
                 const tabs = buildComparisonServiceTabs(commonServices);
 
+                // Handler: clicking a common phase sets all time ranges to that phase
+                const onSelectCommonPhase = (label: string) => {
+                    const target = label.trim().toLowerCase();
+                    timeRanges.forEach((tr, idx) => {
+                        const meta = snapshots[idx].snapshot.metadata;
+                        const phases = Array.isArray(meta.phases) ? meta.phases : [];
+                        const match = phases.find((p: any) => typeof p?.label === 'string' && p.label.trim().toLowerCase() === target);
+                        if (match && match.ts_start && match.ts_end) {
+                            tr.onTimeRangeChange({
+                                from: dateTime(match.ts_start),
+                                to: dateTime(match.ts_end),
+                                raw: { from: match.ts_start, to: match.ts_end }
+                            });
+                        }
+                    });
+                };
+
+                const onSelectFullRange = () => {
+                    timeRanges.forEach((tr, idx) => {
+                        const meta = snapshots[idx].snapshot.metadata;
+                        if (meta.ts_start && meta.ts_end) {
+                            tr.onTimeRangeChange({
+                                from: dateTime(meta.ts_start),
+                                to: dateTime(meta.ts_end),
+                                raw: { from: meta.ts_start, to: meta.ts_end }
+                            });
+                        }
+                    });
+                };
+
                 // Render header and inject pickers under each card via CompareHeader, then set tabs
                 comparisonPage.setState({
                     renderTitle: () => React.createElement(CompareHeader as any, {
@@ -332,6 +386,9 @@ comparisonPage.addActivationHandler(() => {
                             renderPickerScene: () => React.createElement((pickerScenes[idx] as any).Component, { model: pickerScenes[idx] }),
                         })),
                         commonServices,
+                        commonPhases,
+                        onSelectCommonPhase,
+                        onSelectFullRange,
                     }),
                     // Clear controls to avoid duplicate pickers above tabs
                     controls: [],

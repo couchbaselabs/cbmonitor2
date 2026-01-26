@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Icon } from '@grafana/ui';
+import { Icon, Button } from '@grafana/ui';
 import { SnapshotMetadata } from 'types/snapshot';
 
 export interface CompareHeaderItem {
@@ -13,6 +13,8 @@ export interface CompareHeaderProps {
   items: CompareHeaderItem[];
   commonServices?: string[];
   commonPhases?: string[];
+  onSelectCommonPhase?: (label: string) => void;
+  onSelectFullRange?: () => void;
 }
 
 // function formatRange(meta: SnapshotMetadata) {
@@ -69,7 +71,7 @@ function PhasesRow({ meta }: { meta: SnapshotMetadata }) {
   );
 }
 
-export function CompareHeader({ items, commonServices = [], commonPhases = [] }: CompareHeaderProps) {
+export function CompareHeader({ items, commonServices = [], commonPhases = [], onSelectCommonPhase, onSelectFullRange }: CompareHeaderProps) {
   const commonServicesText = useMemo(() => {
     if (commonServices.length === 0) return 'None';
     return commonServices.join(', ');
@@ -107,10 +109,34 @@ export function CompareHeader({ items, commonServices = [], commonPhases = [] }:
         border: '1px solid #374151',
         borderRadius: 8,
         padding: '6px 10px',
-        marginTop: 8
+        marginTop: 8,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        flexWrap: 'wrap'
       }}>
-        <span style={{ color: '#9CA3AF', marginRight: 6 }}>Phases (common):</span>
-        <span style={{ color: '#E5E7EB' }}>{commonPhasesText}</span>
+        <span style={{ color: '#9CA3AF' }}>Phases (common):</span>
+        <Button
+          size={'sm'}
+          variant={'secondary'}
+          onClick={() => onSelectFullRange?.()}
+        >
+          Full Snapshot Range
+        </Button>
+        {commonPhases.length === 0 ? (
+          <span style={{ color: '#E5E7EB' }}>{commonPhasesText}</span>
+        ) : (
+          commonPhases.map((label) => (
+            <Button
+              key={label}
+              size={'sm'}
+              variant={'secondary'}
+              onClick={() => onSelectCommonPhase?.(label)}
+            >
+              {label}
+            </Button>
+          ))
+        )}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 16, overflowX: 'auto', overflowY: 'visible' }}>
         {items.map((item, idx) => {
