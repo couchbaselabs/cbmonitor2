@@ -19,9 +19,42 @@ import { analyticsMetricsDashboard } from '../../dashboards/analytics';
 import { clusterManagerMetricsDashboard } from '../../dashboards/clusterManager';
 import { layoutService } from '../../services/layoutService';
 
+// Cache for metric scenes to avoid re-creating panels when switching tabs
+const metricsSceneCache = new Map<string, EmbeddedScene>();
+function makeCacheKey(serviceKey: string, snapshotId: string) {
+    return `${serviceKey}:${snapshotId}`;
+}
+function clearMetricsSceneCache() {
+    metricsSceneCache.clear();
+}
+
+// Global overlap mode (when true, hide columns and show placeholders)
+let overlapMode = false;
+function isOverlapModeEnabled() {
+    return overlapMode;
+}
+function invalidateComparisonTabs() {
+    const ctx = getComparisonContext();
+    if (ctx && ctx.commonServices) {
+        const tabs = buildComparisonServiceTabs(ctx.commonServices);
+        comparisonPage.setState({ tabs });
+    }
+}
+function setOverlapMode(value: boolean) {
+    overlapMode = value;
+    invalidateComparisonTabs();
+}
+
 // Local header row showing Ready + Overlap button (non-functional)
 function CompareTopBar() {
-    const [overlap, setOverlap] = React.useState(false);
+    const [overlap, setOverlap] = React.useState(isOverlapModeEnabled());
+    const onToggle = () => {
+        setOverlap((prev) => {
+            const next = !prev;
+            setOverlapMode(next);
+            return next;
+        });
+    };
     return React.createElement('div', {
         style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' }
     },
@@ -29,7 +62,7 @@ function CompareTopBar() {
         React.createElement((Button as any), {
             variant: 'secondary',
             size: 'sm',
-            onClick: () => setOverlap(!overlap),
+            onClick: onToggle,
             style: overlap ? { background: '#065f46', borderColor: '#065f46', color: '#E5E7EB' } : undefined
         }, 'Overlap')
     );
@@ -64,6 +97,31 @@ function ComparisonStatusRenderer({ model }: SceneComponentProps<ComparisonStatu
         { title, severity: status },
         React.createElement('pre', { style: { whiteSpace: 'pre-wrap', fontFamily: 'monospace' } }, message)
     );
+}
+
+// Simple placeholder scene used in overlap mode
+interface PlaceholderSceneState extends SceneObjectState {
+    text: string;
+}
+class PlaceholderScene extends SceneObjectBase<PlaceholderSceneState> {
+    public static Component = PlaceholderRenderer;
+    public constructor(text: string = 'tbc') {
+        super({ text });
+    }
+}
+function PlaceholderRenderer({ model }: SceneComponentProps<PlaceholderScene>) {
+    const { text } = model.useState();
+    return React.createElement('div', {
+        style: {
+            height: '100vh',
+            minHeight: '600px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#9CA3AF',
+            fontSize: 14,
+        }
+    }, text);
 }
 
 // Input scene state
@@ -260,6 +318,9 @@ comparisonPage.addActivationHandler(() => {
                 // Update currently loaded snapshots
                 currentLoadedSnapshotIds = snapshotIds;
 
+                // Invalidate cached scenes when snapshot set changes
+                clearMetricsSceneCache();
+
                 // Fetch all snapshots
                 const snapshots = await Promise.all(
                     snapshotIds.map(async (id) => {
@@ -442,6 +503,8 @@ comparisonPage.addActivationHandler(() => {
         if (layoutService.getLayout() !== previousLayout) {
             layoutService.setLayout(previousLayout);
         }
+        // Clear cached scenes to free memory upon leaving compare page
+        clearMetricsSceneCache();
     };
 });
 
@@ -515,8 +578,22 @@ function buildComparisonServiceTabs(services: string[]): SceneAppPage[] {
 
                 const count = ctx.snapshotIds.length;
                 const width = `${(100 / count).toFixed(2)}%`;
+                // If overlap mode is enabled, render a single placeholder instead of metric panels
+                if (isOverlapModeEnabled()) {
+                    const children = [new SceneFlexItem({ body: new PlaceholderScene('tbc') as any })];
+                    return new EmbeddedScene({
+                        body: new SceneFlexLayout({ direction: 'row', children }),
+                    });
+                }
+
+                // Reuse cached scenes per (service,snapshot) to avoid reloading on tab switch
                 const children = ctx.snapshotIds.map((sid, idx) => {
-                    const scene = builder(sid);
+                    const key = makeCacheKey(svc.key, sid);
+                    let scene = metricsSceneCache.get(key);
+                    if (!scene) {
+                        scene = builder(sid);
+                        metricsSceneCache.set(key, scene);
+                    }
                     scene.setState({ $timeRange: ranges[idx] });
                     return new SceneFlexItem({ width, body: scene });
                 });

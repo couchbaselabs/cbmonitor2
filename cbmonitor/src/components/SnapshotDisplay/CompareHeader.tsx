@@ -179,15 +179,6 @@ export function CompareHeader({ items, commonServices = [], commonPhases = [], o
                   <PhasesRow meta={item.meta} />
                 </div>
               </div>
-              {/* {item.renderPickerScene && (
-                <div style={{
-                  marginTop: 6,
-                  maxWidth: '100%',
-                  overflow: 'visible'
-                }}>
-                  {item.renderPickerScene()}
-                </div>
-              )} */}
             </div>
           );
         })}
