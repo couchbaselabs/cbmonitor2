@@ -170,9 +170,6 @@ export function CompareHeader({ items, commonServices = [], commonPhases = [], o
                   <b>Label:</b> {renderLabel(label)}
                 </div>
               )}
-              {/* <div style={{ fontSize: isCompact ? 11 : 12 }}>
-                <b>Range:</b> {formatRange(item.meta)}
-              </div> */}
               <div style={{ marginTop: 4 }}>
                 <b style={{ fontSize: 12 }}>Phases:</b>
                 <div style={{ marginTop: 4 }}>
