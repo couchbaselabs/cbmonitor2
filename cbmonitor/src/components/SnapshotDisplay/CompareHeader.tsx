@@ -17,10 +17,6 @@ export interface CompareHeaderProps {
   onSelectFullRange?: () => void;
 }
 
-// function formatRange(meta: SnapshotMetadata) {
-//   return `${meta.ts_start} → ${meta.ts_end}`;
-// }
-
 // Helper: detect if a string is a valid http(s) URL
 function isValidURL(str?: string): boolean {
   if (!str) return false;
