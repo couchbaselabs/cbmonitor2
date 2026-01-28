@@ -4,6 +4,7 @@ export const PLUGIN_BASE_URL = `/a/${pluginJson.id}`;
 
 export enum ROUTES {
   CBMonitor = 'cbmonitor',
+  Compare = 'compare',
   Showfast = 'showfast',
 }
 
