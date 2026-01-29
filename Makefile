@@ -31,6 +31,11 @@ build-plugin-docker: build-plugin move-datasource-build-artifacts
 	@echo "Building cbmonitor grafana-app plugin docker image..."
 	@cd cbmonitor && npm run server
 
+# Rebuild plugin locally and restart container to pick up changes
+reload-plugin: build-plugin move-datasource-build-artifacts
+	@echo "Restarting cbmonitor container to load plugin changes..."
+	@docker restart cbmonitor
+
 # Build the datasource plugin
 build-couchbase-datasource:
 	@cd mfork-grafana-plugin && cd couchbase-datasource && \
@@ -68,6 +73,7 @@ help:
 	@echo "  build-cm-docker 	- Build config-manager service docker image"
 	@echo "  build-plugin 		- Build cbmonitor grafana-app plugin"
 	@echo "  build-plugin-docker 	- Build cbmonitor grafana-app plugin docker image"
+	@echo "  reload-plugin      - Rebuild plugin and restart container"
 	@echo "  test-cm     		- Run config-manager tests"
 	@echo "  clean       		- Clean all build artifacts"
 	@echo "  clean-cm    		- Clean config-manager service build artifacts"
