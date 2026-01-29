@@ -10,6 +10,9 @@ services:
         grafana_version: ${GRAFANA_VERSION:-12.2.0}
         development: ${DEVELOPMENT:-false}
         anonymous_auth_enabled: ${ANONYMOUS_AUTH_ENABLED:-true}
+        VERSION: ${VERSION:-0.0.1}
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
     ports:
       - 3000:3000/tcp
       - 2345:2345/tcp # delve

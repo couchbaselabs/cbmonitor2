@@ -25,6 +25,11 @@ const pluginJson = getPluginJson();
 const cpVersion = getCPConfigVersion();
 const pluginVersion = getPackageJson().version;
 
+// Get build-time version information from environment variables
+const buildVersion = process.env.VERSION || pluginVersion;
+const gitCommit = process.env.GIT_COMMIT || 'unknown';
+const buildDate = process.env.BUILD_DATE || 'unknown';
+
 const virtualPublicPath = new VirtualModulesPlugin({
   'node_modules/grafana-public-path.js': `
 import amdMetaModule from 'amd-module';
@@ -158,6 +163,12 @@ const config = async (env: Env): Promise<Configuration> => {
     plugins: [
       new BuildModeWebpackPlugin(),
       virtualPublicPath,
+      // Inject version information as compile-time constants
+      new webpack.DefinePlugin({
+        'process.env.APP_VERSION': JSON.stringify(buildVersion),
+        'process.env.GIT_COMMIT': JSON.stringify(gitCommit),
+        'process.env.BUILD_DATE': JSON.stringify(buildDate),
+      }),
       // Insert create plugin version information into the bundle
       new webpack.BannerPlugin({
         banner: `/* [create-plugin] version: ${cpVersion} */
