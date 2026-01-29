@@ -6,6 +6,7 @@ import { useStyles2, Button, Input, Icon, Alert } from '@grafana/ui';
 import { locationService } from '@grafana/runtime';
 import { prefixRoute } from '../utils/utils.routing';
 import { ROUTES } from '../constants';
+import { getVersionInfo } from '../utils/utils.version';
 
 interface SnapshotSearchSceneState extends SceneObjectState {
   errorMessage?: string;
@@ -25,6 +26,7 @@ function SnapshotSearchRenderer({ model }: SceneComponentProps<SnapshotSearchSce
   const { errorMessage } = model.useState();
   const s = useStyles2(getStyles);
   const [searchQuery, setSearchQuery] = useState('');
+  const versionInfo = getVersionInfo();
 
   const handleSearch = () => {
     if (searchQuery.trim()) {
@@ -81,6 +83,22 @@ function SnapshotSearchRenderer({ model }: SceneComponentProps<SnapshotSearchSce
         {/* Additional Info */}
         <div className={s.infoText}>
           Enter a snapshot ID to view performance metrics and dashboards
+        </div>
+
+        {/* Version Information */}
+        <div className={s.versionInfo}>
+          <div className={s.versionItem}>
+            <span className={s.versionLabel}>Version:</span>
+            <span className={s.versionValue}>{versionInfo.version}</span>
+          </div>
+          <div className={s.versionItem}>
+            <span className={s.versionLabel}>Commit:</span>
+            <span className={s.versionValue}>{versionInfo.gitCommit}</span>
+          </div>
+          <div className={s.versionItem}>
+            <span className={s.versionLabel}>Built:</span>
+            <span className={s.versionValue}>{versionInfo.buildDate}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -159,5 +177,33 @@ const getStyles = (theme: GrafanaTheme2) => ({
     font-size: 14px;
     color: ${theme.colors.text.secondary};
     margin-top: 8px;
+  `,
+  versionInfo: css`
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid ${theme.colors.border.weak};
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+    justify-content: center;
+    align-items: center;
+    font-size: 12px;
+    color: ${theme.colors.text.secondary};
+  `,
+  versionItem: css`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  `,
+  versionLabel: css`
+    font-weight: 500;
+    color: ${theme.colors.text.secondary};
+  `,
+  versionValue: css`
+    font-family: ${theme.typography.fontFamilyMonospace};
+    color: ${theme.colors.text.primary};
+    background: ${theme.colors.background.secondary};
+    padding: 2px 6px;
+    border-radius: 3px;
   `,
 });

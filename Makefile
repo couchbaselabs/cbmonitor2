@@ -16,7 +16,15 @@ build-cm-docker: build-cm
 # Build the grafana-app plugin
 build-plugin:
 	@echo "Building cbmonitor grafana-app plugin..."
-	@cd cbmonitor && npm install && npm run build && mage
+	@cd cbmonitor && \
+	export VERSION=$$(node -p "require('./package.json').version") && \
+	export GIT_COMMIT=$$(git rev-parse --short HEAD 2>/dev/null || echo "unknown") && \
+	export BUILD_DATE=$$(date -u +"%Y-%m-%d") && \
+	echo "Version: $$VERSION" && \
+	echo "Git Commit: $$GIT_COMMIT" && \
+	npm install && \
+	npm run build && \
+	mage
 
 # Build the grafana-app plugin docker image
 build-plugin-docker: build-plugin move-datasource-build-artifacts

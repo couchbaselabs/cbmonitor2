@@ -6,6 +6,9 @@ FROM grafana/${grafana_image}:${grafana_version}
 ARG anonymous_auth_enabled=true
 ARG development=false
 ARG TARGETARCH
+ARG VERSION=0.0.1
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
 
 ARG GO_VERSION=1.24.4
 ARG GO_ARCH=${TARGETARCH:-amd64}
@@ -23,6 +26,9 @@ ENV GF_DEFAULT_APP_MODE "development"
 
 LABEL maintainer="Performance Team <team-performance@couchbase.com>"
 LABEL maintainer="Salim Salim <salim.salim@couchbase.com>"
+LABEL version="$VERSION"
+LABEL git.commit="$GIT_COMMIT"
+LABEL build.date="$BUILD_DATE"
 
 ENV GF_PATHS_HOME="/usr/share/grafana"
 WORKDIR $GF_PATHS_HOME
