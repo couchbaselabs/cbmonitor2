@@ -223,11 +223,11 @@ function CompareInputRenderer({ model }: SceneComponentProps<CompareInputScene>)
     );
 }
 
-// Initial placeholder page
-const initialPlaceholderTab = new SceneAppPage({
+// This page is used to compare multiple snapshots (as a tab; routePath relative so nested Route matches)
+export const comparisonPage = new SceneAppPage({
     title: 'Compare Snapshots',
-    url: prefixRoute(`${ROUTES.CBMonitor}/${ROUTES.Compare}`),
-    routePath: '/',
+    url: prefixRoute(`${ROUTES.CBMonitor}/compare`),
+    routePath: 'compare',
     getScene: () => new EmbeddedScene({
         body: new SceneFlexLayout({
             direction: 'column',
@@ -238,15 +238,6 @@ const initialPlaceholderTab = new SceneAppPage({
             ],
         }),
     }),
-});
-
-// This page is used to compare multiple snapshots
-export const comparisonPage = new SceneAppPage({
-    title: 'Compare Snapshots',
-    url: prefixRoute(`${ROUTES.CBMonitor}/${ROUTES.Compare}`),
-    routePath: `${ROUTES.CBMonitor}/${ROUTES.Compare}/*`,
-    hideFromBreadcrumbs: false,
-    tabs: [initialPlaceholderTab]
 });
 
 // Holds the last computed comparison context (snapshot IDs and common services)
@@ -653,7 +644,6 @@ function showCompareInput(infoMessage?: string) {
 
     comparisonPage.setState({
         title: 'Compare Snapshots',
-        subTitle: 'Input',
         tabs: [inputTab],
     });
 }

@@ -10,6 +10,7 @@ import { FormatMetadataSummary } from './metadataSummary';
 import { Phase } from '../../types/snapshot';
 import { LayoutToggle } from '../LayoutToggle/LayoutToggle';
 import React from 'react';
+import { comparisonPage } from './comparisonInstance';
 
 // Custom SceneTimeRange that doesn't sync to URL
 class NoUrlSyncTimeRange extends SceneTimeRange {
@@ -36,50 +37,19 @@ const initialSearchTab = new SceneAppPage({
     }),
 });
 
-// Simple scene to render a Hello World message
-interface HelloWorldState extends SceneObjectState { message: string }
-class HelloWorldScene extends SceneObjectBase<HelloWorldState> {
-    public static Component = HelloWorldRenderer;
-    public constructor(message: string = 'Hello world') {
-        super({ message });
-    }
-}
-
-function HelloWorldRenderer({ model }: SceneComponentProps<HelloWorldScene>) {
-    const { message } = model.useState();
-    return React.createElement('div', { style: { fontSize: '18px', padding: '16px' } }, message);
-}
-
-// Initial compare tab with Hello World
-const initialCompareTab = new SceneAppPage({
-    title: 'Compare',
-    url: prefixRoute(`${ROUTES.CBMonitor}/compare`),
-    routePath: '/compare',
-    getScene: () => new EmbeddedScene({
-        body: new SceneFlexLayout({
-            direction: 'column',
-            children: [
-                new SceneFlexItem({
-                    body: new HelloWorldScene('Hello world'),
-                }),
-            ],
-        }),
-    }),
-});
-
 // Create time range without URL sync, with basic default time range
 const timeRange = new NoUrlSyncTimeRange({
     from: 'now-15m',
     to: 'now',
 });
 
-// This page is used to display the snapshot instance and its metrics
+// This page is used to display the snapshot instance and its metrics.
 export const snapshotPage = new SceneAppPage({
     title: '',
     url: prefixRoute(ROUTES.CBMonitor),
     routePath: `${ROUTES.CBMonitor}/*`,
     hideFromBreadcrumbs: true,
-    tabs: [initialSearchTab, initialCompareTab]
+    tabs: [initialSearchTab]
 });
 
 // Add activation handler to fetch and configure snapshot
@@ -298,23 +268,9 @@ function showSearchInterface(errorMessage?: string) {
         }),
     });
 
-    const compareTab = new SceneAppPage({
-        title: 'Compare',
-        url: prefixRoute(`${ROUTES.CBMonitor}/compare`),
-        routePath: '/compare',
-        getScene: () => new EmbeddedScene({
-            body: new SceneFlexLayout({
-                direction: 'column',
-                children: [
-                    new SceneFlexItem({ body: new HelloWorldScene('Hello world') }),
-                ],
-            }),
-        }),
-    });
-
     snapshotPage.setState({
         title: '',
         subTitle: errorMessage ? `Unable to load snapshot - ${errorMessage}` : '',
-        tabs: [searchTab, compareTab],
+        tabs: [searchTab, comparisonPage],
     });
 }
