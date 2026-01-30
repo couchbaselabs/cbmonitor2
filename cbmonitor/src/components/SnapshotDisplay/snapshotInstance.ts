@@ -1,4 +1,4 @@
-import { SceneAppPage, SceneTimePicker, SceneTimeRange, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectUrlValues, SceneRefreshPicker } from '@grafana/scenes';
+import { SceneAppPage, SceneTimePicker, SceneTimeRange, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectUrlValues, SceneRefreshPicker, SceneObjectBase, SceneObjectState, SceneComponentProps } from '@grafana/scenes';
 import { dateTime, TimeOption } from '@grafana/data';
 import { ROUTES } from '../../constants';
 import { prefixRoute } from '../../utils/utils.routing';
@@ -9,6 +9,8 @@ import { SnapshotSearchScene } from '../../pages/SnapshotSearch';
 import { FormatMetadataSummary } from './metadataSummary';
 import { Phase } from '../../types/snapshot';
 import { LayoutToggle } from '../LayoutToggle/LayoutToggle';
+import React from 'react';
+import { comparisonPage } from './comparisonInstance';
 
 // Custom SceneTimeRange that doesn't sync to URL
 class NoUrlSyncTimeRange extends SceneTimeRange {
@@ -41,7 +43,7 @@ const timeRange = new NoUrlSyncTimeRange({
     to: 'now',
 });
 
-// This page is used to display the snapshot instance and its metrics
+// This page is used to display the snapshot instance and its metrics.
 export const snapshotPage = new SceneAppPage({
     title: '',
     url: prefixRoute(ROUTES.CBMonitor),
@@ -269,6 +271,6 @@ function showSearchInterface(errorMessage?: string) {
     snapshotPage.setState({
         title: '',
         subTitle: errorMessage ? `Unable to load snapshot - ${errorMessage}` : '',
-        tabs: [searchTab],
+        tabs: [searchTab, comparisonPage],
     });
 }
