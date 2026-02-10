@@ -1,6 +1,6 @@
 import { SceneAppPage, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectBase, SceneObjectState, SceneComponentProps, SceneTimeRange, SceneTimePicker } from '@grafana/scenes';
 import { dateTime, TimeOption } from '@grafana/data';
-import { ROUTES, prefixRoute } from '../../utils/utils.routing';
+import { ROUTES, prefixRoute, ROUTE_PATHS } from '../../utils/utils.routing';
 import { snapshotService } from '../../services/snapshotService';
 import { locationService } from '@grafana/runtime';
 import React from 'react';
@@ -163,9 +163,7 @@ function CompareInputRenderer({ model }: SceneComponentProps<CompareInputScene>)
             setLocalError('Please enter between 2 and 6 snapshot IDs, comma-separated.');
             return;
         }
-        const query = parts.map((id) => `snapshot=${encodeURIComponent(id)}`).join('&');
-        const url = prefixRoute(`${ROUTES.CBMonitor}/${ROUTES.Compare}`) + `?${query}`;
-        locationService.push(url);
+        locationService.push(prefixRoute(ROUTE_PATHS.compareSnapshots(parts)));
     };
 
     const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -215,7 +213,7 @@ function CompareInputRenderer({ model }: SceneComponentProps<CompareInputScene>)
             React.createElement('div', { style: s.actions },
                 React.createElement(Button as any, { onClick: addInput, size: 'sm', disabled: ids.length >= 6 }, '+'),
                 React.createElement(Button as any, { onClick: onSubmit, size: 'md' }, 'Compare'),
-                React.createElement(Button as any, { onClick: () => locationService.push(prefixRoute(ROUTES.CBMonitor)), size: 'md' }, 'Back to Search')
+                React.createElement(Button as any, { onClick: () => locationService.push(prefixRoute(ROUTE_PATHS.search())), size: 'md' }, 'Back to Search')
             )
         ),
         React.createElement('div', { style: s.info }, 'Tip: at least two IDs; max six.')
@@ -225,8 +223,8 @@ function CompareInputRenderer({ model }: SceneComponentProps<CompareInputScene>)
 // This page is used to compare multiple snapshots (as a tab; routePath relative so nested Route matches)
 export const comparisonPage = new SceneAppPage({
     title: 'Compare Snapshots',
-    url: prefixRoute(`${ROUTES.CBMonitor}/compare`),
-    routePath: 'compare/*',
+    url: prefixRoute(ROUTE_PATHS.compare()),
+    routePath: `${ROUTES.Compare}/*`,
     getScene: () => new EmbeddedScene({
         body: new SceneFlexLayout({
             direction: 'column',
@@ -533,7 +531,7 @@ function buildComparisonServiceTabs(services: string[]): SceneAppPage[] {
         const alwaysInclude = svc.key === 'system' || svc.key === 'cluster_manager';
         if (!alwaysInclude && !normalized.has(svc.key)) { continue; }
 
-        const urlPath = svc.segment ? `${ROUTES.CBMonitor}/${ROUTES.Compare}/${svc.segment}` : `${ROUTES.CBMonitor}/${ROUTES.Compare}`;
+        const urlPath = svc.segment ? `${ROUTES.Compare}/${svc.segment}` : ROUTE_PATHS.compare();
         const routePath = svc.segment ? `/${svc.segment}` : '/';
 
         const page = new SceneAppPage({
@@ -604,7 +602,7 @@ function buildComparisonServiceTabs(services: string[]): SceneAppPage[] {
 function showStatusMessage(message: string, status: 'success' | 'error' | 'info') {
     const statusTab = new SceneAppPage({
         title: 'Status',
-        url: prefixRoute(`${ROUTES.CBMonitor}/${ROUTES.Compare}`),
+        url: prefixRoute(ROUTE_PATHS.compare()),
         routePath: '/',
         getScene: () => new EmbeddedScene({
             body: new SceneFlexLayout({
@@ -629,7 +627,7 @@ function showStatusMessage(message: string, status: 'success' | 'error' | 'info'
 function showCompareInput(infoMessage?: string) {
     const inputTab = new SceneAppPage({
         title: 'Compare Snapshots',
-        url: prefixRoute(`${ROUTES.CBMonitor}/${ROUTES.Compare}`),
+        url: prefixRoute(ROUTE_PATHS.compare()),
         routePath: '/',
         getScene: () => new EmbeddedScene({
             body: new SceneFlexLayout({

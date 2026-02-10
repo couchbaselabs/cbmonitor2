@@ -5,12 +5,16 @@ import { CB_DATASOURCE_REF } from '../../constants';
 import { SceneApp, useSceneApp } from '@grafana/scenes';
 import { Alert } from '@grafana/ui';
 import { PluginPropsContext } from 'utils/utils.plugin';
-import { snapshotPage } from 'components/SnapshotDisplay/snapshotInstance';
+import { snapshotViewPage } from '../../pages/snapshotViewPage';
+import { comparisonPage } from '../../components/SnapshotDisplay/comparisonInstance';
 
 // Defines the app and its pages
 function getCBMonitorApp(){
   return new SceneApp({
-    pages: [snapshotPage],
+    pages: [
+      snapshotViewPage, // Main page: /cbmonitor (search + snapshot viewer)
+      comparisonPage,   // Comparison page: /cbmonitor/compare
+    ],
     urlSyncOptions: {
       updateUrlOnInit: false,
       createBrowserHistorySteps: true,

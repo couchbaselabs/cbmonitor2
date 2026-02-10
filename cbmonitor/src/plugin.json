@@ -22,8 +22,16 @@
   "includes": [
     {
       "type": "page",
-      "name": "CBMonitor",
+      "name": "cbmonitor",
       "path": "/a/%PLUGIN_ID%/cbmonitor",
+      "addToNav": true,
+      "defaultNav": false,
+      "icon": "home-alt"
+    },
+    {
+      "type": "page",
+      "name": "Compare",
+      "path": "/a/%PLUGIN_ID%/compare",
       "addToNav": true,
       "defaultNav": false,
       "icon": "home-alt"

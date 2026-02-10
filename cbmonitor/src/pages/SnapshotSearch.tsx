@@ -28,12 +28,12 @@ function SnapshotSearchRenderer({ model }: SceneComponentProps<SnapshotSearchSce
   const versionInfo = getVersionInfo();
 
   /**
-   * Handles search action by navigating to the CBMonitor route with the snapshotId query parameter.
+   * Handles search action by navigating to the snapshot view page with the snapshotId query parameter.
    * Uses centralized route builder for maintainability.
    */
   const handleSearch = () => {
     if (searchQuery.trim()) {
-      locationService.push(prefixRoute(ROUTE_PATHS.cbmonitor()) + '?snapshotId=' + encodeURIComponent(searchQuery));
+      locationService.push(prefixRoute(ROUTE_PATHS.snapshotView(searchQuery.trim())));
     }
   };
 

@@ -11,10 +11,20 @@ export const ROUTES = {
 
 // Subpath builders for maintainability and type safety
 export const ROUTE_PATHS = {
+  // Landing pages
+  search: () => `/${ROUTES.CBMonitor}`,
   cbmonitor: () => `/${ROUTES.CBMonitor}`,
   compare: () => `/${ROUTES.Compare}`,
   showfast: () => `/${ROUTES.Showfast}`,
-  snapshot: (snapshotId: string) => `/${ROUTES.CBMonitor}?snapshot=${encodeURIComponent(snapshotId)}`,
+
+  // Snapshot viewing with query parameter (for backward compatibility)
+  snapshotView: (snapshotId: string) => `/${ROUTES.CBMonitor}?snapshotId=${encodeURIComponent(snapshotId)}`,
+
+  // Comparison with multiple snapshots
+  compareSnapshots: (snapshotIds: string[]) => {
+    const query = snapshotIds.map(id => `snapshot=${encodeURIComponent(id)}`).join('&');
+    return `/${ROUTES.Compare}?${query}`;
+  },
 };
 
 /**
