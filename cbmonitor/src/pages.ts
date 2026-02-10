@@ -1,173 +1,29 @@
 // Create all the Scene pages to be used in the app
 
-import { EmbeddedScene, SceneAppPage, SceneDataLayerSet } from '@grafana/scenes';
-import { prefixRoute, ROUTES } from './utils/utils.routing';
-import { systemMetricsDashboard } from 'dashboards/system';
-import { clusterManagerMetricsDashboard } from 'dashboards/clusterManager';
-import { kvMetricsDashboard } from 'dashboards/kv';
-import { indexMetricsDashboard } from 'dashboards/index';
-import { queryMetricsDashboard } from 'dashboards/query';
-import { ftsMetricsDashboard } from 'dashboards/fts';
-import { xdcrMetricsDashboard } from 'dashboards/xdcr';
-import { sgwMetricsDashboard } from 'dashboards/sgw';
-import { eventingMetricsDashboard } from 'dashboards/eventing';
-import { analyticsMetricsDashboard } from 'dashboards/analytics';
-import { SnapshotPhaseRegionsLayer } from './layers/SnapshotPhaseRegionsLayer';
-
-/**
- * Cache for dashboard scenes to avoid recreating them on tab switches
- * Key format: `${snapshotId}_${dashboardType}`
- */
-const sceneCache = new Map<string, EmbeddedScene>();
-
-/**
- * Cache for dashboard tabs (SceneAppPage instances)
- * Key format: `${snapshotId}_tabs`
- */
-const tabsCache = new Map<string, SceneAppPage[]>();
-
-/**
- * Clear the scene cache and tabs cache (e.g., when switching to a different snapshot or changing layout)
- */
-export function clearSceneCache() {
-    sceneCache.clear();
-    tabsCache.clear();
-}
+import { SceneAppPage } from '@grafana/scenes';
+import { ROUTES } from './utils/utils.routing';
+import { sceneCacheService } from './services/sceneCache';
+import { buildServiceTabs } from './services/pageBuilder';
 
 /**
  * Factory functions to create dashboard pages for a provided list of services in a snapshot
  */
-
 export function getDashboardsForServices(services: string[], snapshotId: string): SceneAppPage[] {
-    const cacheKey = `${snapshotId}_tabs`;
-
     // Check if we already have tabs cached for this snapshot
-    if (tabsCache.has(cacheKey)) {
-        return tabsCache.get(cacheKey)!;
+    if (sceneCacheService.hasTabs(snapshotId)) {
+        return sceneCacheService.getTabs(snapshotId)!;
     }
 
-    // Create new tabs
-    // Always include system metrics, make it the first tab
-    const dashboards: SceneAppPage[] = [
-        getSystemMetricsPage(snapshotId)
-    ];
-
-    // Conditionally add other dashboards based on the services listed.
-    // Would prefer to have a predictable order for services irregardless
-    // of how they are listed in the snapshot.
-    const lowercaseServices = services.map(s => s.toLowerCase());
-
-    if (lowercaseServices.includes('kv')) {
-        dashboards.push(getKvMetricsPage(snapshotId));
-    }
-
-    if (lowercaseServices.includes('index')) {
-        dashboards.push(getIndexMetricsPage(snapshotId));
-    }
-
-    if (lowercaseServices.includes('query') || lowercaseServices.includes('n1ql')) {
-        dashboards.push(getQueryMetricsPage(snapshotId));
-    }
-
-    if (lowercaseServices.includes('fts')) {
-        dashboards.push(getFtsMetricsPage(snapshotId));
-    }
-
-    if (lowercaseServices.includes('eventing')) {
-        dashboards.push(getEventingMetricsPage(snapshotId));
-    }
-
-    if (lowercaseServices.includes('sgw') || lowercaseServices.includes('sync-gateway')) {
-        dashboards.push(getSGWMetricsPage(snapshotId));
-    }
-
-    if (lowercaseServices.includes('xdcr')) {
-        dashboards.push(getXDCRMetricsPage(snapshotId));
-    }
-
-    if (lowercaseServices.includes('analytics') || lowercaseServices.includes('cbas')) {
-        dashboards.push(getAnalyticsMetricsPage(snapshotId));
-    }
-
-    // Add cluster manager metrics, make it the last tab
-    dashboards.push(getClusterManagerMetricsPage(snapshotId));
+    // Build new tabs using the unified page builder
+    const tabs = buildServiceTabs({
+        snapshotIds: [snapshotId],
+        services,
+        mode: 'single',
+        routePrefix: ROUTES.CBMonitor
+    });
 
     // Cache the tabs before returning
-    tabsCache.set(cacheKey, dashboards);
+    sceneCacheService.setTabs(snapshotId, tabs);
 
-    return dashboards;
-}
-
-function getMetricsDashboardPage(
-    dashboardComponent: (snapshotId: string) => EmbeddedScene,
-    dashboardTitle: string,
-    snapshotId: string,
-    dashboardRoutePath: string
-): SceneAppPage {
-    const cacheKey = `${snapshotId}_${dashboardRoutePath}`;
-
-    return new SceneAppPage({
-        title: dashboardTitle,
-        url: prefixRoute(`${ROUTES.CBMonitor}/${dashboardRoutePath}`),
-        routePath: `/${dashboardRoutePath}`,
-        getScene: () => {
-            // Check if scene is already cached
-            if (!sceneCache.has(cacheKey)) {
-                // Create and cache the scene
-                sceneCache.set(cacheKey, dashboardComponent(snapshotId));
-                // Attach global phase regions layer to scenes that don't already set one
-                const scene = sceneCache.get(cacheKey)!;
-                const globalLayers = new SceneDataLayerSet({
-                    layers: [new SnapshotPhaseRegionsLayer({ isEnabled: true, snapshotId, name: 'Snapshot Phases' })],
-                });
-                // If the scene doesn't already have a $data provider, set the global layer set
-                const currentState: any = (scene as any).state || {};
-                if (!currentState.$data) {
-                    scene.setState({ $data: globalLayers });
-                }
-            }
-            // Return cached scene
-            return sceneCache.get(cacheKey)!;
-        },
-    });
-}
-
-function getSystemMetricsPage(snapshotId: string): SceneAppPage {
-    return getMetricsDashboardPage(systemMetricsDashboard, 'System Metrics', snapshotId, '');
-}
-
-function getKvMetricsPage(snapshotId: string): SceneAppPage {
-    return getMetricsDashboardPage(kvMetricsDashboard, 'KV Metrics', snapshotId, 'kv');
-}
-
-function getIndexMetricsPage(snapshotId: string): SceneAppPage {
-    return getMetricsDashboardPage(indexMetricsDashboard, 'Index Metrics', snapshotId, 'index');
-}
-
-function getQueryMetricsPage(snapshotId: string): SceneAppPage {
-    return getMetricsDashboardPage(queryMetricsDashboard, 'Query Engine Metrics', snapshotId, 'query');
-}
-
-function getFtsMetricsPage(snapshotId: string): SceneAppPage {
-    return getMetricsDashboardPage(ftsMetricsDashboard, 'FTS Metrics', snapshotId, 'fts');
-}
-
-function getClusterManagerMetricsPage(snapshotId: string): SceneAppPage {
-    return getMetricsDashboardPage(clusterManagerMetricsDashboard, 'Cluster Manager Metrics', snapshotId, 'cluster-manager');
-}
-
-function getEventingMetricsPage(snapshotId: string): SceneAppPage {
-    return getMetricsDashboardPage(eventingMetricsDashboard, 'Eventing Metrics', snapshotId, 'eventing');
-}
-
-function getSGWMetricsPage(snapshotId: string): SceneAppPage {
-    return getMetricsDashboardPage(sgwMetricsDashboard, 'Sync Gateway Metrics', snapshotId, 'sgw');
-}
-
-function getXDCRMetricsPage(snapshotId: string): SceneAppPage {
-    return getMetricsDashboardPage(xdcrMetricsDashboard, 'XDCR Metrics', snapshotId, 'xdcr');
-}
-
-function getAnalyticsMetricsPage(snapshotId: string): SceneAppPage {
-    return getMetricsDashboardPage(analyticsMetricsDashboard, 'Analytics Metrics', snapshotId, 'analytics');
+    return tabs;
 }

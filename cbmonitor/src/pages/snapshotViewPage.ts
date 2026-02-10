@@ -1,27 +1,17 @@
-import { SceneAppPage, SceneTimePicker, SceneTimeRange, SceneObjectUrlValues, SceneRefreshPicker, EmbeddedScene, SceneFlexLayout, SceneFlexItem } from '@grafana/scenes';
-import { dateTime, TimeOption } from '@grafana/data';
+import { SceneAppPage, SceneTimePicker, SceneRefreshPicker, EmbeddedScene, SceneFlexLayout, SceneFlexItem } from '@grafana/scenes';
 import { ROUTES, prefixRoute } from '../utils/utils.routing';
-import { getDashboardsForServices, clearSceneCache } from '../pages';
-import { snapshotService } from '../services/snapshotService';
+import { getDashboardsForServices } from '../pages';
 import { locationService } from '@grafana/runtime';
 import { SnapshotSearchScene } from './SnapshotSearch';
 import { FormatMetadataSummary } from '../components/SnapshotDisplay/metadataSummary';
 import { Phase } from '../types/snapshot';
 import { LayoutToggle } from '../components/LayoutToggle/LayoutToggle';
-
-// Custom SceneTimeRange that doesn't sync to URL
-class NoUrlSyncTimeRange extends SceneTimeRange {
-  public getUrlState(): SceneObjectUrlValues {
-    // Return empty to prevent URL sync
-    return {};
-  }
-}
+import { createNoUrlSyncTimeRange, buildQuickRanges, initializeTimeRange } from '../utils/timeRange';
+import { loadSnapshot } from '../services/snapshotLoader';
+import { sceneCacheService } from '../services/sceneCache';
 
 // Create time range without URL sync, with basic default time range
-const timeRange = new NoUrlSyncTimeRange({
-  from: 'now-15m',
-  to: 'now',
-});
+const timeRange = createNoUrlSyncTimeRange();
 
 /**
  * Combined search and snapshot viewer page
@@ -63,45 +53,19 @@ snapshotViewPage.addActivationHandler(() => {
       try {
         // Clear scene cache when loading a different snapshot
         if (currentLoadedSnapshotId !== null && currentLoadedSnapshotId !== snapshotId) {
-          clearSceneCache();
+          sceneCacheService.clearAll();
         }
 
         // Update the currently loaded snapshot
         currentLoadedSnapshotId = snapshotId;
 
-        // Check if we have cached data
-        let snapshot = snapshotService.getStoredSnapshotData(snapshotId);
+        // Load snapshot using unified loader
+        const loaded = await loadSnapshot(snapshotId);
+        const { metadata } = loaded;
 
-        if (!snapshot) {
-          snapshot = await snapshotService.getSnapshot(snapshotId);
-          snapshotService.storeSnapshotData(snapshotId, snapshot);
-        }
-
-        const { metadata } = snapshot;
-
-        // Check if there's a phase parameter in the URL
+        // Initialize time range from snapshot metadata or phase
         const urlPhase = params.phase as string;
-        let initialFrom = metadata.ts_start;
-        let initialTo = metadata.ts_end;
-
-        // If a phase is specified in URL, use that phase's time range
-        if (urlPhase && metadata.phases) {
-          const selectedPhase = metadata.phases.find((p: Phase) => p.label === urlPhase);
-          if (selectedPhase) {
-            initialFrom = selectedPhase.ts_start;
-            initialTo = selectedPhase.ts_end;
-          }
-        }
-
-        // Update time range from snapshot metadata or phase
-        timeRange.onTimeRangeChange({
-          from: dateTime(initialFrom),
-          to: dateTime(initialTo),
-          raw: {
-            from: initialFrom,
-            to: initialTo
-          }
-        });
+        initializeTimeRange(timeRange, metadata, urlPhase);
 
         // Handler for when time range changes - update URL with phase if applicable
         const handleTimeRangeChange = () => {
@@ -137,31 +101,13 @@ snapshotViewPage.addActivationHandler(() => {
           handleTimeRangeChange();
         });
 
-        // Build quick ranges: start with full snapshot range, then add phases if any
-        const quickRanges: TimeOption[] = [];
-
-        // Add full snapshot range as first option
-        quickRanges.push({
-          from: metadata.ts_start,
-          to: metadata.ts_end,
-          display: 'Full Snapshot Range',
-        });
-
-        // Add phase ranges
-        if (metadata.phases && metadata.phases.length > 0) {
-          metadata.phases.forEach((phase: Phase) => {
-            quickRanges.push({
-              from: phase.ts_start,
-              to: phase.ts_end,
-              display: `Phase: ${phase.label}`,
-            });
-          });
-        }
+        // Build quick ranges using utility function
+        const quickRanges = buildQuickRanges(metadata);
 
         // Handler for layout change - regenerate tabs with new layout
         const handleLayoutChange = () => {
           // Clear scene cache so scenes are recreated with new layout
-          clearSceneCache();
+          sceneCacheService.clearAll();
           // Regenerate tabs with current services and snapshotId
           snapshotViewPage.setState({
             tabs: getDashboardsForServices(metadata.services, snapshotId),
