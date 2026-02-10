@@ -1,6 +1,6 @@
 import { SceneAppPage, SceneTimePicker, SceneTimeRange, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectUrlValues, SceneRefreshPicker, SceneObjectBase, SceneObjectState, SceneComponentProps } from '@grafana/scenes';
 import { dateTime, TimeOption } from '@grafana/data';
-import { ROUTES } from '../../constants';
+import { ROUTES } from '../../utils/utils.routing';
 import { prefixRoute } from '../../utils/utils.routing';
 import { getDashboardsForServices, clearSceneCache } from 'pages';
 import { snapshotService } from '../../services/snapshotService';

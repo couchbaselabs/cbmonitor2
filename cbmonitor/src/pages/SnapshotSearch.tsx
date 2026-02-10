@@ -4,8 +4,7 @@ import { SceneComponentProps, SceneObjectBase, SceneObjectState } from '@grafana
 import { GrafanaTheme2 } from '@grafana/data';
 import { useStyles2, Button, Input, Icon, Alert } from '@grafana/ui';
 import { locationService } from '@grafana/runtime';
-import { prefixRoute } from '../utils/utils.routing';
-import { ROUTES } from '../constants';
+import { prefixRoute, ROUTE_PATHS } from '../utils/utils.routing';
 import { getVersionInfo } from '../utils/utils.version';
 
 interface SnapshotSearchSceneState extends SceneObjectState {
@@ -28,10 +27,13 @@ function SnapshotSearchRenderer({ model }: SceneComponentProps<SnapshotSearchSce
   const [searchQuery, setSearchQuery] = useState('');
   const versionInfo = getVersionInfo();
 
+  /**
+   * Handles search action by navigating to the CBMonitor route with the snapshotId query parameter.
+   * Uses centralized route builder for maintainability.
+   */
   const handleSearch = () => {
     if (searchQuery.trim()) {
-      // Navigate to the same route with snapshotId query parameter
-      locationService.push(prefixRoute(ROUTES.CBMonitor) + '?snapshotId=' + encodeURIComponent(searchQuery));
+      locationService.push(prefixRoute(ROUTE_PATHS.cbmonitor()) + '?snapshotId=' + encodeURIComponent(searchQuery));
     }
   };
 

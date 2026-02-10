@@ -1,7 +1,6 @@
 import { SceneAppPage, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectBase, SceneObjectState, SceneComponentProps, SceneTimeRange, SceneTimePicker } from '@grafana/scenes';
 import { dateTime, TimeOption } from '@grafana/data';
-import { ROUTES } from '../../constants';
-import { prefixRoute } from '../../utils/utils.routing';
+import { ROUTES, prefixRoute } from '../../utils/utils.routing';
 import { snapshotService } from '../../services/snapshotService';
 import { locationService } from '@grafana/runtime';
 import React from 'react';
@@ -227,7 +226,7 @@ function CompareInputRenderer({ model }: SceneComponentProps<CompareInputScene>)
 export const comparisonPage = new SceneAppPage({
     title: 'Compare Snapshots',
     url: prefixRoute(`${ROUTES.CBMonitor}/compare`),
-    routePath: 'compare',
+    routePath: 'compare/*',
     getScene: () => new EmbeddedScene({
         body: new SceneFlexLayout({
             direction: 'column',

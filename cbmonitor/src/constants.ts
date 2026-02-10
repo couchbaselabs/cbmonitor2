@@ -2,12 +2,6 @@ import pluginJson from './plugin.json';
 
 export const PLUGIN_BASE_URL = `/a/${pluginJson.id}`;
 
-export enum ROUTES {
-  CBMonitor = 'cbmonitor',
-  Compare = 'compare',
-  Showfast = 'showfast',
-}
-
 export const DASHBOARD_UIDS = {
   cluster_manager: 'cluster_manager',
   kv_basic: '12b2cb59-bdeb-4015-a7c6-7367a7ff3878'

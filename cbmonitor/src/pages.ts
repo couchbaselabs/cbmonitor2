@@ -1,8 +1,7 @@
 // Create all the Scene pages to be used in the app
 
 import { EmbeddedScene, SceneAppPage, SceneDataLayerSet } from '@grafana/scenes';
-import { prefixRoute } from './utils/utils.routing';
-import { ROUTES } from './constants';
+import { prefixRoute, ROUTES } from './utils/utils.routing';
 import { systemMetricsDashboard } from 'dashboards/system';
 import { clusterManagerMetricsDashboard } from 'dashboards/clusterManager';
 import { kvMetricsDashboard } from 'dashboards/kv';
