@@ -190,9 +190,7 @@ function CompareInputRenderer({ model }: SceneComponentProps<CompareInputScene>)
     return React.createElement('div', { style: s.container },
         React.createElement('div', { style: s.header },
             React.createElement(Icon as any, { name: 'swap-horiz', size: 'xl' }),
-            React.createElement('h2', null, 'Compare Snapshots')
         ),
-        React.createElement('div', { style: s.subtitle }, 'Enter 2–6 snapshot IDs (comma-separated), then Compare.'),
         errorMessage && React.createElement(Alert as any, { severity: 'info', title: 'Info' }, errorMessage),
         localError && React.createElement(Alert as any, { severity: 'error', title: 'Validation' }, localError),
         React.createElement('div', { style: s.form },
@@ -230,7 +228,7 @@ export const comparisonPage = new SceneAppPage({
             direction: 'column',
             children: [
                 new SceneFlexItem({
-                    body: new CompareInputScene({ errorMessage: 'Provide 2–6 snapshot IDs to compare.' }) as any,
+                    body: new CompareInputScene({ errorMessage: 'Provide 2 to 6 snapshot IDs to compare.' }) as any,
                 }),
             ],
         }),
@@ -284,7 +282,7 @@ comparisonPage.addActivationHandler(() => {
 
         // When snapshot count is invalid, show input page instead of error
         if (snapshotIds.length < 2 || snapshotIds.length > 6) {
-            showCompareInput(`Found ${snapshotIds.length}. Enter 2–6 IDs to proceed.`);
+            showCompareInput(`Found ${snapshotIds.length}. Enter 2 to 6 IDs to proceed.`);
             currentLoadedSnapshotIds = [];
             return;
         }
@@ -600,10 +598,12 @@ function buildComparisonServiceTabs(services: string[]): SceneAppPage[] {
 
 // Helper function to show status message
 function showStatusMessage(message: string, status: 'success' | 'error' | 'info') {
-    const statusTab = new SceneAppPage({
-        title: 'Status',
-        url: prefixRoute(ROUTE_PATHS.compare()),
-        routePath: '/',
+    comparisonPage.setState({
+        title: 'Compare Snapshots',
+        subTitle: status === 'error' ? 'Error occurred' : status === 'success' ? 'Ready' : 'Loading',
+        tabs: undefined,
+        controls: undefined,
+        renderTitle: undefined,
         getScene: () => new EmbeddedScene({
             body: new SceneFlexLayout({
                 direction: 'column',
@@ -615,20 +615,16 @@ function showStatusMessage(message: string, status: 'success' | 'error' | 'info'
             }),
         }),
     });
-
-    comparisonPage.setState({
-        title: 'Compare Snapshots',
-        subTitle: status === 'error' ? 'Error occurred' : status === 'success' ? 'Ready' : 'Loading',
-        tabs: [statusTab],
-    });
 }
 
 // Helper: Show input page for entering snapshot IDs
 function showCompareInput(infoMessage?: string) {
-    const inputTab = new SceneAppPage({
+    comparisonPage.setState({
         title: 'Compare Snapshots',
-        url: prefixRoute(ROUTE_PATHS.compare()),
-        routePath: '/',
+        subTitle: '',
+        tabs: undefined,
+        controls: undefined,
+        renderTitle: undefined,
         getScene: () => new EmbeddedScene({
             body: new SceneFlexLayout({
                 direction: 'column',
@@ -637,10 +633,5 @@ function showCompareInput(infoMessage?: string) {
                 ],
             }),
         }),
-    });
-
-    comparisonPage.setState({
-        title: 'Compare Snapshots',
-        tabs: [inputTab],
     });
 }

@@ -48,13 +48,13 @@ function SnapshotSearchRenderer({ model }: SceneComponentProps<SnapshotSearchSce
       <div className={s.content}>
         {/* Logo or Title */}
         <div className={s.logoContainer}>
-          <Icon name="chart-line" size="xxxl" className={s.icon} />
-          <h1 className={s.title}>CBMonitor</h1>
+          <Icon name="chart-line" size="xxxl" className={s.icon} title='cbmonitor' />
+          <h1 className={s.title}>cbmonitor</h1>
         </div>
 
         {/* Subtitle */}
         <p className={s.subtitle}>
-          Welcome to CBMonitor, a tool for monitoring and analysing Couchbase performance metrics.
+          Welcome to cbmonitor, a tool for monitoring and analysing Couchbase performance metrics.
         </p>
 
         {/* Error Alert */}
@@ -125,9 +125,10 @@ const getStyles = (theme: GrafanaTheme2) => ({
   logoContainer: css`
     margin-bottom: 24px;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 16px;
+    justify-content: center;
+    gap: 12px;
   `,
   icon: css`
     color: ${theme.colors.primary.main};

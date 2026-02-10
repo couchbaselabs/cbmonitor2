@@ -1,7 +1,6 @@
 import { SceneAppPage, SceneTimePicker, SceneTimeRange, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectUrlValues, SceneRefreshPicker, SceneObjectBase, SceneObjectState, SceneComponentProps } from '@grafana/scenes';
 import { dateTime, TimeOption } from '@grafana/data';
-import { ROUTES } from '../../utils/utils.routing';
-import { prefixRoute } from '../../utils/utils.routing';
+import { ROUTES, prefixRoute } from '../../utils/utils.routing';
 import { getDashboardsForServices, clearSceneCache } from 'pages';
 import { snapshotService } from '../../services/snapshotService';
 import { locationService } from '@grafana/runtime';
@@ -9,7 +8,6 @@ import { SnapshotSearchScene } from '../../pages/SnapshotSearch';
 import { FormatMetadataSummary } from './metadataSummary';
 import { Phase } from '../../types/snapshot';
 import { LayoutToggle } from '../LayoutToggle/LayoutToggle';
-import React from 'react';
 import { comparisonPage } from './comparisonInstance';
 
 // Custom SceneTimeRange that doesn't sync to URL

@@ -23,23 +23,6 @@ const timeRange = new NoUrlSyncTimeRange({
   to: 'now',
 });
 
-// Initial search tab to show when no snapshotId is present
-const initialSearchTab = new SceneAppPage({
-  title: 'Search',
-  url: prefixRoute(ROUTES.CBMonitor),
-  routePath: '/',
-  getScene: () => new EmbeddedScene({
-    body: new SceneFlexLayout({
-      direction: 'column',
-      children: [
-        new SceneFlexItem({
-          body: new SnapshotSearchScene({}),
-        }),
-      ],
-    }),
-  }),
-});
-
 /**
  * Combined search and snapshot viewer page
  * Route: /cbmonitor (shows search when no snapshotId, shows snapshot data when snapshotId present)
@@ -48,8 +31,7 @@ export const snapshotViewPage = new SceneAppPage({
   title: '',
   url: prefixRoute(`${ROUTES.CBMonitor}`),
   routePath: `${ROUTES.CBMonitor}/*`,
-  hideFromBreadcrumbs: true,
-  tabs: [initialSearchTab]
+    hideFromBreadcrumbs: true,
 });
 
 // Add activation handler to fetch and configure snapshot
@@ -254,25 +236,22 @@ snapshotViewPage.addActivationHandler(() => {
 
 // Helper function to show search interface
 function showSearchInterface(errorMessage?: string) {
-  const searchTab = new SceneAppPage({
-    title: 'Search',
-    url: prefixRoute(ROUTES.CBMonitor),
-    routePath: '/',
-    getScene: () => new EmbeddedScene({
-      body: new SceneFlexLayout({
-        direction: 'column',
-        children: [
-          new SceneFlexItem({
-            body: new SnapshotSearchScene({ errorMessage }),
-          }),
-        ],
-      }),
-    }),
-  });
-
-  snapshotViewPage.setState({
-    title: '',
-    subTitle: errorMessage ? `Unable to load snapshot - ${errorMessage}` : '',
-    tabs: [searchTab],
-  });
+    snapshotViewPage.setState({
+        title: '',
+        subTitle: errorMessage ? `Unable to load snapshot - ${errorMessage}` : '',
+        tabs: undefined,
+        controls: undefined,
+        renderTitle: undefined,
+        $timeRange: undefined,
+        getScene: () => new EmbeddedScene({
+            body: new SceneFlexLayout({
+                direction: 'column',
+                children: [
+                    new SceneFlexItem({
+                        body: new SnapshotSearchScene({ errorMessage }),
+                    }),
+                ],
+            }),
+        })
+    });
 }
