@@ -64,7 +64,7 @@ function CompareTopBar() {
 
 // This page is used to compare multiple snapshots
 export const comparisonPage = new SceneAppPage({
-    title: 'Compare Snapshots',
+    title: '',
     url: prefixRoute(ROUTE_PATHS.compare()),
     routePath: `${ROUTES.Compare}/*`,
     getScene: () => new EmbeddedScene({
@@ -78,7 +78,11 @@ export const comparisonPage = new SceneAppPage({
                         maxInputs: 6,
                         placeholder: 'Snapshot ID',
                         submitLabel: 'Compare',
-                        errorMessage: 'Provide 2 to 6 snapshot IDs to compare.'
+                        // Branded header matching cbmonitor landing page
+                        title: 'Compare Snapshots',
+                        subtitle: 'Enter 2 to 6 snapshot IDs to compare performance metrics side by side.',
+                        iconName: 'columns',
+                        iconSize: 'xxxl'
                     }) as any,
                 }),
             ],
@@ -129,7 +133,7 @@ comparisonPage.addActivationHandler(() => {
 
         // When snapshot count is invalid, show input page instead of error
         if (snapshotIds.length < 2 || snapshotIds.length > 6) {
-            showCompareInput(`Found ${snapshotIds.length}. Enter 2 to 6 IDs to proceed.`);
+            showCompareInput();
             currentLoadedSnapshotIds = [];
             return;
         }
@@ -268,7 +272,7 @@ comparisonPage.addActivationHandler(() => {
 // Helper function to show status message
 function showStatusMessage(message: string, status: 'success' | 'error' | 'info') {
     comparisonPage.setState({
-        title: 'Compare Snapshots',
+        title: '',
         subTitle: status === 'error' ? 'Error occurred' : status === 'success' ? 'Ready' : 'Loading',
         tabs: undefined,
         controls: undefined,
@@ -289,7 +293,7 @@ function showStatusMessage(message: string, status: 'success' | 'error' | 'info'
 // Helper: Show input page for entering snapshot IDs
 function showCompareInput(infoMessage?: string) {
     comparisonPage.setState({
-        title: 'Compare Snapshots',
+        title: '',
         subTitle: '',
         tabs: undefined,
         controls: undefined,
@@ -305,7 +309,12 @@ function showCompareInput(infoMessage?: string) {
                             maxInputs: 6,
                             placeholder: 'Snapshot ID',
                             submitLabel: 'Compare',
-                            errorMessage: infoMessage
+                            errorMessage: infoMessage,
+                            // Branded header matching cbmonitor landing page
+                            title: 'Compare Snapshots',
+                            subtitle: 'Enter 2 to 6 snapshot IDs to compare performance metrics side by side.',
+                            iconName: 'columns',
+                            iconSize: 'xxxl'
                         }) as any
                     }),
                 ],
