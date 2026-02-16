@@ -19,7 +19,7 @@ export interface CompareHeaderProps {
 
 // Helper: detect if a string is a valid http(s) URL
 function isValidURL(str?: string): boolean {
-  if (!str) return false;
+  if (!str) {return false;}
   try {
     const url = new URL(str);
     return url.protocol === 'http:' || url.protocol === 'https:';
@@ -30,7 +30,7 @@ function isValidURL(str?: string): boolean {
 
 // Helper: render label as clickable link if URL, otherwise plain text
 function renderLabel(label?: string): React.ReactNode {
-  if (!label) return null;
+  if (!label) {return null;}
   if (isValidURL(label)) {
     return (
       <a
@@ -70,12 +70,12 @@ function PhasesRow({ meta }: { meta: SnapshotMetadata }) {
 export function CompareHeader({ items, commonServices = [], commonPhases = [], onSelectCommonPhase, onSelectFullRange }: CompareHeaderProps) {
   const [activePhase, setActivePhase] = React.useState<string | 'FULL' | null>(null);
   const commonServicesText = useMemo(() => {
-    if (commonServices.length === 0) return 'None';
+    if (commonServices.length === 0) {return 'None';}
     return commonServices.join(', ');
   }, [commonServices]);
 
   const commonPhasesText = useMemo(() => {
-    if (commonPhases.length === 0) return 'None';
+    if (commonPhases.length === 0) {return 'None';}
     return commonPhases.join(', ');
   }, [commonPhases]);
 
