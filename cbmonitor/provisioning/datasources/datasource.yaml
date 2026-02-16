@@ -2,6 +2,7 @@ apiVersion: 1
 
 datasources:
 - name: cbdatasource
+  uid: cbdatasource
   type: couchbase-datasource
   access: proxy
   jsonData:
@@ -12,7 +13,7 @@ datasources:
 - name: Showfast
   type: yesoreyeram-infinity-datasource
   access: proxy
-  url: https://${SHOWFAST_URL}
+  url: ${SHOWFAST_URL}
   basicAuth: false
   isDefault: false
   jsonData:

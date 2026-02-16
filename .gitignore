@@ -48,3 +48,7 @@ test_data/
 node_modules/
 package-lock.json
 yarn.lock
+Dockerfile.standalone
+cbmonitor-standalone.tar.gz
+build-and-deploy.sh
+run.sh 
