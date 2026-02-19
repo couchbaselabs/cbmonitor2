@@ -1,4 +1,5 @@
-import { SceneAppPage, SceneTimePicker, SceneRefreshPicker, EmbeddedScene, SceneFlexLayout, SceneFlexItem } from '@grafana/scenes';
+import React from 'react';
+import { SceneAppPage, SceneTimePicker, SceneRefreshPicker, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectBase, SceneObjectState } from '@grafana/scenes';
 import { ROUTES, prefixRoute } from '../utils/utils.routing';
 import { getDashboardsForServices } from '../pages';
 import { locationService } from '@grafana/runtime';
@@ -9,6 +10,18 @@ import { LayoutToggle } from '../components/LayoutToggle/LayoutToggle';
 import { createNoUrlSyncTimeRange, buildQuickRanges, initializeTimeRange } from '../utils/timeRange';
 import { loadSnapshot } from '../services/snapshotLoader';
 import { sceneCacheService } from '../services/sceneCache';
+import { Spinner } from '@grafana/ui';
+
+// Simple loading scene to show while snapshot is being loaded
+class LoadingScene extends SceneObjectBase<SceneObjectState> {
+  public static Component = () => {
+    return React.createElement('div', 
+      { style: { display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px', flexDirection: 'column', gap: '16px' } },
+      React.createElement(Spinner, { size: 32 }),
+      React.createElement('div', null, 'Loading snapshot...')
+    );
+  };
+}
 
 // Create time range without URL sync, with basic default time range
 const timeRange = createNoUrlSyncTimeRange();
@@ -21,7 +34,18 @@ export const snapshotViewPage = new SceneAppPage({
   title: '',
   url: prefixRoute(`${ROUTES.CBMonitor}`),
   routePath: `${ROUTES.CBMonitor}/*`,
-    hideFromBreadcrumbs: true,
+  hideFromBreadcrumbs: true,
+  // Provide a default getScene that shows loading state
+  getScene: () => new EmbeddedScene({
+    body: new SceneFlexLayout({
+      direction: 'column',
+      children: [
+        new SceneFlexItem({
+          body: new LoadingScene({}),
+        }),
+      ],
+    }),
+  }),
 });
 
 // Add activation handler to fetch and configure snapshot
@@ -146,6 +170,7 @@ snapshotViewPage.addActivationHandler(() => {
               metadata
             });
           },
+          getScene: undefined, // Remove getScene when using tabs
         });
 
       } catch (error) {
