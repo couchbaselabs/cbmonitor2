@@ -102,7 +102,7 @@ export class SnapshotPhaseRegionsLayer extends SceneDataLayerBase<SnapshotPhaseR
       if (!pointAnnotations.has(effectiveStartTime)) {
         pointAnnotations.set(effectiveStartTime, { labels: [], color });
       }
-      pointAnnotations.get(effectiveStartTime)!.labels.push(`Phase Start: ${p.label}`);
+      pointAnnotations.get(effectiveStartTime)!.labels.push(`{Phase Start: ${p.label}}`);
       
       if (hasEnd) {
         let end = dateTime(p.ts_end).toDate();
@@ -124,7 +124,7 @@ export class SnapshotPhaseRegionsLayer extends SceneDataLayerBase<SnapshotPhaseR
         if (!pointAnnotations.has(effectiveEndTime)) {
           pointAnnotations.set(effectiveEndTime, { labels: [], color });
         }
-        pointAnnotations.get(effectiveEndTime)!.labels.push(`Phase End: ${p.label} \n`);
+        pointAnnotations.get(effectiveEndTime)!.labels.push(`{Phase End: ${p.label}}`);
       }
     }
 
