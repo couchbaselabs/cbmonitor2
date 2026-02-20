@@ -13,6 +13,12 @@ export const CB_DATASOURCE_REF = {
   type: 'couchbase-datasource'
 } as const;
 
+// Prometheus Datasource Reference
+export const PROM_DATASOURCE_REF = {
+  uid: 'prometheus',
+  type: 'prometheus'
+} as const;
+
 export type DashboardId = keyof typeof DASHBOARD_UIDS;
 
 // Helper function to get UID from dashboard name

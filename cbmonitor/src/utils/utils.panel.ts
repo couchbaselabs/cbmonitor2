@@ -1,10 +1,16 @@
 // General utils for querying Couchbase cluster and handling data transformation
-// using the cbdatasource plugin
+// Supports both Couchbase SQL++ and PromQL datasources
 
 import { PanelBuilders, SceneDataTransformer, SceneFlexItem, SceneQueryRunner } from '@grafana/scenes';
 import { TooltipDisplayMode, LegendDisplayMode } from '@grafana/schema';
 import { CBQueryBuilder, AggregationQueryBuilder } from './utils.cbquery';
+import { PromQueryBuilder, PromAggregationQueryBuilder } from './utils.promquery';
 import { layoutService } from '../services/layoutService';
+import { dataSourceService } from '../services/datasourceService';
+import { DataSourceType } from '../types/datasource';
+
+/** Union of all query builder types used by panels */
+type AnyQueryBuilder = CBQueryBuilder | AggregationQueryBuilder | PromQueryBuilder | PromAggregationQueryBuilder;
 
 export function getNewTimeSeriesDataTransformer(queryRunner: SceneQueryRunner) {
     return new SceneDataTransformer({
@@ -31,7 +37,7 @@ type PanelCommonOptions = {
 
 // Apply common builder options (label filters, extra fields)
 function applyBuilderOptions(
-    builder: CBQueryBuilder | AggregationQueryBuilder,
+    builder: AnyQueryBuilder,
     options: PanelCommonOptions
 ) {
     if (options.labelFilters) {
@@ -46,7 +52,7 @@ function applyBuilderOptions(
 
 // Create a SceneFlexItem using a prepared builder and shared UI logic
 function createSceneItemFromBuilder(
-    builder: CBQueryBuilder | AggregationQueryBuilder,
+    builder: AnyQueryBuilder,
     metricName: string,
     title: string,
     options: PanelCommonOptions,
@@ -97,14 +103,18 @@ function createSceneItemFromBuilder(
     });
 
     // Add markdown description with query details
+    const isPromQL = builder instanceof PromQueryBuilder || builder instanceof PromAggregationQueryBuilder;
     try {
         const queryText = builder.build();
+        const queryLang = isPromQL ? 'promql' : 'sql';
+        const dsLabel = isPromQL ? '⚗️ PromQL' : 'Couchbase SQL++';
         const descriptionMd = [
             `**Metric:** ${metricName} \n`,
+            `**Datasource:** ${dsLabel} \n`,
             ...(extraDescriptionLines ?? []),
             '',
             '**Query:**',
-            '```sql',
+            `\`\`\`${queryLang}`,
             queryText,
             '```',
         ].join('\n');
@@ -129,7 +139,10 @@ function createSceneItemFromBuilder(
 }
 
 /**
- * Create a new metric panel using the CBQueryBuilder and TimeSeriesDataTransformer
+ * Create a new metric panel.
+ * Automatically selects the query builder based on the current datasource:
+ *   - Couchbase → CBQueryBuilder (SQL++)
+ *   - PromQL → PromQueryBuilder
  */
 export function createMetricPanel(
     snapshotId: string,
@@ -137,16 +150,19 @@ export function createMetricPanel(
     title: string,
     options: PanelCommonOptions = {}
 ): SceneFlexItem {
-    const builder = new CBQueryBuilder(snapshotId, metricName);
+    const ds = dataSourceService.getCurrentDataSource();
+    const builder = ds === DataSourceType.PromQL
+        ? new PromQueryBuilder(snapshotId, metricName)
+        : new CBQueryBuilder(snapshotId, metricName);
     applyBuilderOptions(builder, options);
     return createSceneItemFromBuilder(builder, metricName, title, options);
 }
 
 /**
- * Create a new metric panel using AggregationQueryBuilder and TimeSeriesDataTransformer
- *
- * This mirrors createMetricPanel but builds the query via AggregationQueryBuilder,
- * allowing a timeseries transform (e.g., rate) to be applied before expansion.
+ * Create a new metric panel with an aggregation transform (e.g., rate, irate, increase).
+ * Automatically selects the query builder based on the current datasource:
+ *   - Couchbase → AggregationQueryBuilder (SQL++ with derived subquery)
+ *   - PromQL → PromAggregationQueryBuilder (range-vector function)
  */
 export function createAggregatedMetricPanel(
     snapshotId: string,
@@ -158,12 +174,24 @@ export function createAggregatedMetricPanel(
         unit?: string;
         width?: string;
         height?: number;
-        transformFunction?: string; // e.g., 'rate', 'avg_timeseries'
+        transformFunction?: string; // e.g., 'rate', 'irate', 'increase'
     } = {}
 ): SceneFlexItem {
-    const builder = new AggregationQueryBuilder(snapshotId, metricName);
-    if (options.transformFunction) {
-        builder.setTransformFunction(options.transformFunction);
+    const ds = dataSourceService.getCurrentDataSource();
+
+    let builder: AggregationQueryBuilder | PromAggregationQueryBuilder;
+    if (ds === DataSourceType.PromQL) {
+        const pb = new PromAggregationQueryBuilder(snapshotId, metricName);
+        if (options.transformFunction) {
+            pb.setTransformFunction(options.transformFunction);
+        }
+        builder = pb;
+    } else {
+        const cb = new AggregationQueryBuilder(snapshotId, metricName);
+        if (options.transformFunction) {
+            cb.setTransformFunction(options.transformFunction);
+        }
+        builder = cb;
     }
     applyBuilderOptions(builder, options);
 

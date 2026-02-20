@@ -7,6 +7,7 @@ import { SnapshotSearchScene } from './SnapshotSearch';
 import { FormatMetadataSummary } from '../components/SnapshotDisplay/metadataSummary';
 import { Phase } from '../types/snapshot';
 import { LayoutToggle } from '../components/LayoutToggle/LayoutToggle';
+import { DataSourceToggle } from '../components/DataSourceToggle/DataSourceToggle';
 import { createNoUrlSyncTimeRange, buildQuickRanges, initializeTimeRange } from '../utils/timeRange';
 import { loadSnapshot } from '../services/snapshotLoader';
 import { sceneCacheService } from '../services/sceneCache';
@@ -138,6 +139,16 @@ snapshotViewPage.addActivationHandler(() => {
           });
         };
 
+        // Handler for datasource change - regenerate tabs with new query builders
+        const handleDataSourceChange = () => {
+          // Clear scene cache so scenes are recreated with new datasource queries
+          sceneCacheService.clearAll();
+          // Regenerate tabs with current services and snapshotId
+          snapshotViewPage.setState({
+            tabs: getDashboardsForServices(metadata.services, snapshotId),
+          });
+        };
+
         // Create controls array with time picker (with quick ranges) and layout toggle
         const controls: any[] = [
           new SceneTimePicker({
@@ -157,6 +168,12 @@ snapshotViewPage.addActivationHandler(() => {
         // Add the layout toggle to the controls
         controls.push(new LayoutToggle({
           onLayoutChange: handleLayoutChange,
+        }));
+
+        // Add datasource toggle (Couchbase SQL++ ↔ PromQL)
+        controls.push(new DataSourceToggle({
+          snapshotId,
+          onDataSourceChange: handleDataSourceChange,
         }));
 
         // Update page with snapshot data
