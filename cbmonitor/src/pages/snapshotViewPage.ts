@@ -51,6 +51,11 @@ export const snapshotViewPage = new SceneAppPage({
 
 // Add activation handler to fetch and configure snapshot
 snapshotViewPage.addActivationHandler(() => {
+  const initialParams = locationService.getSearchObject();
+  if (initialParams.refresh) {
+    locationService.partial({ refresh: null }, true);
+  }
+
   // Variable to track time range subscription for cleanup
   let timeRangeSubscription: { unsubscribe: () => void } | null = null;
   // Track currently loaded snapshot to avoid reloading on tab switches
@@ -106,12 +111,18 @@ snapshotViewPage.addActivationHandler(() => {
             });
 
             if (matchingPhase) {
-              // Update URL with phase parameter
-              locationService.partial({ phase: matchingPhase.label }, true);
+              // Update URL with phase parameter, using replace: true to avoid history bloat
+              const currentPhase = (locationService.getSearchObject().phase) as string;
+              if (currentPhase !== matchingPhase.label) {
+                locationService.partial({ phase: matchingPhase.label }, true);
+              }
             } else if (metadata.ts_start === currentFrom &&
               metadata.ts_end === currentTo) {
-              // Full range selected - remove phase parameter
-              locationService.partial({ phase: null }, true);
+              // Full range selected - remove phase parameter if set
+              const currentPhase = (locationService.getSearchObject().phase) as string;
+              if (currentPhase) {
+                locationService.partial({ phase: null }, true);
+              }
             }
           }
         };
@@ -205,9 +216,14 @@ snapshotViewPage.addActivationHandler(() => {
   // Load snapshot immediately on mount
   loadSnapshotFromUrl();
 
-  // Subscribe to URL changes to reload snapshot when snapshotId changes
+  // Subscribe to URL changes to reload snapshot when snapshotId changes (ignore phase changes)
   const urlSubscription = locationService.getHistory().listen(() => {
-    loadSnapshotFromUrl();
+    const newParams = locationService.getSearchObject();
+    const newSnapshotId = newParams.snapshotId as string;
+    // Only reload if snapshotId actually changed, not just phase
+    if (newSnapshotId && newSnapshotId !== currentLoadedSnapshotId) {
+      loadSnapshotFromUrl();
+    }
   });
 
   // Return deactivation handler

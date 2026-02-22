@@ -151,9 +151,6 @@ export function createMetricPanel(
     options: PanelCommonOptions = {}
 ): SceneFlexItem {
     const ds = dataSourceService.getCurrentDataSource();
-    if (process.env.NODE_ENV === 'development') {
-        console.debug(`[Panel] createMetricPanel: ${metricName} using ${ds} datasource`);
-    }
     const builder = ds === DataSourceType.PromQL
         ? new PromQueryBuilder(snapshotId, metricName)
         : new CBQueryBuilder(snapshotId, metricName);
@@ -181,9 +178,6 @@ export function createAggregatedMetricPanel(
     } = {}
 ): SceneFlexItem {
     const ds = dataSourceService.getCurrentDataSource();
-    if (process.env.NODE_ENV === 'development') {
-        console.debug(`[Panel] createAggregatedMetricPanel: ${metricName} using ${ds} datasource with transform=${options.transformFunction}`);
-    }
 
     let builder: AggregationQueryBuilder | PromAggregationQueryBuilder;
     if (ds === DataSourceType.PromQL) {

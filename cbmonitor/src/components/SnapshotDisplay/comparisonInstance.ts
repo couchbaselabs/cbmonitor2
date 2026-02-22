@@ -107,6 +107,11 @@ export function getComparisonTimeRanges() {
 
 // Add activation handler to fetch and validate snapshots
 comparisonPage.addActivationHandler(() => {
+    const initialParams = locationService.getSearchObject();
+    if (initialParams.refresh) {
+        locationService.partial({ refresh: null }, true);
+    }
+
     // Force single-panel-per-row layout while on compare page; restore on leave
     const previousLayout = layoutService.getLayout();
     if (previousLayout !== 'rows') {
@@ -114,22 +119,24 @@ comparisonPage.addActivationHandler(() => {
     }
     // Track currently loaded snapshot IDs to avoid reloading
     let currentLoadedSnapshotIds: string[] = [];
+    let currentSnapshotSignature = '';
 
-    // Function to load snapshots for comparison based on current URL
-    const loadSnapshotsFromUrl = () => {
+    const getSnapshotIdsFromParams = (): string[] => {
         const params = locationService.getSearchObject();
-        
-        // Get snapshot IDs from URL - support 'snapshot' parameter (can be array)
+
         let snapshotIds: string[] = [];
-        
         if (Array.isArray(params.snapshot)) {
             snapshotIds = params.snapshot as string[];
         } else if (typeof params.snapshot === 'string') {
             snapshotIds = [params.snapshot];
         }
 
-        // Filter out empty strings
-        snapshotIds = snapshotIds.filter(id => id && id.trim().length > 0);
+        return snapshotIds.filter(id => id && id.trim().length > 0);
+    };
+
+    // Function to load snapshots for comparison based on current URL
+    const loadSnapshotsFromUrl = () => {
+        const snapshotIds = getSnapshotIdsFromParams();
 
         // When snapshot count is invalid, show input page instead of error
         if (snapshotIds.length < 2 || snapshotIds.length > 6) {
@@ -154,6 +161,7 @@ comparisonPage.addActivationHandler(() => {
             try {
                 // Update currently loaded snapshots
                 currentLoadedSnapshotIds = snapshotIds;
+                currentSnapshotSignature = snapshotIds.join('|');
 
                 // Invalidate cached scenes when snapshot set changes
                 sceneCacheService.clearAll();
@@ -251,9 +259,13 @@ comparisonPage.addActivationHandler(() => {
     // Load snapshots immediately on mount
     loadSnapshotsFromUrl();
 
-    // Subscribe to URL changes to reload snapshots when parameters change
+    // Subscribe to URL changes to reload only when snapshot IDs change (ignore refresh/phase churn)
     const urlSubscription = locationService.getHistory().listen(() => {
-        loadSnapshotsFromUrl();
+        const nextSnapshotIds = getSnapshotIdsFromParams();
+        const nextSignature = nextSnapshotIds.join('|');
+        if (nextSignature !== currentSnapshotSignature) {
+            loadSnapshotsFromUrl();
+        }
     });
 
     // Return deactivation handler
