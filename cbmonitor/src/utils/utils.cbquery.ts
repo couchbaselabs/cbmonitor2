@@ -92,6 +92,9 @@ export class CBQueryBuilder {
 
     // Build and return a SceneQueryRunner
     buildQueryRunner(): SceneQueryRunner {
+        if (process.env.NODE_ENV === 'development') {
+            console.debug(`[CBQueryBuilder] Building runner for metric=${this.metricName}, snapshotId=${this.snapshotId}`);
+        }
         return new SceneQueryRunner({
             datasource: CB_DATASOURCE_REF,
             queries: [{

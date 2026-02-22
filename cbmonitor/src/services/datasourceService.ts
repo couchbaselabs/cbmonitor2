@@ -36,6 +36,7 @@ class DataSourceService {
     /** Switch the active datasource and notify all subscribers */
     setCurrentDataSource(ds: DataSourceType): void {
         if (this.currentDataSource !== ds) {
+            console.debug(`[DataSourceService] Switching datasource from ${this.currentDataSource} to ${ds}`);
             this.currentDataSource = ds;
             this.listeners.forEach((fn) => fn(ds));
         }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SceneObjectBase, SceneComponentProps, SceneObjectState } from '@grafana/scenes';
 import { Combobox, ComboboxOption, Tooltip } from '@grafana/ui';
-import { DataSourceAvailability, DataSourceType } from 'types/datasource';
+import { DataSourceType } from 'types/datasource';
 import { dataSourceService } from 'services/datasourceService';
 
 interface DataSourceToggleState extends SceneObjectState {
@@ -21,53 +21,33 @@ function DataSourceToggleRenderer({ model }: SceneComponentProps<DataSourceToggl
     const state = model.useState();
     const { onDataSourceChange, snapshotId } = state || {};
     const [dataSource, setDataSource] = useState<DataSourceType>(DataSourceType.PromQL);
-    const [availability, setAvailability] = useState<DataSourceAvailability | null>(null);
-    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         let isActive = true;
 
         // Early return if no snapshotId yet
         if (!snapshotId) {
-            setAvailability(null);
-            setLoading(false);
             return;
         }
 
-        setLoading(true);
-        setAvailability(null);
-
-        const loadAvailability = async () => {
+        const loadInitialState = async () => {
             try {
                 const config = await dataSourceService.loadConfig();
                 const currentDs = dataSourceService.getCurrentDataSource();
 
-                // Set initial datasource (load immediately, don't wait for health check)
+                // Set initial datasource from service
                 if (isActive) {
                     setDataSource(currentDs || config.defaultDataSource);
-                    setLoading(false);
                 }
-
-                // Check availability in background (non-blocking)
-                dataSourceService.checkSnapshotAvailability(snapshotId).then((avail) => {
-                    if (isActive) {
-                        setAvailability(avail.availability);
-                    }
-                }).catch((error) => {
-                    console.error('Failed to check datasource availability:', error);
-                });
             } catch (error) {
-                console.error('Failed to load datasource config:', error);
-                if (isActive) {
-                    setLoading(false);
-                }
+                console.error('[DataSourceToggle] Failed to load datasource config:', error);
             }
         };
 
-        loadAvailability();
+        loadInitialState();
 
         // Subscribe to datasource changes
-        const unsubscribe = dataSourceService.subscribe((newDataSource) => {
+        const unsubscribe = dataSourceService.subscribe((newDataSource: DataSourceType) => {
             if (isActive) {
                 setDataSource(newDataSource);
             }
@@ -94,31 +74,16 @@ function DataSourceToggleRenderer({ model }: SceneComponentProps<DataSourceToggl
 
     const options: Array<ComboboxOption<DataSourceType>> = [
         {
-            label: availability?.promql ? 'PromQL (Default) ✓' : 'PromQL (Default) ✗',
+            label: 'PromQL (Default)',
             value: DataSourceType.PromQL,
-            description: 'Default',
+            description: 'Primary datasource',
         },
         {
-            label: availability?.couchbase ? 'Couchbase SQL++ ✓' : 'Couchbase SQL++ ✗',
+            label: 'Couchbase SQL++',
             value: DataSourceType.Couchbase,
             description: 'Experimental',
         },
     ];
-
-    if (loading) {
-        return (
-            <div style={{ display: 'flex', alignItems: 'center', minWidth: '180px' }}>
-                <Combobox
-                    options={[{ label: 'Loading...', value: 'loading' as any }]}
-                    value="loading"
-                    onChange={() => { }}
-                    isClearable={false}
-                    disabled
-                    width={22}
-                />
-            </div>
-        );
-    }
 
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

@@ -96,6 +96,9 @@ export class PromQueryBuilder {
     }
 
     buildQueryRunner(): SceneQueryRunner {
+        if (process.env.NODE_ENV === 'development') {
+            console.debug(`[PromQueryBuilder] Building runner for metric=${this.metricName}, snapshotId=${this.snapshotId}`);
+        }
         return new SceneQueryRunner({
             datasource: PROM_DATASOURCE_REF,
             queries: [{
