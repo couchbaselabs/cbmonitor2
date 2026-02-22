@@ -10,6 +10,19 @@ datasources:
     username: ${COUCHBASE_USERNAME}
   secureJsonData:
     password: ${COUCHBASE_PASSWORD}
+- name: Prometheus
+  uid: prometheus
+  type: prometheus
+  access: proxy
+  url: ${PROMETHEUS_URL}
+  basicAuth: false
+  isDefault: true
+  jsonData:
+    cacheLevel: High
+    httpMethod: POST
+    prometheusType: Mimir
+    prometheusVersion: 2.9.1
+  secureJsonData: {}
 - name: Showfast
   type: yesoreyeram-infinity-datasource
   access: proxy

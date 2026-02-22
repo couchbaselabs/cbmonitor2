@@ -101,7 +101,7 @@ function DataSourceToggleRenderer({ model }: SceneComponentProps<DataSourceToggl
         {
             label: availability?.promql ? 'PromQL ✓' : 'PromQL ✗',
             value: DataSourceType.PromQL,
-            description: 'Experimental — for comparison only',
+            description: 'Experimental',
         },
     ];
 

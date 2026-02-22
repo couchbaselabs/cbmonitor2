@@ -53,11 +53,11 @@ export class PromQueryBuilder {
     }
 
     /**
-     * Build PromQL label matchers string, e.g. {snapshot_id="abc",proc="memcached"}
+     * Build PromQL label matchers string, e.g. {job="abc",proc="memcached"}
      */
     protected buildLabelMatchers(): string {
         const matchers: string[] = [
-            `snapshot_id="${this.snapshotId}"`,
+            `job="${this.snapshotId}"`,
         ];
 
         for (const [label, value] of this.labelFilters.entries()) {
