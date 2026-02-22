@@ -107,9 +107,9 @@ export class CBQueryBuilder {
  * Output schema: t._t as time, t._v0 as value.
  */
 export class AggregationQueryBuilder extends CBQueryBuilder {
-    private transformFunction: string = 'rate';
-    private outerAlias: string = 'd2';
-    private innerAlias: string = 'd';
+    private transformFunction = 'rate';
+    private outerAlias = 'd2';
+    private innerAlias = 'd';
     // Allowlist of supported transformation functions to avoid SQL injection via function name
     private static readonly ALLOWED_TRANSFORMS: Set<string> = new Set([
         'rate',

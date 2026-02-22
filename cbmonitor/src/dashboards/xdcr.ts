@@ -13,33 +13,47 @@ export function xdcrMetricsDashboard(snapshotId: string): EmbeddedScene {
             wrap: 'wrap',
             children: [
                 // XDCR Replication Progress Metrics
-                createMetricPanel(snapshotId, 'xdcr_changes_left_total', 'Changes Left Total', {
+                createMetricPanel('xdcr_changes_left_total', 'Changes Left Total', {
+                    expr: `xdcr_changes_left_total{job="${snapshotId}",pipelineType="Main"}`,
+                    snapshotId,
                     labelFilters: { pipelineType: 'Main' },
                     unit: 'short'
                 }),
-                createMetricPanel(snapshotId, 'xdcr_docs_cloned_total', 'Documents Cloned Total', {
+                createMetricPanel('xdcr_docs_cloned_total', 'Documents Cloned Total', {
+                    expr: `xdcr_docs_cloned_total{job="${snapshotId}",pipelineType="Main"}`,
+                    snapshotId,
                     labelFilters: { pipelineType: 'Main' },
                     unit: 'short'
                 }),
-                createMetricPanel(snapshotId, 'xdcr_docs_checked_total', 'Documents Checked Total', {
+                createMetricPanel('xdcr_docs_checked_total', 'Documents Checked Total', {
+                    expr: `xdcr_docs_checked_total{job="${snapshotId}",pipelineType="Main"}`,
+                    snapshotId,
                     labelFilters: { pipelineType: 'Main' },
                     unit: 'short'
                 }),
-                createMetricPanel(snapshotId, 'xdcr_docs_written_total', 'Documents Written Total',{ 
+                createMetricPanel('xdcr_docs_written_total', 'Documents Written Total', {
+                    expr: `xdcr_docs_written_total{job="${snapshotId}",pipelineType="Main"}`,
+                    snapshotId,
                     labelFilters: { pipelineType: 'Main' },
                     unit: 'short'
                 }),
                 // XDCR Performance Metrics
-                createMetricPanel(snapshotId, 'xdcr_wtavg_docs_latency_seconds', 'Weighted Average Document Latency (Seconds)', {
+                createMetricPanel('xdcr_wtavg_docs_latency_seconds', 'Weighted Average Document Latency (Seconds)', {
+                    expr: `xdcr_wtavg_docs_latency_seconds{job="${snapshotId}",pipelineType="Main"}`,
+                    snapshotId,
                     labelFilters: { pipelineType: 'Main' },
                     unit: 's'
                 }),
-                createMetricPanel(snapshotId, 'xdcr_wtavg_meta_latency_seconds', 'Weighted Average Metadata Latency (Seconds)', {
+                createMetricPanel('xdcr_wtavg_meta_latency_seconds', 'Weighted Average Metadata Latency (Seconds)', {
+                    expr: `xdcr_wtavg_meta_latency_seconds{job="${snapshotId}",pipelineType="Main"}`,
+                    snapshotId,
                     labelFilters: { pipelineType: 'Main' },
                     unit: 's'
                 }),
                 // XDCR Volume Metrics
-                createMetricPanel(snapshotId, 'xdcr_data_replicated_bytes', 'Data Replicated (Bytes)', {
+                createMetricPanel('xdcr_data_replicated_bytes', 'Data Replicated (Bytes)', {
+                    expr: `xdcr_data_replicated_bytes{job="${snapshotId}",pipelineType="Main"}`,
+                    snapshotId,
                     labelFilters: { pipelineType: 'Main' },
                     unit: 'bytes'
                 }),

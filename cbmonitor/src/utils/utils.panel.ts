@@ -1,16 +1,14 @@
-// General utils for querying Couchbase cluster and handling data transformation
-// Supports both Couchbase SQL++ and PromQL datasources
+// Panel creation utilities with hardcoded PromQL expressions as the source of truth.
+// SQL++ queries are still generated from parameters via CBQueryBuilder when that datasource is active.
+// In the future, SQL++ queries will be derived from the PromQL expressions.
 
 import { PanelBuilders, SceneDataTransformer, SceneFlexItem, SceneQueryRunner } from '@grafana/scenes';
 import { TooltipDisplayMode, LegendDisplayMode } from '@grafana/schema';
 import { CBQueryBuilder, AggregationQueryBuilder } from './utils.cbquery';
-import { PromQueryBuilder, PromAggregationQueryBuilder } from './utils.promquery';
 import { layoutService } from '../services/layoutService';
 import { dataSourceService } from '../services/datasourceService';
 import { DataSourceType } from '../types/datasource';
-
-/** Union of all query builder types used by panels */
-type AnyQueryBuilder = CBQueryBuilder | AggregationQueryBuilder | PromQueryBuilder | PromAggregationQueryBuilder;
+import { PROM_DATASOURCE_REF } from '../constants';
 
 export function getNewTimeSeriesDataTransformer(queryRunner: SceneQueryRunner) {
     return new SceneDataTransformer({
@@ -26,19 +24,29 @@ export function getNewTimeSeriesDataTransformer(queryRunner: SceneQueryRunner) {
     });
 }
 
-// Common options shared between panel builders
-type PanelCommonOptions = {
+// Options for panel creation
+type PanelOptions = {
+    // PromQL expression — hardcoded, source of truth
+    expr: string;
+    // Prometheus legend format, e.g. '{{instance}}'. Default: '{{instance}}'
+    legendFormat?: string;
+
+    // SQL++ parameters for CBQueryBuilder (used when Couchbase datasource is active)
+    snapshotId: string;
     labelFilters?: Record<string, string | string[]>;
     extraFields?: string[];
+    transformFunction?: string; // e.g., 'rate', 'irate', 'increase' — uses AggregationQueryBuilder
+
+    // Shared display options
     unit?: string;
     width?: string;
     height?: number;
 };
 
-// Apply common builder options (label filters, extra fields)
-function applyBuilderOptions(
-    builder: AnyQueryBuilder,
-    options: PanelCommonOptions
+// Apply label filters and extra fields to a CBQueryBuilder
+function applyCBBuilderOptions(
+    builder: CBQueryBuilder,
+    options: PanelOptions
 ) {
     if (options.labelFilters) {
         for (const [label, value] of Object.entries(options.labelFilters)) {
@@ -50,20 +58,49 @@ function applyBuilderOptions(
     }
 }
 
-// Create a SceneFlexItem using a prepared builder and shared UI logic
-function createSceneItemFromBuilder(
-    builder: AnyQueryBuilder,
+// Build legend template for Grafana panel display name override (SQL++ path)
+function makeLegendTemplate(extraFields?: string[]): string {
+    const ef = extraFields ?? [];
+    const labelKeys = ef
+        .map((f) => {
+            const matchBackticks = f.match(/d\.labels\.\`([^`]+)\`/);
+            if (matchBackticks) {
+                return matchBackticks[1];
+            }
+            const matchDot = f.match(/d\.labels\.([^`\.]+)/);
+            return matchDot ? matchDot[1] : undefined;
+        })
+        .filter((v): v is string => Boolean(v));
+
+    if (labelKeys.length > 0) {
+        const parts = labelKeys.map((k) => '${__field.labels.' + k + '}');
+        return parts.join(' , ');
+    }
+    return '${__field.labels.instance}';
+}
+
+/**
+ * Create a metric panel with a hardcoded PromQL expression (source of truth).
+ *
+ * When the active datasource is PromQL, uses the hardcoded `expr` directly.
+ * When the active datasource is Couchbase SQL++, builds a query via CBQueryBuilder
+ * using `snapshotId`, `labelFilters`, `extraFields`, and optionally `transformFunction`.
+ *
+ * @param metricName - Metric / refId identifier
+ * @param title - Panel display title
+ * @param options - Panel options (PromQL expr + SQL++ params + display settings)
+ */
+export function createMetricPanel(
     metricName: string,
     title: string,
-    options: PanelCommonOptions,
-    extraDescriptionLines?: string[]
+    options: PanelOptions
 ): SceneFlexItem {
     const panelWidth = options.width ?? layoutService.getPanelWidth();
+    const ds = dataSourceService.getCurrentDataSource();
+    const isPromQL = ds === DataSourceType.PromQL;
 
     const panelBuilder = PanelBuilders.timeseries().setTitle(title);
-    // Tooltip: show values from all series at the hovered time
     panelBuilder.setOption('tooltip', { mode: TooltipDisplayMode.Multi });
-    // Legend: sort rendered entries by display name (lexicographic)
     panelBuilder.setOption('legend', {
         showLegend: true,
         placement: 'bottom',
@@ -72,55 +109,69 @@ function createSceneItemFromBuilder(
         sortDesc: false,
     });
 
-    // Legend: prefer labels-only (extraFields) and fallback to instance label
-    const makeLegendTemplate = (): string => {
-        const ef = options.extraFields ?? [];
-        const labelKeys = ef
-            .map((f) => {
-                // Expect formats like 'd.labels.instance' or 'd.labels.`database`'
-                const matchBackticks = f.match(/d\.labels\.\`([^`]+)\`/);
-                if (matchBackticks) {
-                    return matchBackticks[1];
-                }
-                const matchDot = f.match(/d\.labels\.([^`\.]+)/);
-                return matchDot ? matchDot[1] : undefined;
-            })
-            .filter((v): v is string => Boolean(v));
-
-        if (labelKeys.length > 0) {
-            // Build legend from labels only using field label macros
-            const parts = labelKeys.map((k) => '${__field.labels.' + k + '}');
-            return parts.join(' , ');
-        }
-        // Fallback: show instance label for clearer identification
-        return '${__field.labels.instance}';
-    };
-
-    const legendTemplate = makeLegendTemplate();
+    // Build legend template once — used as a display name override on both paths
+    // so the legend style is consistent regardless of datasource.
+    const legendTemplate = options.legendFormat
+        ? options.legendFormat.replace(/\{\{(\w+)\}\}/g, '${__field.labels.$1}')
+        : makeLegendTemplate(options.extraFields);
     panelBuilder.setOverrides((b) => {
-        // Match all fields coming from this query (by refId) and override display name
         b.matchFieldsByQuery(metricName).overrideDisplayName(legendTemplate);
     });
 
-    // Add markdown description with query details
-    const isPromQL = builder instanceof PromQueryBuilder || builder instanceof PromAggregationQueryBuilder;
-    try {
-        const queryText = builder.build();
-        const queryLang = isPromQL ? 'promql' : 'sql';
-        const dsLabel = isPromQL ? 'PromQL' : 'Couchbase SQL++ (experimental)';
-        const descriptionMd = [
-            `**Metric:** ${metricName} \n`,
-            `**Datasource:** ${dsLabel} \n`,
-            ...(extraDescriptionLines ?? []),
-            '',
-            '**Query:**',
-            `\`\`\`${queryLang}`,
-            queryText,
-            '```',
-        ].join('\n');
-        panelBuilder.setDescription(descriptionMd);
-    } catch (e) {
-        // Skip description if query build fails
+    let queryRunner: SceneQueryRunner;
+
+    if (isPromQL) {
+        // --- PromQL path: use hardcoded expression directly ---
+        queryRunner = new SceneQueryRunner({
+            datasource: PROM_DATASOURCE_REF,
+            queries: [{
+                refId: metricName,
+                expr: options.expr,
+            }],
+        });
+
+        // Description
+        try {
+            const descriptionMd = [
+                `**Metric:** ${metricName} \n`,
+                `**Datasource:** PromQL \n`,
+                '',
+                '**Query:**',
+                '```promql',
+                options.expr,
+                '```',
+            ].join('\n');
+            panelBuilder.setDescription(descriptionMd);
+        } catch (_e) { /* skip */ }
+    } else {
+        // --- SQL++ path: build via CBQueryBuilder ---
+        let builder: CBQueryBuilder;
+        if (options.transformFunction) {
+            const aggBuilder = new AggregationQueryBuilder(options.snapshotId, metricName);
+            aggBuilder.setTransformFunction(options.transformFunction);
+            builder = aggBuilder;
+        } else {
+            builder = new CBQueryBuilder(options.snapshotId, metricName);
+        }
+        applyCBBuilderOptions(builder, options);
+        queryRunner = builder.buildQueryRunner();
+
+        // Description
+        try {
+            const queryText = builder.build();
+            const extraDesc = options.transformFunction ? [`**Transform:** ${options.transformFunction}`] : [];
+            const descriptionMd = [
+                `**Metric:** ${metricName} \n`,
+                `**Datasource:** Couchbase SQL++ (experimental) \n`,
+                ...extraDesc,
+                '',
+                '**Query:**',
+                '```sql',
+                queryText,
+                '```',
+            ].join('\n');
+            panelBuilder.setDescription(descriptionMd);
+        } catch (_e) { /* skip */ }
     }
 
     if (options.unit) {
@@ -134,67 +185,6 @@ function createSceneItemFromBuilder(
         width: panelWidth,
         minWidth: panelWidth === '100%' ? '100%' : '45%',
         body: panel,
-        $data: getNewTimeSeriesDataTransformer(builder.buildQueryRunner()),
+        $data: getNewTimeSeriesDataTransformer(queryRunner),
     });
-}
-
-/**
- * Create a new metric panel.
- * Automatically selects the query builder based on the current datasource:
- *   - Couchbase → CBQueryBuilder (SQL++)
- *   - PromQL → PromQueryBuilder
- */
-export function createMetricPanel(
-    snapshotId: string,
-    metricName: string,
-    title: string,
-    options: PanelCommonOptions = {}
-): SceneFlexItem {
-    const ds = dataSourceService.getCurrentDataSource();
-    const builder = ds === DataSourceType.PromQL
-        ? new PromQueryBuilder(snapshotId, metricName)
-        : new CBQueryBuilder(snapshotId, metricName);
-    applyBuilderOptions(builder, options);
-    return createSceneItemFromBuilder(builder, metricName, title, options);
-}
-
-/**
- * Create a new metric panel with an aggregation transform (e.g., rate, irate, increase).
- * Automatically selects the query builder based on the current datasource:
- *   - Couchbase → AggregationQueryBuilder (SQL++ with derived subquery)
- *   - PromQL → PromAggregationQueryBuilder (range-vector function)
- */
-export function createAggregatedMetricPanel(
-    snapshotId: string,
-    metricName: string,
-    title: string,
-    options: {
-        labelFilters?: Record<string, string | string[]>;
-        extraFields?: string[];
-        unit?: string;
-        width?: string;
-        height?: number;
-        transformFunction?: string; // e.g., 'rate', 'irate', 'increase'
-    } = {}
-): SceneFlexItem {
-    const ds = dataSourceService.getCurrentDataSource();
-
-    let builder: AggregationQueryBuilder | PromAggregationQueryBuilder;
-    if (ds === DataSourceType.PromQL) {
-        const pb = new PromAggregationQueryBuilder(snapshotId, metricName);
-        if (options.transformFunction) {
-            pb.setTransformFunction(options.transformFunction);
-        }
-        builder = pb;
-    } else {
-        const cb = new AggregationQueryBuilder(snapshotId, metricName);
-        if (options.transformFunction) {
-            cb.setTransformFunction(options.transformFunction);
-        }
-        builder = cb;
-    }
-    applyBuilderOptions(builder, options);
-
-    const extraDesc = options.transformFunction ? [`**Transform:** ${options.transformFunction}`] : undefined;
-    return createSceneItemFromBuilder(builder, metricName, title, options, extraDesc);
 }

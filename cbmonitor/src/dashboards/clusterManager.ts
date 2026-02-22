@@ -7,30 +7,37 @@ export function clusterManagerMetricsDashboard(snapshotId: string): EmbeddedScen
     // Base children without the per-instance HTTP Requests panels
     const buildBaseChildren = () => [
         // ns_server
-        createMetricPanel(snapshotId, 'sysproc_cpu_seconds_total', 'ns_server CPU Time (Cumulative Seconds)', {
+        createMetricPanel('sysproc_cpu_seconds_total', 'ns_server CPU Time (Cumulative Seconds)', {
+            expr: `sum by (instance) (sysproc_cpu_seconds_total{job="${snapshotId}",proc="ns_server"})`,
+            snapshotId,
             labelFilters: { proc: 'ns_server' },
             unit: 's',
         }),
-        createMetricPanel(snapshotId, 'sysproc_mem_resident', 'ns_server Resident Memory (Bytes)', {
+        createMetricPanel('sysproc_mem_resident', 'ns_server Resident Memory (Bytes)', {
+            expr: `sysproc_mem_resident{job="${snapshotId}",proc="ns_server"}`,
+            snapshotId,
             labelFilters: { proc: 'ns_server' },
             unit: 'bytes',
         }),
 
         // Prometheus
-        createMetricPanel(snapshotId, 'sysproc_cpu_seconds_total', 'Prometheus CPU Time (Cumulative Seconds)', {
+        createMetricPanel('sysproc_cpu_seconds_total', 'Prometheus CPU Time (Cumulative Seconds)', {
+            expr: `sum by (instance) (sysproc_cpu_seconds_total{job="${snapshotId}",proc="prometheus"})`,
+            snapshotId,
             labelFilters: { proc: 'prometheus' },
             unit: 's',
         }),
-        createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Prometheus Resident Memory (Bytes)', {
+        createMetricPanel('sysproc_mem_resident', 'Prometheus Resident Memory (Bytes)', {
+            expr: `sysproc_mem_resident{job="${snapshotId}",proc="prometheus"}`,
+            snapshotId,
             labelFilters: { proc: 'prometheus' },
             unit: 'bytes',
         }),
 
         // Miscellaneous metrics
-        createMetricPanel(snapshotId, 'scrape_duration_seconds', 'Scrape Duration (s)', {
-            unit: 'ns',
-        }),
-        createMetricPanel(snapshotId, 'sys_cpu_cores_available', 'CPU Cores Available', {
+        createMetricPanel('sys_cpu_cores_available', 'CPU Cores Available', {
+            expr: `sys_cpu_cores_available{job="${snapshotId}"}`,
+            snapshotId,
             unit: 'short',
         }),
     ];
@@ -40,14 +47,20 @@ export function clusterManagerMetricsDashboard(snapshotId: string): EmbeddedScen
         'cm_http_requests_total',
         buildBaseChildren,
         (i: string) => [
-            createMetricPanel(snapshotId, 'cm_http_requests_total', `HTTP Requests Total (${i})`, {
+            createMetricPanel('cm_http_requests_total', `HTTP Requests Total (${i})`, {
+                expr: `sum by (method) (cm_http_requests_total{job="${snapshotId}",instance="${i}"})`,
+                legendFormat: '{{method}}',
+                snapshotId,
                 labelFilters: { instance: i },
                 extraFields: ['d.labels.method'],
                 unit: 'short',
             }),
         ],
         () => [
-            createMetricPanel(snapshotId, 'cm_http_requests_total', 'HTTP Requests Total', {
+            createMetricPanel('cm_http_requests_total', 'HTTP Requests Total', {
+                expr: `cm_http_requests_total{job="${snapshotId}"}`,
+                legendFormat: '{{method}} , {{instance}}',
+                snapshotId,
                 extraFields: ['d.labels.method', 'd.labels.instance'],
                 unit: 'short',
             }),

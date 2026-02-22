@@ -7,34 +7,53 @@ import { createInstanceAwareScene } from 'utils/instanceScene';
 export function indexMetricsDashboard(snapshotId: string): EmbeddedScene {
     const buildBaseChildren = () => [
         // Indexer
-        createMetricPanel(snapshotId, 'sysproc_cpu_seconds_total', 'Indexer CPU Time (Cumulative Seconds)', {
+        createMetricPanel('sysproc_cpu_seconds_total', 'Indexer CPU Time (Cumulative Seconds)', {
+            expr: `sysproc_cpu_seconds_total{job="${snapshotId}",proc="indexer"}`,
+            legendFormat: '{{instance}} , {{mode}}',
+            snapshotId,
             labelFilters: { proc: 'indexer' },
             extraFields: ['d.labels.`instance`', 'd.labels.`mode`'],
             unit: 's',
         }),
-        createMetricPanel(snapshotId, 'sysproc_mem_resident', 'Indexer Resident Memory (Bytes)', {
+        createMetricPanel('sysproc_mem_resident', 'Indexer Resident Memory (Bytes)', {
+            expr: `sysproc_mem_resident{job="${snapshotId}",proc="indexer"}`,
+            legendFormat: '{{instance}} , {{index}} , {{mode}}',
+            snapshotId,
             labelFilters: { proc: 'indexer' },
             extraFields: ['d.labels.`instance`', 'd.labels.`index`', 'd.labels.`mode`'],
             unit: 'bytes',
         }),
         // Latency and throughput metrics
-        createMetricPanel(snapshotId, 'index_avg_disk_bps', 'Index Disk Bytes per Second', {
+        createMetricPanel('index_avg_disk_bps', 'Index Disk Bytes per Second', {
+            expr: `index_avg_disk_bps{job="${snapshotId}"}`,
+            snapshotId,
             unit: 'binBps',
         }),
-        createMetricPanel(snapshotId, 'index_avg_mutation_rate', 'Index Mutation Rate', {
+        createMetricPanel('index_avg_mutation_rate', 'Index Mutation Rate', {
+            expr: `index_avg_mutation_rate{job="${snapshotId}"}`,
+            snapshotId,
             unit: 'ops',
         }),
-        createMetricPanel(snapshotId, 'index_net_avg_scan_rate', 'Index Average Scan Rate', {
+        createMetricPanel('index_net_avg_scan_rate', 'Index Average Scan Rate', {
+            expr: `index_net_avg_scan_rate{job="${snapshotId}"}`,
+            snapshotId,
             unit: 'ops',
         }),
-        createMetricPanel(snapshotId, 'index_memory_rss', 'Indexer Process Resident Set Size', {
+        createMetricPanel('index_memory_rss', 'Indexer Process Resident Set Size', {
+            expr: `index_memory_rss{job="${snapshotId}"}`,
+            snapshotId,
             unit: 'bytes',
         }),
-        createMetricPanel(snapshotId, 'index_memory_used', 'Index Memory Used', {
+        createMetricPanel('index_memory_used', 'Index Memory Used', {
+            expr: `index_memory_used{job="${snapshotId}"}`,
+            legendFormat: '{{bucket}} , {{index}} , {{scope}} , {{collection}}',
+            snapshotId,
             extraFields: ['d.labels.`bucket`', 'd.labels.`index`', 'd.labels.`scope`', 'd.labels.`collection`'],
             unit: 'bytes',
         }),
-        createMetricPanel(snapshotId, 'index_total_data_size', 'Index Total Data Size', {
+        createMetricPanel('index_total_data_size', 'Index Total Data Size', {
+            expr: `index_total_data_size{job="${snapshotId}"}`,
+            snapshotId,
             unit: 'bytes',
         }),
     ];
@@ -44,86 +63,140 @@ export function indexMetricsDashboard(snapshotId: string): EmbeddedScene {
         'index_avg_scan_latency',
         buildBaseChildren,
         (i: string) => [
-            createMetricPanel(snapshotId, 'index_avg_scan_latency', `Index Avg Scan Latency (${i})`, {
+            createMetricPanel('index_avg_scan_latency', `Index Avg Scan Latency (${i})`, {
+                expr: `index_avg_scan_latency{job="${snapshotId}",instance="${i}"}`,
+                legendFormat: '{{bucket}} , {{index}}',
+                snapshotId,
                 labelFilters: { instance: i },
                 extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
                 unit: 'ns',
             }),
-            createMetricPanel(snapshotId, 'index_cache_hits', `Index Cache Hits (${i})`, {
+            createMetricPanel('index_cache_hits', `Index Cache Hits (${i})`, {
+                expr: `index_cache_hits{job="${snapshotId}",instance="${i}"}`,
+                legendFormat: '{{bucket}} , {{index}}',
+                snapshotId,
                 labelFilters: { instance: i },
                 extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
                 unit: 'short',
             }),
-            createMetricPanel(snapshotId, 'index_cache_misses', `Index Cache Misses (${i})`, {
+            createMetricPanel('index_cache_misses', `Index Cache Misses (${i})`, {
+                expr: `index_cache_misses{job="${snapshotId}",instance="${i}"}`,
+                legendFormat: '{{bucket}} , {{index}}',
+                snapshotId,
                 labelFilters: { instance: i },
                 extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
                 unit: 'short',
             }),
-            createMetricPanel(snapshotId, 'index_num_requests', `Index Number of Requests (${i})`, {
+            createMetricPanel('index_num_requests', `Index Number of Requests (${i})`, {
+                expr: `index_num_requests{job="${snapshotId}",instance="${i}"}`,
+                legendFormat: '{{bucket}} , {{index}}',
+                snapshotId,
                 labelFilters: { instance: i },
                 extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
                 unit: 'short',
             }),
-            createMetricPanel(snapshotId, 'index_num_rows_returned', `Index Number of Rows Returned (${i})`, {
+            createMetricPanel('index_num_rows_returned', `Index Number of Rows Returned (${i})`, {
+                expr: `index_num_rows_returned{job="${snapshotId}",instance="${i}"}`,
+                legendFormat: '{{bucket}} , {{index}}',
+                snapshotId,
                 labelFilters: { instance: i },
                 extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
                 unit: 'short',
             }),
-            createMetricPanel(snapshotId, 'index_num_docs_indexed', `Index Number of Documents Indexed (${i})`, {
+            createMetricPanel('index_num_docs_indexed', `Index Number of Documents Indexed (${i})`, {
+                expr: `index_num_docs_indexed{job="${snapshotId}",instance="${i}"}`,
+                legendFormat: '{{bucket}} , {{index}}',
+                snapshotId,
                 labelFilters: { instance: i },
                 extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
                 unit: 'short',
             }),
-            createMetricPanel(snapshotId, 'index_items_count', `Index Items Count (${i})`, {
+            createMetricPanel('index_items_count', `Index Items Count (${i})`, {
+                expr: `index_items_count{job="${snapshotId}",instance="${i}"}`,
+                legendFormat: '{{bucket}} , {{index}}',
+                snapshotId,
                 labelFilters: { instance: i },
                 extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
                 unit: 'short',
             }),
-            createMetricPanel(snapshotId, 'index_disk_size', `Index Disk Size (${i})`, {
+            createMetricPanel('index_disk_size', `Index Disk Size (${i})`, {
+                expr: `index_disk_size{job="${snapshotId}",instance="${i}"}`,
+                legendFormat: '{{bucket}} , {{index}}',
+                snapshotId,
                 labelFilters: { instance: i },
                 extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
                 unit: 'bytes',
             }),
-            createMetricPanel(snapshotId, 'index_avg_item_size', `Index Average Item Size (${i})`, {
+            createMetricPanel('index_avg_item_size', `Index Average Item Size (${i})`, {
+                expr: `index_avg_item_size{job="${snapshotId}",instance="${i}"}`,
+                legendFormat: '{{bucket}} , {{index}}',
+                snapshotId,
                 labelFilters: { instance: i },
                 extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
                 unit: 'bytes',
             }),
         ],
         () => [
-            createMetricPanel(snapshotId, 'index_avg_scan_latency', 'Index Average Scan Latency', {
+            createMetricPanel('index_avg_scan_latency', 'Index Average Scan Latency', {
+                expr: `index_avg_scan_latency{job="${snapshotId}"}`,
+                legendFormat: '{{bucket}} , {{index}}',
+                snapshotId,
                 extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
                 unit: 'ns',
             }),
-            createMetricPanel(snapshotId, 'index_cache_hits', 'Index Cache Hits', {
+            createMetricPanel('index_cache_hits', 'Index Cache Hits', {
+                expr: `index_cache_hits{job="${snapshotId}"}`,
+                legendFormat: '{{bucket}} , {{index}}',
+                snapshotId,
                 extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
                 unit: 'short',
             }),
-            createMetricPanel(snapshotId, 'index_cache_misses', 'Index Cache Misses', {
+            createMetricPanel('index_cache_misses', 'Index Cache Misses', {
+                expr: `index_cache_misses{job="${snapshotId}"}`,
+                legendFormat: '{{bucket}} , {{index}}',
+                snapshotId,
                 extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
                 unit: 'short',
             }),
-            createMetricPanel(snapshotId, 'index_num_requests', 'Index Number of Requests', {
+            createMetricPanel('index_num_requests', 'Index Number of Requests', {
+                expr: `index_num_requests{job="${snapshotId}"}`,
+                legendFormat: '{{bucket}} , {{index}}',
+                snapshotId,
                 extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
                 unit: 'short',
             }),
-            createMetricPanel(snapshotId, 'index_num_rows_returned', 'Index Number of Rows Returned', {
+            createMetricPanel('index_num_rows_returned', 'Index Number of Rows Returned', {
+                expr: `index_num_rows_returned{job="${snapshotId}"}`,
+                legendFormat: '{{bucket}} , {{index}}',
+                snapshotId,
                 extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
                 unit: 'short',
             }),
-            createMetricPanel(snapshotId, 'index_num_docs_indexed', 'Index Number of Documents Indexed', {
+            createMetricPanel('index_num_docs_indexed', 'Index Number of Documents Indexed', {
+                expr: `index_num_docs_indexed{job="${snapshotId}"}`,
+                legendFormat: '{{bucket}} , {{index}}',
+                snapshotId,
                 extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
                 unit: 'short',
             }),
-            createMetricPanel(snapshotId, 'index_items_count', 'Index Items Count', {
+            createMetricPanel('index_items_count', 'Index Items Count', {
+                expr: `index_items_count{job="${snapshotId}"}`,
+                legendFormat: '{{bucket}} , {{index}}',
+                snapshotId,
                 extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
                 unit: 'short',
             }),
-            createMetricPanel(snapshotId, 'index_disk_size', 'Index Disk Size', {
+            createMetricPanel('index_disk_size', 'Index Disk Size', {
+                expr: `index_disk_size{job="${snapshotId}"}`,
+                legendFormat: '{{bucket}} , {{index}}',
+                snapshotId,
                 extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
                 unit: 'bytes',
             }),
-            createMetricPanel(snapshotId, 'index_avg_item_size', 'Index Average Item Size', {
+            createMetricPanel('index_avg_item_size', 'Index Average Item Size', {
+                expr: `index_avg_item_size{job="${snapshotId}"}`,
+                legendFormat: '{{bucket}} , {{index}}',
+                snapshotId,
                 extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
                 unit: 'bytes',
             }),
