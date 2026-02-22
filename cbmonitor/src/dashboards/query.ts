@@ -14,7 +14,7 @@ export function queryMetricsDashboard(snapshotId: string): EmbeddedScene {
             children: [
                 // Query Engine
                 createMetricPanel('sysproc_cpu_seconds_total', 'Query Engine CPU Time (Cumulative Seconds)', {
-                    expr: `sysproc_cpu_seconds_total{job="${snapshotId}",proc="cbq-engine"}`,
+                    expr: `sum by (instance) (sysproc_cpu_seconds_total{job="${snapshotId}",proc="cbq-engine"})`,
                     legendFormat: '{{instance}} , {{mode}}',
                     snapshotId,
                     labelFilters: { proc: 'cbq-engine' },

@@ -8,7 +8,7 @@ export function indexMetricsDashboard(snapshotId: string): EmbeddedScene {
     const buildBaseChildren = () => [
         // Indexer
         createMetricPanel('sysproc_cpu_seconds_total', 'Indexer CPU Time (Cumulative Seconds)', {
-            expr: `sysproc_cpu_seconds_total{job="${snapshotId}",proc="indexer"}`,
+            expr: `sum by (instance) (sysproc_cpu_seconds_total{job="${snapshotId}",proc="indexer"})`,
             legendFormat: '{{instance}} , {{mode}}',
             snapshotId,
             labelFilters: { proc: 'indexer' },

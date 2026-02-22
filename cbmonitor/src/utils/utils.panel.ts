@@ -58,7 +58,7 @@ function applyCBBuilderOptions(
     }
 }
 
-// Build legend template for Grafana panel display name override (SQL++ path)
+// Build legend template for Grafana panel display name override
 function makeLegendTemplate(extraFields?: string[]): string {
     const ef = extraFields ?? [];
     const labelKeys = ef
