@@ -8,17 +8,17 @@ type DataSourceChangeListener = (dataSource: DataSourceType) => void;
  * Singleton service for managing which datasource (Couchbase SQL++ vs PromQL) is active.
  */
 class DataSourceService {
-    private currentDataSource: DataSourceType = DataSourceType.Couchbase;
+    private currentDataSource: DataSourceType = DataSourceType.PromQL;
     private config: DataSourceConfig = {
-        defaultDataSource: DataSourceType.Couchbase,
-        promqlEnabled: true,
+        defaultDataSource: DataSourceType.PromQL,
+        sqlQueryEnabled: true,
     };
     private listeners: Set<DataSourceChangeListener> = new Set();
     private configLoaded = false;
 
     /**
      * Load (or return cached) datasource configuration.
-     * Currently returns a hardcoded config; can be extended to fetch from backend.
+     * Currently returns a hardcoded config.
      */
     async loadConfig(): Promise<DataSourceConfig> {
         if (!this.configLoaded) {

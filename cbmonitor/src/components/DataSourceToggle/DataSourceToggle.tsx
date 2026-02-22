@@ -20,7 +20,7 @@ export class DataSourceToggle extends SceneObjectBase<DataSourceToggleState> {
 function DataSourceToggleRenderer({ model }: SceneComponentProps<DataSourceToggle>) {
     const state = model.useState();
     const { onDataSourceChange, snapshotId } = state || {};
-    const [dataSource, setDataSource] = useState<DataSourceType>(DataSourceType.Couchbase);
+    const [dataSource, setDataSource] = useState<DataSourceType>(DataSourceType.PromQL);
     const [availability, setAvailability] = useState<DataSourceAvailability | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -94,13 +94,13 @@ function DataSourceToggleRenderer({ model }: SceneComponentProps<DataSourceToggl
 
     const options: Array<ComboboxOption<DataSourceType>> = [
         {
-            label: availability?.couchbase ? 'Couchbase (Default) ✓' : 'Couchbase (Default) ✗',
-            value: DataSourceType.Couchbase,
-            description: 'SQL++ queries',
+            label: availability?.promql ? 'PromQL (Default) ✓' : 'PromQL (Default) ✗',
+            value: DataSourceType.PromQL,
+            description: 'Default',
         },
         {
-            label: availability?.promql ? 'PromQL ✓' : 'PromQL ✗',
-            value: DataSourceType.PromQL,
+            label: availability?.couchbase ? 'Couchbase SQL++ ✓' : 'Couchbase SQL++ ✗',
+            value: DataSourceType.Couchbase,
             description: 'Experimental',
         },
     ];
@@ -122,7 +122,7 @@ function DataSourceToggleRenderer({ model }: SceneComponentProps<DataSourceToggl
 
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Tooltip content="Switch between Couchbase SQL++ (default) and PromQL (experimental). Use PromQL for experimentation only." placement="bottom">
+            <Tooltip content="Switch between PromQL (default) and Couchbase SQL++ (experimental)." placement="bottom">
                 <span>
                     <Combobox
                         options={options}

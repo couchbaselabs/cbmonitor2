@@ -107,7 +107,7 @@ function createSceneItemFromBuilder(
     try {
         const queryText = builder.build();
         const queryLang = isPromQL ? 'promql' : 'sql';
-        const dsLabel = isPromQL ? '⚗️ PromQL' : 'Couchbase SQL++';
+        const dsLabel = isPromQL ? 'PromQL' : 'Couchbase SQL++ (experimental)';
         const descriptionMd = [
             `**Metric:** ${metricName} \n`,
             `**Datasource:** ${dsLabel} \n`,
@@ -198,5 +198,3 @@ export function createAggregatedMetricPanel(
     const extraDesc = options.transformFunction ? [`**Transform:** ${options.transformFunction}`] : undefined;
     return createSceneItemFromBuilder(builder, metricName, title, options, extraDesc);
 }
-
-
