@@ -97,7 +97,7 @@ export function createMetricPanel(
 ): SceneFlexItem {
     const panelWidth = options.width ?? layoutService.getPanelWidth();
     const ds = dataSourceService.getCurrentDataSource();
-    const isPromQL = ds === DataSourceType.PromQL;
+    const isPrometheus = ds === DataSourceType.Prometheus;
 
     const panelBuilder = PanelBuilders.timeseries().setTitle(title);
     panelBuilder.setOption('tooltip', { mode: TooltipDisplayMode.Multi });
@@ -120,7 +120,7 @@ export function createMetricPanel(
 
     let queryRunner: SceneQueryRunner;
 
-    if (isPromQL) {
+    if (isPrometheus) {
         // --- PromQL path: use hardcoded expression directly ---
         queryRunner = new SceneQueryRunner({
             datasource: PROM_DATASOURCE_REF,

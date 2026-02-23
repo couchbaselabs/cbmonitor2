@@ -1,30 +1,64 @@
-import { DataSourceType, DataSourceConfig, DataSourceAvailability } from '../types/datasource';
-import { getBackendSrv } from '@grafana/runtime';
-import { PROM_DATASOURCE_REF, CB_DATASOURCE_REF } from '../constants';
+import { DataSourceType, DataSourceConfig } from '../types/datasource';
+import { API_BASE_URL } from '../constants';
 
 type DataSourceChangeListener = (dataSource: DataSourceType) => void;
 
 /**
- * Singleton service for managing which datasource (Couchbase SQL++ vs PromQL) is active.
+ * Singleton service for managing which datasource (Couchbase SQL++ vs Prometheus) is active.
  */
 class DataSourceService {
-    private currentDataSource: DataSourceType = DataSourceType.PromQL;
+    private currentDataSource: DataSourceType = DataSourceType.Prometheus;
     private config: DataSourceConfig = {
-        defaultDataSource: DataSourceType.PromQL,
-        sqlQueryEnabled: true,
+        defaultDataSource: DataSourceType.Prometheus,
+        prometheusAvailable: true,
+        couchbaseAvailable: false,
     };
     private listeners: Set<DataSourceChangeListener> = new Set();
-    private configLoaded = false;
+    private configInitialized = false;
 
     /**
-     * Load (or return cached) datasource configuration.
-     * Currently returns a hardcoded config.
+     * Initialize datasource configuration from backend.
      */
-    async loadConfig(): Promise<DataSourceConfig> {
-        if (!this.configLoaded) {
-            // Default config — extend here if config comes from the backend in the future
-            this.configLoaded = true;
+    async initializeConfig(): Promise<DataSourceConfig> {
+        if (this.configInitialized) {
+            return this.config;
         }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/config/datasources`);
+            if (!response.ok) {
+                console.warn(`[DataSourceService] Failed to fetch datasource config: ${response.status}. Using defaults.`);
+                this.configInitialized = true;
+                return this.config;
+            }
+
+            const data = await response.json();
+
+            // Update config with backend values
+            this.config.prometheusAvailable = data.prometheusAvailable ?? true;
+            this.config.couchbaseAvailable = data.couchbaseAvailable ?? false;
+            this.config.defaultDataSource = data.defaultDataSource ?? DataSourceType.Prometheus;
+
+            // Set initial datasource based on availability
+            const preferredDataSource = this.config.defaultDataSource;
+            const isPreferredAvailable =
+                (preferredDataSource === DataSourceType.Prometheus && this.config.prometheusAvailable) ||
+                (preferredDataSource === DataSourceType.Couchbase && this.config.couchbaseAvailable);
+            const fallbackDataSource = this.config.prometheusAvailable
+                ? DataSourceType.Prometheus
+                : DataSourceType.Couchbase;
+            const nextDataSource = isPreferredAvailable ? preferredDataSource : fallbackDataSource;
+
+            this.currentDataSource = nextDataSource;
+            this.configInitialized = true;
+
+            console.log('[DataSourceService] Configuration loaded from backend:', this.config);
+        } catch (error) {
+            console.error('[DataSourceService] Failed to initialize config from backend:', error);
+            console.log('[DataSourceService] Using default configuration');
+            this.configInitialized = true;
+        }
+
         return this.config;
     }
 
@@ -50,35 +84,10 @@ class DataSourceService {
     }
 
     /**
-     * Check whether each datasource is reachable for a given snapshot.
-     * Returns availability flags; errors are caught and treated as unavailable.
+     * Return datasource config used to determine which options are shown.
      */
-    async checkSnapshotAvailability(
-        snapshotId: string
-    ): Promise<{ availability: DataSourceAvailability }> {
-        const availability: DataSourceAvailability = { couchbase: false, promql: false };
-
-        // Check Couchbase datasource health
-        try {
-            await getBackendSrv().get(
-                `/api/datasources/uid/${CB_DATASOURCE_REF.uid}`
-            );
-            availability.couchbase = true;
-        } catch {
-            availability.couchbase = false;
-        }
-
-        // Check Prometheus datasource health
-        try {
-            await getBackendSrv().get(
-                `/api/datasources/uid/${PROM_DATASOURCE_REF.uid}`
-            );
-            availability.promql = true;
-        } catch {
-            availability.promql = false;
-        }
-
-        return { availability };
+    async getDataSourceConfig(): Promise<DataSourceConfig> {
+        return this.config;
     }
 }
 

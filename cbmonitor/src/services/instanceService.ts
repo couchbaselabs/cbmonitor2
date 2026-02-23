@@ -7,7 +7,7 @@ import { PROM_DATASOURCE_REF } from '../constants';
 export function getInstancesFromMetricRunner(snapshotId: string, metricName = 'cm_http_requests_total'): SceneQueryRunner {
   const ds = dataSourceService.getCurrentDataSource();
 
-  if (ds === DataSourceType.PromQL) {
+  if (ds === DataSourceType.Prometheus) {
     // PromQL path: hardcoded expression
     return new SceneQueryRunner({
       datasource: PROM_DATASOURCE_REF,

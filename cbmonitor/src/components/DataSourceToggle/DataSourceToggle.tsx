@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SceneObjectBase, SceneComponentProps, SceneObjectState } from '@grafana/scenes';
 import { Combobox, ComboboxOption, Tooltip } from '@grafana/ui';
-import { DataSourceType } from 'types/datasource';
+import { DataSourceConfig, DataSourceType } from 'types/datasource';
 import { dataSourceService } from 'services/datasourceService';
 
 interface DataSourceToggleState extends SceneObjectState {
@@ -20,7 +20,12 @@ export class DataSourceToggle extends SceneObjectBase<DataSourceToggleState> {
 function DataSourceToggleRenderer({ model }: SceneComponentProps<DataSourceToggle>) {
     const state = model.useState();
     const { onDataSourceChange, snapshotId } = state || {};
-    const [dataSource, setDataSource] = useState<DataSourceType>(DataSourceType.PromQL);
+    const [dataSource, setDataSource] = useState<DataSourceType>(DataSourceType.Prometheus);
+    const [config, setConfig] = useState<DataSourceConfig>({
+        defaultDataSource: DataSourceType.Prometheus,
+        prometheusAvailable: true,
+        couchbaseAvailable: false,
+    });
 
     useEffect(() => {
         let isActive = true;
@@ -32,12 +37,24 @@ function DataSourceToggleRenderer({ model }: SceneComponentProps<DataSourceToggl
 
         const loadInitialState = async () => {
             try {
-                const config = await dataSourceService.loadConfig();
                 const currentDs = dataSourceService.getCurrentDataSource();
+                const fullCfg = await dataSourceService.getDataSourceConfig();
 
                 // Set initial datasource from service
                 if (isActive) {
-                    setDataSource(currentDs || config.defaultDataSource);
+                    setConfig(fullCfg);
+
+                    const preferredDataSource = currentDs || fullCfg.defaultDataSource;
+                    const isPreferredAvailable =
+                        (preferredDataSource === DataSourceType.Prometheus && fullCfg.prometheusAvailable) ||
+                        (preferredDataSource === DataSourceType.Couchbase && fullCfg.couchbaseAvailable);
+                    const fallbackDataSource = fullCfg.prometheusAvailable
+                        ? DataSourceType.Prometheus
+                        : DataSourceType.Couchbase;
+                    const nextDataSource = isPreferredAvailable ? preferredDataSource : fallbackDataSource;
+
+                    setDataSource(nextDataSource);
+                    dataSourceService.setCurrentDataSource(nextDataSource);
                 }
             } catch (error) {
                 console.error('[DataSourceToggle] Failed to load datasource config:', error);
@@ -74,8 +91,8 @@ function DataSourceToggleRenderer({ model }: SceneComponentProps<DataSourceToggl
 
     const options: Array<ComboboxOption<DataSourceType>> = [
         {
-            label: 'PromQL (Default)',
-            value: DataSourceType.PromQL,
+            label: 'Prometheus (Default)',
+            value: DataSourceType.Prometheus,
             description: 'Primary datasource',
         },
         {
@@ -83,11 +100,19 @@ function DataSourceToggleRenderer({ model }: SceneComponentProps<DataSourceToggl
             value: DataSourceType.Couchbase,
             description: 'Experimental',
         },
-    ];
+    ].filter(
+        (option) =>
+            (option.value === DataSourceType.Prometheus && config.prometheusAvailable) ||
+            (option.value === DataSourceType.Couchbase && config.couchbaseAvailable)
+    );
+
+    if (options.length === 0) {
+        return null;
+    }
 
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Tooltip content="Switch between PromQL (default) and Couchbase SQL++ (experimental)." placement="bottom">
+            <Tooltip content="Switch between Prometheus (default) and Couchbase SQL++ (experimental)." placement="bottom">
                 <span>
                     <Combobox
                         options={options}

@@ -3,23 +3,17 @@
  */
 export enum DataSourceType {
     Couchbase = 'couchbase',
-    PromQL = 'promql',
+    Prometheus = 'prometheus',
 }
 
 /**
- * Configuration for dual-datasource support
+ * Configuration for dual-datasource support, including visibility per deployment.
  */
 export interface DataSourceConfig {
     /** The default datasource used unless overridden */
     defaultDataSource: DataSourceType;
-    /** Whether SQL queries are enabled */
-    sqlQueryEnabled: boolean;
-}
-
-/**
- * Availability status for each datasource for a given snapshot
- */
-export interface DataSourceAvailability {
-    couchbase: boolean;
-    promql: boolean;
+    /** Whether Couchbase is available in the UI selector */
+    couchbaseAvailable: boolean;
+    /** Whether Prometheus is available in the UI selector */
+    prometheusAvailable: boolean;
 }
