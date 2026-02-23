@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AppRootProps } from '@grafana/data';
 import { config } from '@grafana/runtime';
 import { CB_DATASOURCE_REF } from '../../constants';
@@ -7,6 +7,7 @@ import { Alert } from '@grafana/ui';
 import { PluginPropsContext } from 'utils/utils.plugin';
 import { snapshotViewPage } from '../../pages/snapshotViewPage';
 import { comparisonPage } from '../../components/SnapshotDisplay/comparisonInstance';
+import { dataSourceService } from '../../services/datasourceService';
 
 // Defines the app and its pages
 function getCBMonitorApp(){
@@ -25,6 +26,13 @@ function getCBMonitorApp(){
 // The main app component that renders the app and its pages
 function CBMonitorHome() {
   const scene = useSceneApp(getCBMonitorApp);
+
+  // Initialize datasource configuration from backend when app mounts
+  useEffect(() => {
+    dataSourceService.initializeConfig().catch((error) => {
+      console.error('[App] Failed to initialize datasource config:', error);
+    });
+  }, []);
 
   return (
     <> {/* For debugging we list all installed datasources, as id mismatch could be the reason we cannot see the datasource */}

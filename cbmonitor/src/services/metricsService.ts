@@ -1,7 +1,5 @@
 import { ComponentMetrics, MetricsApiResponse, Metric, MetricValue, METRIC_DEFINITIONS } from '../types/metrics';
-
-// Base API configuration - Grafana plugin resources are served at /api/plugins/{plugin-id}/resources
-const API_BASE_URL = '/api/plugins/cbmonitor/resources';
+import { API_BASE_URL } from '../constants';
 
 class MetricsService {
   /**

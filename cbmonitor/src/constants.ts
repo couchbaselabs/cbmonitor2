@@ -2,6 +2,8 @@ import pluginJson from './plugin.json';
 
 export const PLUGIN_BASE_URL = `/a/${pluginJson.id}`;
 
+export const API_BASE_URL = `/api/plugins/${pluginJson.id}/resources`;
+
 export const DASHBOARD_UIDS = {
   cluster_manager: 'cluster_manager',
   kv_basic: '12b2cb59-bdeb-4015-a7c6-7367a7ff3878'
@@ -11,6 +13,12 @@ export const DASHBOARD_UIDS = {
 export const CB_DATASOURCE_REF = {
   uid: 'cbdatasource',
   type: 'couchbase-datasource'
+} as const;
+
+// Prometheus Datasource Reference
+export const PROM_DATASOURCE_REF = {
+  uid: 'prometheus',
+  type: 'prometheus'
 } as const;
 
 export type DashboardId = keyof typeof DASHBOARD_UIDS;

@@ -7,6 +7,7 @@ import { SnapshotSearchScene } from './SnapshotSearch';
 import { FormatMetadataSummary } from '../components/SnapshotDisplay/metadataSummary';
 import { Phase } from '../types/snapshot';
 import { LayoutToggle } from '../components/LayoutToggle/LayoutToggle';
+import { DataSourceToggle } from '../components/DataSourceToggle/DataSourceToggle';
 import { createNoUrlSyncTimeRange, buildQuickRanges, initializeTimeRange } from '../utils/timeRange';
 import { loadSnapshot } from '../services/snapshotLoader';
 import { sceneCacheService } from '../services/sceneCache';
@@ -50,6 +51,11 @@ export const snapshotViewPage = new SceneAppPage({
 
 // Add activation handler to fetch and configure snapshot
 snapshotViewPage.addActivationHandler(() => {
+  const initialParams = locationService.getSearchObject();
+  if (initialParams.refresh) {
+    locationService.partial({ refresh: null }, true);
+  }
+
   // Variable to track time range subscription for cleanup
   let timeRangeSubscription: { unsubscribe: () => void } | null = null;
   // Track currently loaded snapshot to avoid reloading on tab switches
@@ -105,12 +111,18 @@ snapshotViewPage.addActivationHandler(() => {
             });
 
             if (matchingPhase) {
-              // Update URL with phase parameter
-              locationService.partial({ phase: matchingPhase.label }, true);
+              // Update URL with phase parameter, using replace: true to avoid history bloat
+              const currentPhase = (locationService.getSearchObject().phase) as string;
+              if (currentPhase !== matchingPhase.label) {
+                locationService.partial({ phase: matchingPhase.label }, true);
+              }
             } else if (metadata.ts_start === currentFrom &&
               metadata.ts_end === currentTo) {
-              // Full range selected - remove phase parameter
-              locationService.partial({ phase: null }, true);
+              // Full range selected - remove phase parameter if set
+              const currentPhase = (locationService.getSearchObject().phase) as string;
+              if (currentPhase) {
+                locationService.partial({ phase: null }, true);
+              }
             }
           }
         };
@@ -138,6 +150,16 @@ snapshotViewPage.addActivationHandler(() => {
           });
         };
 
+        // Handler for datasource change - regenerate tabs with new query builders
+        const handleDataSourceChange = () => {
+          // Clear scene cache so scenes are recreated with new datasource queries
+          sceneCacheService.clearAll();
+          // Regenerate tabs with current services and snapshotId
+          snapshotViewPage.setState({
+            tabs: getDashboardsForServices(metadata.services, snapshotId),
+          });
+        };
+
         // Create controls array with time picker (with quick ranges) and layout toggle
         const controls: any[] = [
           new SceneTimePicker({
@@ -157,6 +179,12 @@ snapshotViewPage.addActivationHandler(() => {
         // Add the layout toggle to the controls
         controls.push(new LayoutToggle({
           onLayoutChange: handleLayoutChange,
+        }));
+
+        // Add datasource toggle (Couchbase SQL++ ↔ PromQL)
+        controls.push(new DataSourceToggle({
+          snapshotId,
+          onDataSourceChange: handleDataSourceChange,
         }));
 
         // Update page with snapshot data
@@ -188,9 +216,14 @@ snapshotViewPage.addActivationHandler(() => {
   // Load snapshot immediately on mount
   loadSnapshotFromUrl();
 
-  // Subscribe to URL changes to reload snapshot when snapshotId changes
+  // Subscribe to URL changes to reload snapshot when snapshotId changes (ignore phase changes)
   const urlSubscription = locationService.getHistory().listen(() => {
-    loadSnapshotFromUrl();
+    const newParams = locationService.getSearchObject();
+    const newSnapshotId = newParams.snapshotId as string;
+    // Only reload if snapshotId actually changed, not just phase
+    if (newSnapshotId && newSnapshotId !== currentLoadedSnapshotId) {
+      loadSnapshotFromUrl();
+    }
   });
 
   // Return deactivation handler

@@ -43,10 +43,42 @@ func (a *App) handleEcho(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// handleGetDatasourceConfig returns the datasource configuration to the UI
+func (a *App) handleGetDatasourceConfig(w http.ResponseWriter, req *http.Request) {
+	log.Printf("[handleGetDatasourceConfig] Called with method=%s path=%s", req.Method, req.URL.Path)
+
+	if req.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse environment variables
+	prometheusAvailable := getBooleanEnvWithDefault("DS_PROMETHEUS_AVAILABLE", "true")
+	couchbaseAvailable := getBooleanEnvWithDefault("DS_COUCHBASE_AVAILABLE", "false")
+
+	config := map[string]interface{}{
+		"defaultDataSource":   "prometheus",
+		"prometheusAvailable": prometheusAvailable,
+		"couchbaseAvailable":  couchbaseAvailable,
+	}
+
+	log.Printf("[handleGetDatasourceConfig] Returning config: %+v", config)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(config); err != nil {
+		log.Printf("Error encoding response: %v", err)
+		return
+	}
+}
+
 // registerRoutes takes a *http.ServeMux and registers some HTTP handlers.
 func (a *App) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/ping", a.handlePing)
 	mux.HandleFunc("/echo", a.handleEcho)
+
+	// Datasource configuration endpoint
+	mux.HandleFunc("/config/datasources", a.handleGetDatasourceConfig)
 
 	// Initialize Couchbase service and metrics handlers
 	a.setupMetricsRoutes(mux)
@@ -194,4 +226,10 @@ func getEnvWithDefault(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// getBooleanEnvWithDefault parses a boolean environment variable with a fallback
+func getBooleanEnvWithDefault(key string, defaultValue string) bool {
+	value := getEnvWithDefault(key, defaultValue)
+	return strings.ToLower(value) == "true"
 }

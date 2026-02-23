@@ -1,7 +1,5 @@
 import { SnapshotData, SnapshotApiResponse } from '../types/snapshot';
-
-// Base API configuration - Grafana plugin resources are served at /api/plugins/{plugin-id}/resources
-const API_BASE_URL = '/api/plugins/cbmonitor/resources';
+import { API_BASE_URL } from '../constants';
 
 class SnapshotService {
   /**
