@@ -9,50 +9,42 @@ export function indexMetricsDashboard(snapshotId: string): EmbeddedScene {
         // Indexer
         createMetricPanel('sysproc_cpu_seconds_total', 'Indexer CPU Time (Cumulative Seconds)', {
             expr: `sum by (instance) (sysproc_cpu_seconds_total{job="${snapshotId}",proc="indexer"})`,
-            legendFormat: '{{instance}} , {{mode}}',
+            legendFormat: '{{instance}}',
             snapshotId,
             labelFilters: { proc: 'indexer' },
             extraFields: ['d.labels.`instance`', 'd.labels.`mode`'],
             unit: 's',
         }),
         createMetricPanel('sysproc_mem_resident', 'Indexer Resident Memory (Bytes)', {
-            expr: `sysproc_mem_resident{job="${snapshotId}",proc="indexer"}`,
-            legendFormat: '{{instance}} , {{index}} , {{mode}}',
+            expr: `sum by (instance) (sysproc_mem_resident{job="${snapshotId}",proc="indexer"})`,
+            legendFormat: '{{instance}}',
             snapshotId,
             labelFilters: { proc: 'indexer' },
-            extraFields: ['d.labels.`instance`', 'd.labels.`index`', 'd.labels.`mode`'],
             unit: 'bytes',
         }),
         // Latency and throughput metrics
         createMetricPanel('index_avg_disk_bps', 'Index Disk Bytes per Second', {
-            expr: `index_avg_disk_bps{job="${snapshotId}"}`,
+            expr: `sum by (instance) (index_avg_disk_bps{job="${snapshotId}"})`,
             snapshotId,
             unit: 'binBps',
         }),
         createMetricPanel('index_avg_mutation_rate', 'Index Mutation Rate', {
-            expr: `index_avg_mutation_rate{job="${snapshotId}"}`,
+            expr: `sum by (instance) (index_avg_mutation_rate{job="${snapshotId}"})`,
             snapshotId,
             unit: 'ops',
         }),
         createMetricPanel('index_net_avg_scan_rate', 'Index Average Scan Rate', {
-            expr: `index_net_avg_scan_rate{job="${snapshotId}"}`,
+            expr: `sum by (instance) (index_net_avg_scan_rate{job="${snapshotId}"})`,
             snapshotId,
             unit: 'ops',
         }),
         createMetricPanel('index_memory_rss', 'Indexer Process Resident Set Size', {
-            expr: `index_memory_rss{job="${snapshotId}"}`,
+            expr: `sum by (instance) (index_memory_rss{job="${snapshotId}"})`,
             snapshotId,
-            unit: 'bytes',
-        }),
-        createMetricPanel('index_memory_used', 'Index Memory Used', {
-            expr: `index_memory_used{job="${snapshotId}"}`,
-            legendFormat: '{{bucket}} , {{index}} , {{scope}} , {{collection}}',
-            snapshotId,
-            extraFields: ['d.labels.`bucket`', 'd.labels.`index`', 'd.labels.`scope`', 'd.labels.`collection`'],
             unit: 'bytes',
         }),
         createMetricPanel('index_total_data_size', 'Index Total Data Size', {
-            expr: `index_total_data_size{job="${snapshotId}"}`,
+            expr: `sum by (instance) (index_total_data_size{job="${snapshotId}"})`,
             snapshotId,
             unit: 'bytes',
         }),
@@ -63,6 +55,14 @@ export function indexMetricsDashboard(snapshotId: string): EmbeddedScene {
         'index_avg_scan_latency',
         buildBaseChildren,
         (i: string) => [
+            createMetricPanel('index_memory_used', `Index Memory Used (${i})`, {
+            expr: `index_memory_used{job="${snapshotId}", instance="${i}"}`,
+            legendFormat: '{{bucket}} , {{index}} , {{scope}} , {{collection}}',
+            snapshotId,
+            labelFilters: { instance: i },
+            extraFields: ['d.labels.`bucket`', 'd.labels.`index`', 'd.labels.`scope`', 'd.labels.`collection`'],
+            unit: 'bytes',
+        }),
             createMetricPanel('index_avg_scan_latency', `Index Avg Scan Latency (${i})`, {
                 expr: `index_avg_scan_latency{job="${snapshotId}",instance="${i}"}`,
                 legendFormat: '{{bucket}} , {{index}}',

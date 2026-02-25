@@ -8,18 +8,18 @@ export function systemMetricsDashboard(snapshotId: string): EmbeddedScene {
         // TODO: Add a logic to only show the panels for the services that are actually present in the snapshot.
         // Overall (per node) CPU and Memory utilisation
         createMetricPanel('sys_cpu_utilization_rate', 'CPU Utilization (%)', {
-            expr: `sys_cpu_utilization_rate{job="${snapshotId}"}`,
+            expr: `sum by (instance) (sys_cpu_utilization_rate{job="${snapshotId}"})`,
             snapshotId,
             unit: 'percent',
             width: '100%'
         }),
         createMetricPanel('sys_mem_free_sys', 'Free Memory (Bytes)', {
-            expr: `sys_mem_free_sys{job="${snapshotId}"}`,
+            expr: `sum by (instance) (sys_mem_free_sys{job="${snapshotId}"})`,
             snapshotId,
             unit: 'bytes',
         }),
         createMetricPanel('sys_mem_used_sys', 'Used Memory (Bytes)', {
-            expr: `sys_mem_used_sys{job="${snapshotId}"}`,
+            expr: `sum by (instance) (sys_mem_used_sys{job="${snapshotId}"})`,
             snapshotId,
             unit: 'bytes',
         }),
@@ -30,7 +30,7 @@ export function systemMetricsDashboard(snapshotId: string): EmbeddedScene {
             unit: 'short',
         }),
         createMetricPanel('couch_docs_actual_disk_size', 'Couch Docs Actual Disk Size (Bytes)', {
-            expr: `couch_docs_actual_disk_size{job="${snapshotId}"}`,
+            expr: `sum by (instance, bucket) (couch_docs_actual_disk_size{job="${snapshotId}"})`,
             legendFormat: '{{instance}} , {{bucket}}',
             snapshotId,
             extraFields: ['d.labels.`instance`', 'd.labels.`bucket`'],

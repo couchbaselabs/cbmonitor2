@@ -14,7 +14,7 @@ export function clusterManagerMetricsDashboard(snapshotId: string): EmbeddedScen
             unit: 's',
         }),
         createMetricPanel('sysproc_mem_resident', 'ns_server Resident Memory (Bytes)', {
-            expr: `sysproc_mem_resident{job="${snapshotId}",proc="ns_server"}`,
+            expr: `sum by (instance) (sysproc_mem_resident{job="${snapshotId}",proc="ns_server"})`,
             snapshotId,
             labelFilters: { proc: 'ns_server' },
             unit: 'bytes',
@@ -28,7 +28,7 @@ export function clusterManagerMetricsDashboard(snapshotId: string): EmbeddedScen
             unit: 's',
         }),
         createMetricPanel('sysproc_mem_resident', 'Prometheus Resident Memory (Bytes)', {
-            expr: `sysproc_mem_resident{job="${snapshotId}",proc="prometheus"}`,
+            expr: `sum by (instance) (sysproc_mem_resident{job="${snapshotId}",proc="prometheus"})`,
             snapshotId,
             labelFilters: { proc: 'prometheus' },
             unit: 'bytes',
@@ -36,7 +36,7 @@ export function clusterManagerMetricsDashboard(snapshotId: string): EmbeddedScen
 
         // Miscellaneous metrics
         createMetricPanel('sys_cpu_cores_available', 'CPU Cores Available', {
-            expr: `sys_cpu_cores_available{job="${snapshotId}"}`,
+            expr: `sum by (instance) (sys_cpu_cores_available{job="${snapshotId}"})`,
             snapshotId,
             unit: 'short',
         }),

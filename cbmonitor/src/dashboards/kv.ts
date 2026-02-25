@@ -12,7 +12,7 @@ export function kvMetricsDashboard(snapshotId: string): EmbeddedScene {
             unit: 's',
         }),
         createMetricPanel('sysproc_mem_resident', 'memcached Resident Memory (Bytes)', {
-            expr: `sysproc_mem_resident{job="${snapshotId}",proc="memcached"}`,
+            expr: `sum by (instance) (sysproc_mem_resident{job="${snapshotId}",proc="memcached"})`,
             snapshotId,
             labelFilters: { proc: 'memcached' },
             unit: 'bytes',
@@ -20,7 +20,7 @@ export function kvMetricsDashboard(snapshotId: string): EmbeddedScene {
 
         // Operations & Performance (keep GET ops aggregated for now)
         createMetricPanel('kv_vb_ops_get', 'vBucket GET Ops', {
-            expr: `sum by (instance) (kv_vb_ops_get{job="${snapshotId}"})`,
+            expr: `sum by (instance, bucket) (kv_vb_ops_get{job="${snapshotId}"})`,
             legendFormat: '{{instance}} , {{bucket}}',
             snapshotId,
             extraFields: ['d.labels.`instance`', 'd.labels.`bucket`'],
@@ -29,43 +29,43 @@ export function kvMetricsDashboard(snapshotId: string): EmbeddedScene {
 
         // Data & Items (what we're storing)
         createMetricPanel('kv_curr_items', 'Current Items Count', {
-            expr: `kv_curr_items{job="${snapshotId}"}`,
+            expr: `sum by (instance) (kv_curr_items{job="${snapshotId}"})`,
             snapshotId,
             unit: 'short',
         }),
         createMetricPanel('kv_curr_connections', 'Current Connections Count', {
-            expr: `kv_curr_connections{job="${snapshotId}"}`,
+            expr: `sum by (instance) (kv_curr_connections{job="${snapshotId}"})`,
             snapshotId,
             unit: 'short',
         }),
 
         // Memory Usage (resource consumption)
         createMetricPanel('kv_mem_used_bytes', 'KV Memory Usage (Bytes)', {
-            expr: `kv_mem_used_bytes{job="${snapshotId}"}`,
+            expr: `sum by (instance) (kv_mem_used_bytes{job="${snapshotId}"})`,
             snapshotId,
             unit: 'bytes',
         }),
         createMetricPanel('kv_ep_meta_data_memory_bytes', 'Metadata Memory Usage (Bytes)', {
-            expr: `kv_ep_meta_data_memory_bytes{job="${snapshotId}"}`,
+            expr: `sum by (instance) (kv_ep_meta_data_memory_bytes{job="${snapshotId}"})`,
             snapshotId,
             unit: 'bytes',
         }),
 
         // Disk Queue Metrics (persistence layer)
         createMetricPanel('kv_ep_diskqueue_fill', 'KV Engine Disk Queue Fill', {
-            expr: `kv_ep_diskqueue_fill{job="${snapshotId}"}`,
+            expr: `sum by (instance) (kv_ep_diskqueue_fill{job="${snapshotId}"})`,
             snapshotId,
             unit: 'short',
         }),
         createMetricPanel('kv_ep_diskqueue_drain', 'KV Engine Disk Queue Drain', {
-            expr: `kv_ep_diskqueue_drain{job="${snapshotId}"}`,
+            expr: `sum by (instance) (kv_ep_diskqueue_drain{job="${snapshotId}"})`,
             snapshotId,
             unit: 'short',
         }),
 
         // Queue Metrics (internal processing)
         createMetricPanel('kv_ep_queue_size', 'KV Engine Queue Size', {
-            expr: `kv_ep_queue_size{job="${snapshotId}"}`,
+            expr: `sum by (instance) (kv_ep_queue_size{job="${snapshotId}"})`,
             snapshotId,
             unit: 'short',
         }),
