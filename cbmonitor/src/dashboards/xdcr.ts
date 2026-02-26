@@ -12,6 +12,18 @@ export function xdcrMetricsDashboard(snapshotId: string): EmbeddedScene {
             direction: 'row',
             wrap: 'wrap',
             children: [
+                createMetricPanel('sysproc_cpu_seconds_total', 'goxdcr CPU Time (Cumulative Seconds)', {
+                    expr: `sum by (instance) (sysproc_cpu_seconds_total{job="${snapshotId}",proc="goxdcr"})`,
+                    snapshotId,
+                    labelFilters: { proc: 'goxdcr' },
+                    unit: 's',
+                }),
+                createMetricPanel('sysproc_mem_resident', 'goxdcr Resident Memory (Bytes)', {
+                    expr: `sum by (instance) (sysproc_mem_resident{job="${snapshotId}",proc="goxdcr"})`,
+                    snapshotId,
+                    labelFilters: { proc: 'goxdcr' },
+                    unit: 'bytes',
+                }),
                 // XDCR Replication Progress Metrics
                 createMetricPanel('xdcr_changes_left_total', 'Changes Left Total', {
                     expr: `sum by (instance) (xdcr_changes_left_total{job="${snapshotId}",pipelineType="Main"})`,
