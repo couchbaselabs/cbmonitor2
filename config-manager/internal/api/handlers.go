@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/couchbase/config-manager/internal/logger"
 	"github.com/couchbase/config-manager/internal/models"
@@ -75,6 +76,16 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 
 	// Collect cluster metadata
 	metadataService := services.NewMetadataService()
+	serviceSet := make(map[string]struct{})
+	clusterSet := make(map[string]models.Cluster)
+	metadataRecord := &models.SnapshotMetadata{
+		SnapshotID: id,
+		TsStart:    time.Now(),
+		TsEnd:      "now",
+		Label:      req.Label,
+	}
+	hasMetadata := false
+
 	for _, config := range req.Configs {
 		for _, hostname := range config.Hostnames {
 			metadata, err := metadataService.CollectClusterMetadata(
@@ -82,23 +93,45 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 				config.Port,
 				req.Credentials.Username,
 				req.Credentials.Password,
+				req.Scheme,
 			)
 
 			if err != nil {
 				logger.Warn("Warning: Failed to collect cluster metadata", "error", err)
 				// Continue without metadata - don't fail the snapshot creation
 			} else {
-				// Set the snapshot ID and label, then save metadata
-				metadata.SnapshotID = id
-				if req.Label != "" {
-					metadata.Label = req.Label
+				hasMetadata = true
+
+				for _, service := range metadata.Services {
+					serviceSet[service] = struct{}{}
 				}
-				if err := h.metadataStorage.SaveMetadata(metadata); err != nil {
-					logger.Warn("Warning: Failed to save metadata", "error", err)
-				} else {
-					logger.Info("Successfully collected and saved metadata for snapshot", "id", id)
+
+				for _, cluster := range metadata.Clusters {
+					clusterSet[cluster.UID+"|"+cluster.Name] = cluster
+				}
+
+				if metadataRecord.Server == "" && metadata.Server != "" {
+					metadataRecord.Server = metadata.Server
 				}
 			}
+		}
+	}
+
+	if hasMetadata {
+		metadataRecord.Services = make([]string, 0, len(serviceSet))
+		for service := range serviceSet {
+			metadataRecord.Services = append(metadataRecord.Services, service)
+		}
+
+		metadataRecord.Clusters = make([]models.Cluster, 0, len(clusterSet))
+		for _, cluster := range clusterSet {
+			metadataRecord.Clusters = append(metadataRecord.Clusters, cluster)
+		}
+
+		if err := h.metadataStorage.SaveMetadata(metadataRecord); err != nil {
+			logger.Warn("Warning: Failed to save metadata", "error", err)
+		} else {
+			logger.Info("Successfully collected and saved metadata for snapshot", "id", id)
 		}
 	}
 

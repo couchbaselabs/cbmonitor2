@@ -38,3 +38,8 @@ type DisplaySnapshot struct {
 	Targets   []string 		`json:"targets,omitempty"`
 	TimeStamp time.Time 	`json:"timestamp"`
 }
+
+type Cluster struct {
+	Name      string    	`json:"name"`
+	UID	   	  string    	`json:"uid"`
+}
