@@ -110,7 +110,7 @@ Retrieves a configuration snapshot by its ID.
 {
     "name": "f8c26387-77f1-490f-b9d8-88df05618b60",
     "urls": [
-    "http://localhost:8091/prometheus_sd_config?port=insecure&clusterLabels=uuidAndName"
+    "http://localhost:8091/prometheus_sd_config?port=insecure&clusterLabels=uuidOnly"
     ],
     "timestamp": "2025-11-24T19:36:08.885173056Z"
 }

@@ -14,6 +14,7 @@ type LabelFilter struct {
 
 // BuildLabelWhereClause builds a WHERE clause for label filters
 // Returns empty string if no filters, otherwise returns conditions joined with AND
+// Special handling: "cluster" parameter matches against both cluster_uuid and cluster_name
 func BuildLabelWhereClause(labelFilters map[string]string) string {
 	if len(labelFilters) == 0 {
 		return ""
@@ -21,10 +22,20 @@ func BuildLabelWhereClause(labelFilters map[string]string) string {
 
 	conditions := []string{}
 	for labelName, labelValue := range labelFilters {
-		// Escape label name and value for SQL injection prevention
-		escapedLabel := EscapeLabel(labelName)
 		// Basic SQL injection prevention - escape single quotes in value
 		escapedValue := strings.ReplaceAll(labelValue, "'", "''")
+
+		// Special case: "cluster" matches against both cluster_uuid and cluster_name
+		if labelName == "cluster" {
+			condition := fmt.Sprintf(`(d.labels.%s = '%s' OR d.labels.%s = '%s')`,
+				EscapeLabel("cluster_uuid"), escapedValue,
+				EscapeLabel("cluster_name"), escapedValue)
+			conditions = append(conditions, condition)
+			continue
+		}
+
+		// Escape label name and value for SQL injection prevention
+		escapedLabel := EscapeLabel(labelName)
 		conditions = append(conditions, fmt.Sprintf(`d.labels.%s = '%s'`, escapedLabel, escapedValue))
 	}
 
@@ -63,6 +74,51 @@ func BuildLabelWhereClauseFromFilters(filters []LabelFilter) string {
 // EscapeLabel escapes label names for SQL++ by wrapping them in backticks
 func EscapeLabel(label string) string {
 	return fmt.Sprintf("`%s`", label)
+}
+
+// StripPortsFromTargets removes port numbers from target addresses
+// "172.23.96.97:18091" -> "172.23.96.97"
+// "172.23.96.97:8091" -> "172.23.96.97"
+func StripPortsFromTargets(targets []string) []string {
+	stripped := make([]string, 0, len(targets))
+	seen := make(map[string]struct{})
+
+	for _, target := range targets {
+		// Find the last colon (handles IPv6 addresses with brackets)
+		host := target
+		if idx := strings.LastIndex(target, ":"); idx != -1 {
+			host = target[:idx]
+		}
+		// Remove brackets from IPv6 addresses if present
+		host = strings.TrimPrefix(strings.TrimSuffix(host, "]"), "[")
+
+		if host == "" {
+			continue
+		}
+		// Deduplicate
+		if _, ok := seen[host]; !ok {
+			seen[host] = struct{}{}
+			stripped = append(stripped, host)
+		}
+	}
+	return stripped
+}
+
+// BuildInstanceInClause builds a WHERE clause condition for instance filtering
+// Returns empty string if no instances, otherwise returns: d.labels.`instance` IN ['host1', 'host2']
+func BuildInstanceInClause(instances []string) string {
+	if len(instances) == 0 {
+		return ""
+	}
+
+	quotedInstances := make([]string, len(instances))
+	for i, inst := range instances {
+		// Escape single quotes
+		escaped := strings.ReplaceAll(inst, "'", "''")
+		quotedInstances[i] = fmt.Sprintf("'%s'", escaped)
+	}
+
+	return fmt.Sprintf("d.labels.`instance` IN [%s]", strings.Join(quotedInstances, ", "))
 }
 
 // buildSelectClause builds a SELECT clause from field names, prefixing each with "d."

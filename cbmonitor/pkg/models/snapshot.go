@@ -7,10 +7,18 @@ type Phase struct {
 	TSEnd   string `json:"ts_end,omitempty"`
 }
 
+// Cluster represents a cluster in the snapshot
+type Cluster struct {
+	UID     string   `json:"uid"`
+	Name    string   `json:"name,omitempty"`
+	Targets []string `json:"targets,omitempty"`
+}
+
 // SnapshotMetadata represents the snapshot metadata structure from Couchbase
 type SnapshotMetadata struct {
 	SnapshotID string    `json:"snapshotId" couchbase:"id"`
 	Services   []string  `json:"services" couchbase:"services"`
+	Clusters   []Cluster `json:"clusters,omitempty" couchbase:"clusters"`
 	Version    string    `json:"version" couchbase:"server"`
 	TSStart    string    `json:"ts_start" couchbase:"ts_start"`
 	TSEnd      string    `json:"ts_end" couchbase:"ts_end"`
@@ -40,13 +48,13 @@ type MetricDataPoint struct {
 
 // MetricDataResponse represents raw metric data for a snapshot
 type MetricDataResponse struct {
-	Success   bool            `json:"success"`
-	Metric    string          `json:"metric"`
-	Snapshot  string          `json:"snapshot"`
-	TimeRange *TimeRange      `json:"timeRange,omitempty"`
+	Success   bool              `json:"success"`
+	Metric    string            `json:"metric"`
+	Snapshot  string            `json:"snapshot"`
+	TimeRange *TimeRange        `json:"timeRange,omitempty"`
 	Values    []MetricDataPoint `json:"values"`
-	Count     int             `json:"count"`
-	Error     string          `json:"error,omitempty"`
+	Count     int               `json:"count"`
+	Error     string            `json:"error,omitempty"`
 }
 
 // TimeRange represents a time range
@@ -57,19 +65,19 @@ type TimeRange struct {
 
 // MetricSummary represents pre-computed summary statistics
 type MetricSummary struct {
-	Count      int                `json:"count"`
-	Avg        float64            `json:"avg"`
-	Min        float64            `json:"min"`
-	Max        float64            `json:"max"`
+	Count       int                `json:"count"`
+	Avg         float64            `json:"avg"`
+	Min         float64            `json:"min"`
+	Max         float64            `json:"max"`
 	Percentiles map[string]float64 `json:"percentiles"` // Always includes P50, P90, P99, plus any custom percentiles
 }
 
 // MetricSummaryResponse represents summary statistics for a metric
 type MetricSummaryResponse struct {
-	Success  bool          `json:"success"`
-	Metric   string        `json:"metric"`
-	Snapshot string        `json:"snapshot"`
-	Phase    string        `json:"phase,omitempty"`
+	Success  bool           `json:"success"`
+	Metric   string         `json:"metric"`
+	Snapshot string         `json:"snapshot"`
+	Phase    string         `json:"phase,omitempty"`
 	Summary  *MetricSummary `json:"summary,omitempty"`
-	Error    string        `json:"error,omitempty"`
+	Error    string         `json:"error,omitempty"`
 }

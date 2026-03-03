@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -16,7 +17,7 @@ import (
 
 // SnapshotHandler handles all snapshot-related HTTP requests
 type SnapshotHandler struct {
-	snapshotService *services.SnapshotService
+	snapshotService  *services.SnapshotService
 	couchbaseService *services.CouchbaseService
 	snapshotBucket   string
 }
@@ -74,7 +75,7 @@ func (h *SnapshotHandler) HandleGetSnapshot(w http.ResponseWriter, req *http.Req
 	}
 
 	h.sendJSONResponse(w, response, http.StatusOK)
-	log.Printf("Successfully returned snapshot: %s with %d services", 
+	log.Printf("Successfully returned snapshot: %s with %d services",
 		snapshotID, len(snapshotData.Metadata.Services))
 }
 
@@ -129,10 +130,23 @@ func (h *SnapshotHandler) HandleGetMetric(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	// Build query using get_data_for_snapshot UDF (bucket name is hardcoded in UDF)
-	// Select only time and value for debugging - clients only need raw data
-	// get_data_for_snapshot already filters by job=snapshotID, so we only add additional label filters
+	// Build base label filter WHERE clause
 	whereClause := querybuilder.BuildLabelWhereClause(labelFilters)
+
+	// If cluster filter is present, add instance IN clause for target nodes
+	if clusterFilter, ok := labelFilters["cluster"]; ok {
+		clusterTargets := h.getClusterTargets(req.Context(), snapshotID, clusterFilter)
+		if len(clusterTargets) > 0 {
+			instanceClause := querybuilder.BuildInstanceInClause(clusterTargets)
+			if whereClause != "" {
+				whereClause = whereClause + " AND " + instanceClause
+			} else {
+				whereClause = instanceClause
+			}
+			log.Printf("Added instance filter for cluster '%s': %d targets", clusterFilter, len(clusterTargets))
+		}
+	}
+
 	query := querybuilder.BuildSnapshotQuery(metricName, snapshotID, []string{"time", "value"}, whereClause)
 
 	// Execute query
@@ -181,9 +195,23 @@ func (h *SnapshotHandler) HandleGetMetricPhase(w http.ResponseWriter, req *http.
 		return
 	}
 
-	// Build query using get_data_for_phase UDF (bucket name is hardcoded in UDF)
-	// Select only time and value for debugging - clients only need raw data
+	// Build base label filter WHERE clause
 	whereClause := querybuilder.BuildLabelWhereClause(labelFilters)
+
+	// If cluster filter is present, add instance IN clause for target nodes
+	if clusterFilter, ok := labelFilters["cluster"]; ok {
+		clusterTargets := h.getClusterTargets(req.Context(), snapshotID, clusterFilter)
+		if len(clusterTargets) > 0 {
+			instanceClause := querybuilder.BuildInstanceInClause(clusterTargets)
+			if whereClause != "" {
+				whereClause = whereClause + " AND " + instanceClause
+			} else {
+				whereClause = instanceClause
+			}
+			log.Printf("Added instance filter for cluster '%s': %d targets", clusterFilter, len(clusterTargets))
+		}
+	}
+
 	query := querybuilder.BuildPhaseQuery(metricName, snapshotID, phaseName, []string{"time", "value"}, whereClause)
 
 	// Execute query
@@ -197,6 +225,32 @@ func (h *SnapshotHandler) HandleGetMetricPhase(w http.ResponseWriter, req *http.
 	// Transform results
 	response := h.transformMetricResults(results, snapshotID, metricName, &phaseName)
 	h.sendJSONResponse(w, response, http.StatusOK)
+}
+
+// getClusterTargets looks up a cluster by uid or name in snapshot metadata and returns stripped targets
+// Returns empty slice if cluster not found or no clusters in metadata
+func (h *SnapshotHandler) getClusterTargets(ctx context.Context, snapshotID, clusterFilter string) []string {
+	if h.snapshotService == nil || clusterFilter == "" {
+		return nil
+	}
+
+	// Fetch snapshot metadata to get cluster targets
+	snapshotData, err := h.snapshotService.GetSnapshotByID(ctx, snapshotID)
+	if err != nil {
+		log.Printf("Warning: Could not fetch snapshot metadata for cluster target lookup: %v", err)
+		return nil
+	}
+
+	// Look up cluster by uid or name
+	for _, cluster := range snapshotData.Metadata.Clusters {
+		if cluster.UID == clusterFilter || cluster.Name == clusterFilter {
+			// Strip ports from targets and return
+			return querybuilder.StripPortsFromTargets(cluster.Targets)
+		}
+	}
+
+	log.Printf("Warning: Cluster '%s' not found in snapshot metadata", clusterFilter)
+	return nil
 }
 
 // HandleGetMetricSummary handles GET /snapshots/{id}/metrics/{metric_name}/summary
@@ -226,8 +280,23 @@ func (h *SnapshotHandler) HandleGetMetricSummary(w http.ResponseWriter, req *htt
 		return
 	}
 
-	// Build query using get_data_for_snapshot UDF to get all values
+	// Build base label filter WHERE clause
 	whereClause := querybuilder.BuildLabelWhereClause(labelFilters)
+
+	// If cluster filter is present, add instance IN clause for target nodes
+	if clusterFilter, ok := labelFilters["cluster"]; ok {
+		clusterTargets := h.getClusterTargets(req.Context(), snapshotID, clusterFilter)
+		if len(clusterTargets) > 0 {
+			instanceClause := querybuilder.BuildInstanceInClause(clusterTargets)
+			if whereClause != "" {
+				whereClause = whereClause + " AND " + instanceClause
+			} else {
+				whereClause = instanceClause
+			}
+			log.Printf("Added instance filter for cluster '%s': %d targets", clusterFilter, len(clusterTargets))
+		}
+	}
+
 	query := querybuilder.BuildSnapshotQuery(metricName, snapshotID, []string{"value"}, whereClause)
 
 	// Execute query
@@ -277,8 +346,23 @@ func (h *SnapshotHandler) HandleGetMetricPhaseSummary(w http.ResponseWriter, req
 		return
 	}
 
-	// Build query using get_data_for_phase UDF to get all values
+	// Build base label filter WHERE clause
 	whereClause := querybuilder.BuildLabelWhereClause(labelFilters)
+
+	// If cluster filter is present, add instance IN clause for target nodes
+	if clusterFilter, ok := labelFilters["cluster"]; ok {
+		clusterTargets := h.getClusterTargets(req.Context(), snapshotID, clusterFilter)
+		if len(clusterTargets) > 0 {
+			instanceClause := querybuilder.BuildInstanceInClause(clusterTargets)
+			if whereClause != "" {
+				whereClause = whereClause + " AND " + instanceClause
+			} else {
+				whereClause = instanceClause
+			}
+			log.Printf("Added instance filter for cluster '%s': %d targets", clusterFilter, len(clusterTargets))
+		}
+	}
+
 	query := querybuilder.BuildPhaseQuery(metricName, snapshotID, phaseName, []string{"value"}, whereClause)
 
 	// Execute query
@@ -393,7 +477,7 @@ func formatPercentileKey(p float64) string {
 func (h *SnapshotHandler) computeSummary(results []map[string]interface{}, customPercentiles []float64) *models.MetricSummary {
 	if len(results) == 0 {
 		return &models.MetricSummary{
-			Count:      0,
+			Count:       0,
 			Percentiles: make(map[string]float64),
 		}
 	}
@@ -429,7 +513,7 @@ func (h *SnapshotHandler) computeSummary(results []map[string]interface{}, custo
 
 	if len(values) == 0 {
 		return &models.MetricSummary{
-			Count:      0,
+			Count:       0,
 			Percentiles: make(map[string]float64),
 		}
 	}
@@ -452,10 +536,10 @@ func (h *SnapshotHandler) computeSummary(results []map[string]interface{}, custo
 	avg := sum / float64(count)
 
 	summary := &models.MetricSummary{
-		Count:      count,
-		Avg:        avg,
-		Min:        min,
-		Max:        max,
+		Count:       count,
+		Avg:         avg,
+		Min:         min,
+		Max:         max,
 		Percentiles: make(map[string]float64),
 	}
 

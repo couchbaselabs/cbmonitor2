@@ -11,7 +11,8 @@ import (
 )
 
 type prometheusSDConfigEntry struct {
-	Labels map[string]string `json:"labels"`
+	Targets []string          `json:"targets"`
+	Labels  map[string]string `json:"labels"`
 }
 
 // MetadataService handles collection of Couchbase cluster metadata
@@ -156,8 +157,9 @@ func (ms *MetadataService) GetClusters(baseURL, username, password string) ([]mo
 
 		seen[key] = struct{}{}
 		clusters = append(clusters, models.Cluster{
-			Name: name,
-			UID:  uuid,
+			Name:    name,
+			UID:     uuid,
+			Targets: entry.Targets,
 		})
 	}
 
