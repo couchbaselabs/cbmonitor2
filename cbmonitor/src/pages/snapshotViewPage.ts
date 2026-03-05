@@ -8,6 +8,7 @@ import { FormatMetadataSummary } from '../components/SnapshotDisplay/metadataSum
 import { Phase } from '../types/snapshot';
 import { LayoutToggle } from '../components/LayoutToggle/LayoutToggle';
 import { DataSourceToggle } from '../components/DataSourceToggle/DataSourceToggle';
+import { ClusterToggle } from '../components/ClusterSelector/ClusterToggle';
 import { createNoUrlSyncTimeRange, buildQuickRanges, initializeTimeRange } from '../utils/timeRange';
 import { loadSnapshot } from '../services/snapshotLoader';
 import { sceneCacheService } from '../services/sceneCache';
@@ -185,6 +186,15 @@ snapshotViewPage.addActivationHandler(() => {
         controls.push(new DataSourceToggle({
           snapshotId,
           onDataSourceChange: handleDataSourceChange,
+        }));
+
+        // Add cluster toggle (only shows if multiple clusters exist)
+        controls.push(new ClusterToggle({
+          clusters: metadata.clusters || [],
+          onClusterChange: (clusterId) => {
+            // TODO: implement cluster filtering
+            console.log('Cluster changed to:', clusterId);
+          },
         }));
 
         // Update page with snapshot data
