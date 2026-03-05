@@ -19,6 +19,15 @@ function isOverlapModeEnabled() {
     return overlapMode;
 }
 
+// Global active phase selection (persists across tab switches)
+let activePhase: string | 'FULL' | null = null;
+function getActivePhase() {
+    return activePhase;
+}
+function setActivePhase(phase: string | 'FULL' | null) {
+    activePhase = phase;
+}
+
 function invalidateComparisonTabs() {
     const ctx = getComparisonContext();
     if (ctx && ctx.commonServices) {
@@ -165,6 +174,9 @@ comparisonPage.addActivationHandler(() => {
 
                 // Invalidate cached scenes when snapshot set changes
                 sceneCacheService.clearAll();
+                
+                // Reset phase selection when loading new snapshots
+                setActivePhase(null);
 
                 // Fetch all snapshots using unified loader
                 const snapshots = await loadSnapshots(snapshotIds);
@@ -237,6 +249,8 @@ comparisonPage.addActivationHandler(() => {
                             commonPhases,
                             onSelectCommonPhase,
                             onSelectFullRange,
+                            activePhase: getActivePhase(),
+                            onActivePhaseChange: setActivePhase,
                         })
                     ),
                     // Clear controls to avoid duplicate pickers above tabs
@@ -278,6 +292,8 @@ comparisonPage.addActivationHandler(() => {
         }
         // Clear cached scenes to free memory upon leaving compare page
         sceneCacheService.clearAll();
+        // Reset phase selection
+        setActivePhase(null);
     };
 });
 

@@ -15,6 +15,8 @@ export interface CompareHeaderProps {
   commonPhases?: string[];
   onSelectCommonPhase?: (label: string) => void;
   onSelectFullRange?: () => void;
+  activePhase?: string | 'FULL' | null;
+  onActivePhaseChange?: (phase: string | 'FULL' | null) => void;
 }
 
 // Helper: detect if a string is a valid http(s) URL
@@ -67,8 +69,22 @@ function PhasesRow({ meta }: { meta: SnapshotMetadata }) {
   );
 }
 
-export function CompareHeader({ items, commonServices = [], commonPhases = [], onSelectCommonPhase, onSelectFullRange }: CompareHeaderProps) {
-  const [activePhase, setActivePhase] = React.useState<string | 'FULL' | null>(null);
+export function CompareHeader({ items, commonServices = [], commonPhases = [], onSelectCommonPhase, onSelectFullRange, activePhase: initialActivePhase, onActivePhaseChange }: CompareHeaderProps) {
+  // Use local state initialized from prop, sync back via callback
+  const [activePhase, setActivePhase] = React.useState<string | 'FULL' | null>(initialActivePhase ?? null);
+  
+  // Sync local state when prop changes (e.g., on initial load)
+  React.useEffect(() => {
+    if (initialActivePhase !== undefined) {
+      setActivePhase(initialActivePhase);
+    }
+  }, [initialActivePhase]);
+
+  const handlePhaseChange = (phase: string | 'FULL' | null) => {
+    setActivePhase(phase);
+    onActivePhaseChange?.(phase);
+  };
+
   const commonServicesText = useMemo(() => {
     if (commonServices.length === 0) {return 'None';}
     return commonServices.join(', ');
@@ -116,7 +132,7 @@ export function CompareHeader({ items, commonServices = [], commonPhases = [], o
         <Button
           size={'sm'}
           variant={'secondary'}
-          onClick={() => { setActivePhase('FULL'); onSelectFullRange?.(); }}
+          onClick={() => { handlePhaseChange('FULL'); onSelectFullRange?.(); }}
           style={activePhase === 'FULL' ? { background: '#b45309', borderColor: '#b45309', color: '#111827' } : undefined}
         >
           Full Snapshot Range
@@ -129,7 +145,7 @@ export function CompareHeader({ items, commonServices = [], commonPhases = [], o
               key={label}
               size={'sm'}
               variant={'secondary'}
-              onClick={() => { setActivePhase(label); onSelectCommonPhase?.(label); }}
+              onClick={() => { handlePhaseChange(label); onSelectCommonPhase?.(label); }}
               style={activePhase === label ? { background: '#b45309', borderColor: '#b45309', color: '#111827' } : undefined}
             >
               {label}
