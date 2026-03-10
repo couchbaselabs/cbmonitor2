@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -126,6 +127,13 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 		metadataRecord.Clusters = make([]models.Cluster, 0, len(clusterSet))
 		for _, cluster := range clusterSet {
 			metadataRecord.Clusters = append(metadataRecord.Clusters, cluster)
+		}
+
+		// Assign default names to clusters without names (after merge)
+		for i := range metadataRecord.Clusters {
+			if metadataRecord.Clusters[i].Name == "" {
+				metadataRecord.Clusters[i].Name = fmt.Sprintf("cluster%d", i+1)
+			}
 		}
 
 		if err := h.metadataStorage.SaveMetadata(metadataRecord); err != nil {

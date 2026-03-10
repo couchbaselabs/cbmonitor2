@@ -107,7 +107,7 @@ func (ms *MetadataService) GetClusters(baseURL, username, password string) ([]mo
 	}
 
 	query := endpoint.Query()
-	query.Set("clusterLabels", "uuidAndName")
+	query.Set("clusterLabels", "uuidOnly")
 	endpoint.RawQuery = query.Encode()
 
 	req, err := http.NewRequest("GET", endpoint.String(), nil)
@@ -157,9 +157,8 @@ func (ms *MetadataService) GetClusters(baseURL, username, password string) ([]mo
 
 		seen[key] = struct{}{}
 		clusters = append(clusters, models.Cluster{
-			Name:    name,
-			UID:     uuid,
-			Targets: entry.Targets,
+			Name: name,
+			UID:  uuid,
 		})
 	}
 

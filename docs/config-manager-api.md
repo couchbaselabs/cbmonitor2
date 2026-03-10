@@ -92,7 +92,7 @@ curl -X POST http://localhost:8085/api/v1/snapshot \
 - The service automatically collects cluster metadata (version, services, time ranges) after creating the snapshot.
 - Configuration files are saved with the naming convention: `{uuid}.yml` in the directory specified by the agent configuration.
 - The provided credentilas are used for metrics scraping, services discovery and cluster metadata collection.
-- Service discovery URLs include `clusterLabels=uuidAndName` so cluster UUID/name labels are emitted for cluster registration.
+- Service discovery URLs include `clusterLabels=uuidOnly` so cluster UUID labels are emitted for cluster registration.
 
 ---
 

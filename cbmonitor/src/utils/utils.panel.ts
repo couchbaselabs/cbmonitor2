@@ -148,6 +148,10 @@ function injectClusterFilter(expr: string, clusterId: string): string {
     // This avoids matching PromQL keywords like sum, by, rate, instance, etc.
     // Match: metric_name{labels...} and inject cluster_uuid before closing brace
     return expr.replace(/(\w+)\{([^}]*)\}/g, (_match, metric, labels) => {
+        // Skip SGW metrics - they don't have cluster_uuid labels
+        if (metric.startsWith('sgw_')) {
+            return `${metric}{${labels}}`;
+        }
         // Skip if cluster_uuid is already present
         if (labels.includes('cluster_uuid=')) {
             return `${metric}{${labels}}`;

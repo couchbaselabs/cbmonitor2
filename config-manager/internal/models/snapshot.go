@@ -40,7 +40,7 @@ type DisplaySnapshot struct {
 }
 
 type Cluster struct {
-	Name    string   `json:"name"`
+	Name    string   `json:"name,omitempty"`
 	UID     string   `json:"uid"`
-	Targets []string `json:"targets"`
+	Targets []string `json:"targets,omitempty"`
 }
