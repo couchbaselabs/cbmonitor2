@@ -124,7 +124,7 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 	// Extract clusters if present
 	if clusters, ok := rawData["clusters"].([]interface{}); ok {
 		metadata.Clusters = make([]models.Cluster, 0, len(clusters))
-		for _, c := range clusters {
+		for i, c := range clusters {
 			if clusterMap, ok := c.(map[string]interface{}); ok {
 				cluster := models.Cluster{}
 				if uid, ok := clusterMap["uid"].(string); ok {
@@ -132,7 +132,11 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 				}
 				if name, ok := clusterMap["name"].(string); ok {
 					cluster.Name = name
-				} //might not need name or we might assign it ourselves 
+				}
+				// Assign default name if not provided
+				if cluster.Name == "" {
+					cluster.Name = fmt.Sprintf("cluster%d", i+1)
+				}
 				if targets, ok := clusterMap["targets"].([]interface{}); ok {
 					cluster.Targets = make([]string, 0, len(targets))
 					for _, t := range targets {

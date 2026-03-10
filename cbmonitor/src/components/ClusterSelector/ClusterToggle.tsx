@@ -38,16 +38,17 @@ function ClusterToggleRenderer({ model }: SceneComponentProps<ClusterToggle>) {
     }, []);
 
     // Build options with "All clusters" as default
+    // Note: label is displayed, value (UUID) is used internally for filtering
     const options: Array<ComboboxOption<string>> = [
         {
             label: 'All clusters',
             value: ALL_CLUSTERS,
             description: 'Show metrics from all clusters',
         },
-        ...clusters.map((cluster) => ({
-            label: cluster.name || cluster.uid,
+        ...clusters.map((cluster, index) => ({
+            label: cluster.name || `Cluster ${index + 1}`,
             value: cluster.uid,
-            description: cluster.name ? `UUID: ${cluster.uid}` : undefined,
+            description: `UUID: ${cluster.uid}`,
         })),
     ];
 
@@ -56,6 +57,7 @@ function ClusterToggleRenderer({ model }: SceneComponentProps<ClusterToggle>) {
         setSelectedCluster(newValue);
         if (onClusterChange) {
             // Convert ALL_CLUSTERS back to null for the callback
+            // The value is always the UUID
             onClusterChange(newValue === ALL_CLUSTERS ? null : newValue);
         }
     };
