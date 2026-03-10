@@ -2,6 +2,7 @@ import { SceneAppPage, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneTimeR
 import { prefixRoute } from '../utils/utils.routing';
 import { getServiceConfigs, getServiceConfig } from '../config/services';
 import { sceneCacheService } from './sceneCache';
+import { clusterFilterService } from './clusterFilterService';
 import { SnapshotPhaseRegionsLayer } from '../layers/SnapshotPhaseRegionsLayer';
 import { StatusScene } from '../components/SceneComponents/StatusScene';
 import { PlaceholderScene } from '../components/SceneComponents/PlaceholderScene';
@@ -101,10 +102,13 @@ function buildSingleSnapshotPage(
         url: prefixRoute(urlPath),
         routePath,
         getScene: () => {
+            // Include cluster filter in cache key so scenes are recreated when filter changes
+            const currentCluster = clusterFilterService.getCurrentCluster();
             const cacheKey = {
                 snapshotId,
                 serviceKey,
-                dashboardType: config.segment || 'system'
+                dashboardType: config.segment || 'system',
+                additional: currentCluster ? `cluster:${currentCluster}` : 'cluster:all'
             };
 
             // Check cache first

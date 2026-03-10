@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SceneObjectBase, SceneComponentProps, SceneObjectState } from '@grafana/scenes';
 import { Combobox, ComboboxOption } from '@grafana/ui';
 import { Cluster } from 'types/snapshot';
+import { clusterFilterService } from '../../services/clusterFilterService';
 
 const ALL_CLUSTERS = '__all__';
 
@@ -20,7 +21,21 @@ export class ClusterToggle extends SceneObjectBase<ClusterToggleState> {
 
 function ClusterToggleRenderer({ model }: SceneComponentProps<ClusterToggle>) {
     const { clusters, onClusterChange } = model.useState();
-    const [selectedCluster, setSelectedCluster] = useState<string>(ALL_CLUSTERS);
+    
+    // Initialize from service and sync with it
+    const getInitialValue = () => {
+        const current = clusterFilterService.getCurrentCluster();
+        return current ?? ALL_CLUSTERS;
+    };
+    const [selectedCluster, setSelectedCluster] = useState<string>(getInitialValue);
+
+    // Subscribe to external changes to the cluster filter
+    useEffect(() => {
+        const unsubscribe = clusterFilterService.subscribe((clusterId) => {
+            setSelectedCluster(clusterId ?? ALL_CLUSTERS);
+        });
+        return unsubscribe;
+    }, []);
 
     // Build options with "All clusters" as default
     const options: Array<ComboboxOption<string>> = [

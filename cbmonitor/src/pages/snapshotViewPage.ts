@@ -12,6 +12,7 @@ import { ClusterToggle } from '../components/ClusterSelector/ClusterToggle';
 import { createNoUrlSyncTimeRange, buildQuickRanges, initializeTimeRange } from '../utils/timeRange';
 import { loadSnapshot } from '../services/snapshotLoader';
 import { sceneCacheService } from '../services/sceneCache';
+import { clusterFilterService } from '../services/clusterFilterService';
 import { Spinner } from '@grafana/ui';
 
 // Simple loading scene to show while snapshot is being loaded
@@ -85,6 +86,8 @@ snapshotViewPage.addActivationHandler(() => {
         // Clear scene cache when loading a different snapshot
         if (currentLoadedSnapshotId !== null && currentLoadedSnapshotId !== snapshotId) {
           sceneCacheService.clearAll();
+          // Reset cluster filter when loading a different snapshot
+          clusterFilterService.reset();
         }
 
         // Update the currently loaded snapshot
@@ -161,6 +164,18 @@ snapshotViewPage.addActivationHandler(() => {
           });
         };
 
+        // Handler for cluster filter change - regenerate tabs with cluster-filtered queries
+        const handleClusterChange = (clusterId: string | null) => {
+          // Update the cluster filter service
+          clusterFilterService.setCurrentCluster(clusterId);
+          // Clear scene cache so scenes are recreated with new cluster filter
+          sceneCacheService.clearAll();
+          // Regenerate tabs with current services and snapshotId
+          snapshotViewPage.setState({
+            tabs: getDashboardsForServices(metadata.services, snapshotId),
+          });
+        };
+
         // Create controls array with time picker (with quick ranges) and layout toggle
         const controls: any[] = [
           new SceneTimePicker({
@@ -191,10 +206,7 @@ snapshotViewPage.addActivationHandler(() => {
         // Add cluster toggle (only shows if multiple clusters exist)
         controls.push(new ClusterToggle({
           clusters: metadata.clusters || [],
-          onClusterChange: (clusterId) => {
-            // TODO: implement cluster filtering
-            console.log('Cluster changed to:', clusterId);
-          },
+          onClusterChange: handleClusterChange,
         }));
 
         // Update page with snapshot data

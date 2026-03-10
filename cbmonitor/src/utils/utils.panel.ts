@@ -7,6 +7,7 @@ import { TooltipDisplayMode, LegendDisplayMode } from '@grafana/schema';
 import { CBQueryBuilder, AggregationQueryBuilder } from './utils.cbquery';
 import { layoutService } from '../services/layoutService';
 import { dataSourceService } from '../services/datasourceService';
+import { clusterFilterService } from '../services/clusterFilterService';
 import { DataSourceType } from '../types/datasource';
 import { PROM_DATASOURCE_REF } from '../constants';
 
@@ -80,6 +81,29 @@ function makeLegendTemplate(extraFields?: string[]): string {
 }
 
 /**
+ * Inject cluster filter into a PromQL expression.
+ * Adds `cluster_uuid="<id>"` label selector to metric selectors that already have labels.
+ *
+ * @param expr - The PromQL expression
+ * @param clusterId - The cluster ID to filter by
+ * @returns The modified PromQL expression with cluster filter
+ */
+function injectClusterFilter(expr: string, clusterId: string): string {
+    // Only inject into metric selectors that already have a label block {....}
+    // This avoids matching PromQL keywords like sum, by, rate, instance, etc.
+    // Match: metric_name{labels...} and inject cluster_uuid before closing brace
+    return expr.replace(/(\w+)\{([^}]*)\}/g, (_match, metric, labels) => {
+        // Skip if cluster_uuid is already present
+        if (labels.includes('cluster_uuid=')) {
+            return `${metric}{${labels}}`;
+        }
+        // Inject cluster_uuid into the label set
+        const separator = labels.trim() ? ', ' : '';
+        return `${metric}{${labels}${separator}cluster_uuid="${clusterId}"}`;
+    });
+}
+
+/**
  * Create a metric panel with a hardcoded PromQL expression (source of truth).
  *
  * When the active datasource is PromQL, uses the hardcoded `expr` directly.
@@ -120,13 +144,19 @@ export function createMetricPanel(
 
     let queryRunner: SceneQueryRunner;
 
+    // Get current cluster filter
+    const clusterFilter = clusterFilterService.getCurrentCluster();
+
     if (isPrometheus) {
         // --- PromQL path: use hardcoded expression directly ---
+        // If cluster filter is active, inject it into the PromQL expression
+        const finalExpr = clusterFilter ? injectClusterFilter(options.expr, clusterFilter) : options.expr;
+
         queryRunner = new SceneQueryRunner({
             datasource: PROM_DATASOURCE_REF,
             queries: [{
                 refId: metricName,
-                expr: options.expr,
+                expr: finalExpr,
             }],
         });
 
@@ -135,10 +165,11 @@ export function createMetricPanel(
             const descriptionMd = [
                 `**Metric:** ${metricName} \n`,
                 `**Datasource:** PromQL \n`,
+                clusterFilter ? `**Cluster:** ${clusterFilter} \n` : '',
                 '',
                 '**Query:**',
                 '```promql',
-                options.expr,
+                finalExpr,
                 '```',
             ].join('\n');
             panelBuilder.setDescription(descriptionMd);
@@ -154,6 +185,12 @@ export function createMetricPanel(
             builder = new CBQueryBuilder(options.snapshotId, metricName);
         }
         applyCBBuilderOptions(builder, options);
+
+        // If cluster filter is active, add it to the query
+        if (clusterFilter) {
+            builder.addLabelFilter('cluster', clusterFilter);
+        }
+
         queryRunner = builder.buildQueryRunner();
 
         // Description
