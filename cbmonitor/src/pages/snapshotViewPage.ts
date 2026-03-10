@@ -9,6 +9,7 @@ import { Phase } from '../types/snapshot';
 import { LayoutToggle } from '../components/LayoutToggle/LayoutToggle';
 import { DataSourceToggle } from '../components/DataSourceToggle/DataSourceToggle';
 import { ClusterToggle } from '../components/ClusterSelector/ClusterToggle';
+import { HideEmptyToggle } from '../components/HideEmptyToggle/HideEmptyToggle';
 import { createNoUrlSyncTimeRange, buildQuickRanges, initializeTimeRange } from '../utils/timeRange';
 import { loadSnapshot } from '../services/snapshotLoader';
 import { sceneCacheService } from '../services/sceneCache';
@@ -176,6 +177,16 @@ snapshotViewPage.addActivationHandler(() => {
           });
         };
 
+        // Handler for hide empty toggle - regenerate tabs to apply new visibility
+        const handleHideEmptyChange = () => {
+          // Clear scene cache so scenes are recreated
+          sceneCacheService.clearAll();
+          // Regenerate tabs
+          snapshotViewPage.setState({
+            tabs: getDashboardsForServices(metadata.services, snapshotId),
+          });
+        };
+
         // Create controls array with time picker (with quick ranges) and layout toggle
         const controls: any[] = [
           new SceneTimePicker({
@@ -207,6 +218,11 @@ snapshotViewPage.addActivationHandler(() => {
         controls.push(new ClusterToggle({
           clusters: metadata.clusters || [],
           onClusterChange: handleClusterChange,
+        }));
+
+        // Add hide empty panels toggle
+        controls.push(new HideEmptyToggle({
+          onToggle: handleHideEmptyChange,
         }));
 
         // Update page with snapshot data

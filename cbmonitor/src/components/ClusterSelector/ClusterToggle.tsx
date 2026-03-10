@@ -67,7 +67,6 @@ function ClusterToggleRenderer({ model }: SceneComponentProps<ClusterToggle>) {
 
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '12px', color: '#8e8e8e' }}>Cluster:</span>
             {displayClusters.length === 0 ? (
                 <span style={{ fontSize: '12px', color: '#666' }}>No clusters in metadata</span>
             ) : (

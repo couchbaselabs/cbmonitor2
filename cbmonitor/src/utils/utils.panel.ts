@@ -2,7 +2,7 @@
 // SQL++ queries are still generated from parameters via CBQueryBuilder when that datasource is active.
 // In the future, SQL++ queries will be derived from the PromQL expressions.
 
-import { PanelBuilders, SceneDataTransformer, SceneFlexItem, SceneQueryRunner } from '@grafana/scenes';
+import { PanelBuilders, SceneDataTransformer, SceneFlexItem, SceneFlexLayout, SceneQueryRunner, SceneDataState } from '@grafana/scenes';
 import { TooltipDisplayMode, LegendDisplayMode } from '@grafana/schema';
 import { CBQueryBuilder, AggregationQueryBuilder } from './utils.cbquery';
 import { layoutService } from '../services/layoutService';
@@ -10,6 +10,61 @@ import { dataSourceService } from '../services/datasourceService';
 import { clusterFilterService } from '../services/clusterFilterService';
 import { DataSourceType } from '../types/datasource';
 import { PROM_DATASOURCE_REF } from '../constants';
+
+// Global counter for unique panel IDs
+let panelIdCounter = 0;
+
+/**
+ * Check if data state has actual data values
+ */
+function hasDataValues(dataState: SceneDataState | undefined): boolean {
+    if (!dataState?.data) {
+        return false;
+    }
+    
+    const series = dataState.data.series;
+    if (!series || series.length === 0) {
+        return false;
+    }
+    
+    // Check if any series has actual data points (not just empty fields)
+    for (const s of series) {
+        if (!s.fields || s.fields.length === 0) {
+            continue;
+        }
+        // Look for value fields (skip time fields)
+        for (const field of s.fields) {
+            if (field.name !== 'Time' && field.name !== 'time' && field.values && field.values.length > 0) {
+                // Check if values are not all null/undefined
+                const hasValue = field.values.some((v: unknown) => v !== null && v !== undefined);
+                if (hasValue) {
+                    return true;
+                }
+            }
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * Create a SceneFlexLayout - simple wrapper for consistency.
+ */
+export function createFlexLayout(options: {
+    direction?: 'row' | 'column';
+    wrap?: 'wrap' | 'nowrap';
+    minHeight?: number;
+    children: SceneFlexItem[];
+}): SceneFlexLayout {
+    const { direction = 'row', wrap = 'wrap', minHeight = 50, children } = options;
+    
+    return new SceneFlexLayout({
+        direction,
+        wrap,
+        minHeight,
+        children,
+    });
+}
 
 export function getNewTimeSeriesDataTransformer(queryRunner: SceneQueryRunner) {
     return new SceneDataTransformer({
@@ -216,12 +271,43 @@ export function createMetricPanel(
     }
 
     const panel = panelBuilder.build();
+    const dataTransformer = getNewTimeSeriesDataTransformer(queryRunner);
 
-    return new SceneFlexItem({
+    // Generate unique panel ID
+    const panelId = `panel-${metricName}-${++panelIdCounter}`;
+
+    // Check if we should hide this panel when empty
+    const shouldHideWhenEmpty = layoutService.getHideEmptyPanels();
+    const flexItem = new SceneFlexItem({
+        key: panelId,
         height: options.height ?? 300,
         width: panelWidth,
         minWidth: panelWidth === '100%' ? '100%' : '45%',
         body: panel,
-        $data: getNewTimeSeriesDataTransformer(queryRunner),
+        $data: dataTransformer,
+        isHidden: false, // Start visible, will hide if no data
     });
+
+    // If hideEmpty is enabled, add a behavior to watch data and toggle isHidden
+    if (shouldHideWhenEmpty) {
+        // Subscribe to data transformer state changes
+        dataTransformer.subscribeToState((state) => {
+            // Skip if still loading
+            if (state.data?.state === 'Loading') {
+                return;
+            }
+
+            const hasData = hasDataValues(state);
+            const currentHidden = flexItem.state.isHidden;
+
+            // Only update if state needs to change
+            if (hasData && currentHidden) {
+                flexItem.setState({ isHidden: false });
+            } else if (!hasData && !currentHidden) {
+                flexItem.setState({ isHidden: true });
+            }
+        });
+    }
+
+    return flexItem;
 }
