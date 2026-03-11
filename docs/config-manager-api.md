@@ -92,6 +92,7 @@ curl -X POST http://localhost:8085/api/v1/snapshot \
 - The service automatically collects cluster metadata (version, services, time ranges) after creating the snapshot.
 - Configuration files are saved with the naming convention: `{uuid}.yml` in the directory specified by the agent configuration.
 - The provided credentilas are used for metrics scraping, services discovery and cluster metadata collection.
+- Service discovery URLs include `clusterLabels=uuidOnly` so cluster UUID labels are emitted for cluster registration.
 
 ---
 
@@ -109,7 +110,7 @@ Retrieves a configuration snapshot by its ID.
 {
     "name": "f8c26387-77f1-490f-b9d8-88df05618b60",
     "urls": [
-        "http://localhost:8091/prometheus_sd_config?port=insecure"
+    "http://localhost:8091/prometheus_sd_config?port=insecure&clusterLabels=uuidOnly"
     ],
     "timestamp": "2025-11-24T19:36:08.885173056Z"
 }

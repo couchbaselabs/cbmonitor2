@@ -12,8 +12,8 @@ import (
 
 // SnapshotService handles snapshot-related operations
 type SnapshotService struct {
-	cluster        *gocb.Cluster
-	bucket         *gocb.Bucket
+	cluster *gocb.Cluster
+	bucket  *gocb.Bucket
 }
 
 // NewSnapshotService creates a new snapshot service instance
@@ -41,8 +41,8 @@ func NewSnapshotService(connectionString, username, password, bucketName string)
 	log.Printf("Snapshot service connected to Couchbase cluster: %s, bucket: %s", connectionString, bucketName)
 
 	return &SnapshotService{
-		cluster:        cluster,
-		bucket:         bucket,
+		cluster: cluster,
+		bucket:  bucket,
 	}, nil
 }
 
@@ -121,17 +121,47 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 		metadata.Label = label
 	}
 
+	// Extract clusters if present
+	if clusters, ok := rawData["clusters"].([]interface{}); ok {
+		metadata.Clusters = make([]models.Cluster, 0, len(clusters))
+		for i, c := range clusters {
+			if clusterMap, ok := c.(map[string]interface{}); ok {
+				cluster := models.Cluster{}
+				if uid, ok := clusterMap["uid"].(string); ok {
+					cluster.UID = uid
+				}
+				if name, ok := clusterMap["name"].(string); ok {
+					cluster.Name = name
+				}
+				// Assign default name if not provided
+				if cluster.Name == "" {
+					cluster.Name = fmt.Sprintf("cluster%d", i+1)
+				}
+				if targets, ok := clusterMap["targets"].([]interface{}); ok {
+					cluster.Targets = make([]string, 0, len(targets))
+					for _, t := range targets {
+						if target, ok := t.(string); ok {
+							cluster.Targets = append(cluster.Targets, target)
+						}
+					}
+				}
+				metadata.Clusters = append(metadata.Clusters, cluster)
+			}
+		}
+	}
+
 	// Create a copy of rawData without metadata fields to avoid duplication
 	dataWithoutMetadata := make(map[string]interface{})
 	metadataFields := map[string]bool{
-		"id":        true,
-		"services":  true,
-		"server":    true,
-		"version":   true,
-		"ts_start":  true,
-		"ts_end":    true,
-		"phases":    true,
-		"label":     true,
+		"id":       true,
+		"services": true,
+		"server":   true,
+		"version":  true,
+		"ts_start": true,
+		"ts_end":   true,
+		"phases":   true,
+		"label":    true,
+		"clusters": true,
 	}
 	for k, v := range rawData {
 		if !metadataFields[k] {
@@ -157,16 +187,16 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 // determineDashboards returns a list of dashboard IDs based on the services in the snapshot
 func (ss *SnapshotService) determineDashboards(services []string) []string {
 	dashboardMap := map[string]string{
-		"kv":             "kv_basic",
-		"index":          "index_basic",
-		"query":          "query_basic",
-		"fts":            "fts_basic",
-		"eventing":       "eventing_basic",
-		"analytics":      "analytics_basic",
-		"cbas":           "analytics_basic",
-		"n1ql":           "query_basic",
-		"data":           "kv_basic",
-		"xdcr":           "xdcr_basic",
+		"kv":              "kv_basic",
+		"index":           "index_basic",
+		"query":           "query_basic",
+		"fts":             "fts_basic",
+		"eventing":        "eventing_basic",
+		"analytics":       "analytics_basic",
+		"cbas":            "analytics_basic",
+		"n1ql":            "query_basic",
+		"data":            "kv_basic",
+		"xdcr":            "xdcr_basic",
 		"cluster_manager": "cluster_manager_basic",
 	}
 

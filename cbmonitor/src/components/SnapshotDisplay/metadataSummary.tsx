@@ -41,12 +41,28 @@ function renderLabel(label: string | undefined): React.ReactNode {
 export function FormatMetadataSummary(props: FormatMetadataSummaryProps) {
     const { metadata } = props;
     const [isExpanded, setIsExpanded] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    const copySnapshotId = () => {
+        navigator.clipboard.writeText(metadata.snapshotId);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     return (
         <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                 <div>
-                    <b>Snapshot ID:</b> {metadata.snapshotId} | <b>Server Version:</b> {metadata.version}
+                    <b>Snapshot ID:</b>{' '}
+                    <span
+                        onClick={copySnapshotId}
+                        style={{ cursor: 'pointer' }}
+                        title="Click to copy"
+                    >
+                        {metadata.snapshotId}
+                        <Icon name={copied ? "check" : "copy"} style={{ marginLeft: '4px' }} />
+                    </span>
+                    <br /> <b>Server Version:</b> {metadata.version}
                     {metadata.phases && metadata.phases.length > 0 && (
                         <span style={{ marginLeft: '8px', fontSize: '12px', color: '#888' }}>
                             ({metadata.phases.length} phases available in time picker)
@@ -75,9 +91,17 @@ export function FormatMetadataSummary(props: FormatMetadataSummaryProps) {
                         <div style={{ marginTop: '4px' }}>
                             <b>Phases:</b> {metadata.phases.map((p) =>
                                 `📍 ${p.label}: ${formatPhaseTime(p.ts_start)} - ${formatPhaseTime(p.ts_end)}`
-                            ).join(' , ')}
+                            ).join(' ,\n ')}
                         </div>
                     )}
+                    {/* debugging: display clusters in snapshot info */}
+                    {/* {metadata.clusters && metadata.clusters.length > 0 && (
+                        <div style={{ marginTop: '4px' }}>
+                            <b>Clusters:</b> {metadata.clusters.map((c) =>
+                                `🖥️ ${c.name || 'unnamed'} (${c.uid})${c.targets ? ` - ${c.targets.length} nodes` : ''}`
+                            ).join(' , ')}
+                        </div>
+                    )} */}
                 </div>
             )}
         </div>
