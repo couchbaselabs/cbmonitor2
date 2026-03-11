@@ -6,10 +6,7 @@ import { locationService } from '@grafana/runtime';
 import { SnapshotSearchScene } from './SnapshotSearch';
 import { FormatMetadataSummary } from '../components/SnapshotDisplay/metadataSummary';
 import { Phase } from '../types/snapshot';
-import { LayoutToggle } from '../components/LayoutToggle/LayoutToggle';
-import { DataSourceToggle } from '../components/DataSourceToggle/DataSourceToggle';
-import { ClusterToggle } from '../components/ClusterSelector/ClusterToggle';
-import { HideEmptyToggle } from '../components/HideEmptyToggle/HideEmptyToggle';
+import { SettingsDropdown } from '../components/SettingsDropdown/SettingsDropdown';
 import { createNoUrlSyncTimeRange, buildQuickRanges, initializeTimeRange } from '../utils/timeRange';
 import { loadSnapshot } from '../services/snapshotLoader';
 import { sceneCacheService } from '../services/sceneCache';
@@ -195,7 +192,7 @@ snapshotViewPage.addActivationHandler(() => {
           })
         ];
 
-        // If we have active snapshot, display the refresh picker before the layout toggle
+        // If we have active snapshot, display the refresh picker before the settings dropdown
         if (metadata.ts_end && metadata.ts_end.startsWith("now")) {
           controls.push(new SceneRefreshPicker({
             intervals: ['5s', '10s', '30s', '1m', '2m', '5m', '10m'],
@@ -203,26 +200,14 @@ snapshotViewPage.addActivationHandler(() => {
           }));
         }
 
-        // Add the layout toggle to the controls
-        controls.push(new LayoutToggle({
-          onLayoutChange: handleLayoutChange,
-        }));
-
-        // Add datasource toggle (Couchbase SQL++ ↔ PromQL)
-        controls.push(new DataSourceToggle({
+        // Add settings dropdown (combines layout, datasource, cluster, and hide empty toggles)
+        controls.push(new SettingsDropdown({
           snapshotId,
-          onDataSourceChange: handleDataSourceChange,
-        }));
-
-        // Add cluster toggle (only shows if multiple clusters exist)
-        controls.push(new ClusterToggle({
           clusters: metadata.clusters || [],
+          onLayoutChange: handleLayoutChange,
+          onDataSourceChange: handleDataSourceChange,
           onClusterChange: handleClusterChange,
-        }));
-
-        // Add hide empty panels toggle
-        controls.push(new HideEmptyToggle({
-          onToggle: handleHideEmptyChange,
+          onHideEmptyChange: handleHideEmptyChange,
         }));
 
         // Update page with snapshot data

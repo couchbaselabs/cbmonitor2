@@ -91,16 +91,17 @@ export function FormatMetadataSummary(props: FormatMetadataSummaryProps) {
                         <div style={{ marginTop: '4px' }}>
                             <b>Phases:</b> {metadata.phases.map((p) =>
                                 `📍 ${p.label}: ${formatPhaseTime(p.ts_start)} - ${formatPhaseTime(p.ts_end)}`
-                            ).join(' , ')}
+                            ).join(' ,\n ')}
                         </div>
                     )}
-                    {metadata.clusters && metadata.clusters.length > 0 && (
+                    {/* debugging: display clusters in snapshot info */}
+                    {/* {metadata.clusters && metadata.clusters.length > 0 && (
                         <div style={{ marginTop: '4px' }}>
                             <b>Clusters:</b> {metadata.clusters.map((c) =>
                                 `🖥️ ${c.name || 'unnamed'} (${c.uid})${c.targets ? ` - ${c.targets.length} nodes` : ''}`
                             ).join(' , ')}
                         </div>
-                    )}
+                    )} */}
                 </div>
             )}
         </div>
