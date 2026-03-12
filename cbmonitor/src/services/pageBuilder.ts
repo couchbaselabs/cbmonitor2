@@ -4,7 +4,7 @@ import { getServiceConfigs, getServiceConfig } from '../config/services';
 import { sceneCacheService } from './sceneCache';
 import { SnapshotPhaseRegionsLayer } from '../layers/SnapshotPhaseRegionsLayer';
 import { StatusScene } from '../components/SceneComponents/StatusScene';
-import { PlaceholderScene } from '../components/SceneComponents/PlaceholderScene';
+import { systemMetricsOverlapDashboard } from '../dashboards/overlap/systemOverlap';
 
 /**
  * Options for building service tabs/pages
@@ -183,14 +183,21 @@ function buildComparisonPage(
                 });
             }
 
-            // If overlap mode is enabled, show placeholder
+            // If overlap mode is enabled, show overlap dashboard for system service
             if (overlapMode) {
+                if (serviceKey === 'system') {
+                    return systemMetricsOverlapDashboard(snapshotIds);
+                }
+                // For other services, show placeholder until overlap dashboards are implemented
                 return new EmbeddedScene({
                     body: new SceneFlexLayout({
                         direction: 'row',
                         children: [
                             new SceneFlexItem({
-                                body: new PlaceholderScene({ text: 'Overlap view coming soon' }) as any
+                                body: new StatusScene({
+                                    message: `Overlap view for ${config.title} coming soon`,
+                                    status: 'info'
+                                }) as any
                             })
                         ],
                     }),

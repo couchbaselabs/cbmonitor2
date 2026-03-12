@@ -1,14 +1,14 @@
 import { EmbeddedScene } from '@grafana/scenes';
-import { systemMetricsDashboard } from '../dashboards/system';
-import { clusterManagerMetricsDashboard } from '../dashboards/clusterManager';
-import { kvMetricsDashboard } from '../dashboards/kv';
-import { indexMetricsDashboard } from '../dashboards/index';
-import { queryMetricsDashboard } from '../dashboards/query';
-import { ftsMetricsDashboard } from '../dashboards/fts';
-import { xdcrMetricsDashboard } from '../dashboards/xdcr';
-import { sgwMetricsDashboard } from '../dashboards/sgw';
-import { eventingMetricsDashboard } from '../dashboards/eventing';
-import { analyticsMetricsDashboard } from '../dashboards/analytics';
+import { systemMetricsDashboard } from '../dashboards/single/system';
+import { clusterManagerMetricsDashboard } from '../dashboards/single/clusterManager';
+import { kvMetricsDashboard } from '../dashboards/single/kv';
+import { indexMetricsDashboard } from '../dashboards/single/index';
+import { queryMetricsDashboard } from '../dashboards/single/query';
+import { ftsMetricsDashboard } from '../dashboards/single/fts';
+import { xdcrMetricsDashboard } from '../dashboards/single/xdcr';
+import { sgwMetricsDashboard } from '../dashboards/single/sgw';
+import { eventingMetricsDashboard } from '../dashboards/single/eventing';
+import { analyticsMetricsDashboard } from '../dashboards/single/analytics';
 
 /**
  * Configuration for a Couchbase service with all metadata needed for UI rendering
