@@ -22,7 +22,7 @@ function ControlsBarRenderer({ model }: SceneComponentProps<ControlsBar>) {
             alignItems: 'center',
             gap: '16px',
             flexWrap: 'wrap',
-            padding: '8px 0',
+            padding: '8px 1px',
         }}>
             {controls.map((control, index) => {
                 const Component = (control as any).constructor.Component;

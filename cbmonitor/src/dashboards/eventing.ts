@@ -6,9 +6,6 @@ export function eventingMetricsDashboard(snapshotId: string): EmbeddedScene {
 
     return new EmbeddedScene({
         body: createFlexLayout({
-            minHeight: 50,
-            direction: 'row',
-            wrap: 'wrap',
             children: [
                 // Eventing
                 // mara here: couldnt find the label eventing, did find eventing-produc though 

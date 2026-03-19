@@ -5,9 +5,6 @@ export function queryMetricsDashboard(snapshotId: string): EmbeddedScene {
 
     return new EmbeddedScene({
         body: createFlexLayout({
-            minHeight: 50,
-            direction: 'row',
-            wrap: 'wrap',
             children: [
                 // Query Engine
                 createMetricPanel('sysproc_cpu_seconds_total', 'Query Engine CPU Time (Cumulative Seconds)', {

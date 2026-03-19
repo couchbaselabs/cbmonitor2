@@ -5,9 +5,6 @@ export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
 
     return new EmbeddedScene({
         body: createFlexLayout({
-            minHeight: 50,
-            direction: 'row',
-            wrap: 'wrap',
             children: [
                 // Resource Utilization Metrics
                 createMetricPanel('sgw_resource_utilization_process_memory_resident', 'Process Memory Resident', {

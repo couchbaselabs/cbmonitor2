@@ -5,9 +5,6 @@ export function xdcrMetricsDashboard(snapshotId: string): EmbeddedScene {
 
     return new EmbeddedScene({
         body: createFlexLayout({
-            minHeight: 50,
-            direction: 'row',
-            wrap: 'wrap',
             children: [
                 createMetricPanel('sysproc_cpu_seconds_total', 'goxdcr CPU Time (Cumulative Seconds)', {
                     expr: `sum by (instance) (sysproc_cpu_seconds_total{job="${snapshotId}",proc="goxdcr"})`,

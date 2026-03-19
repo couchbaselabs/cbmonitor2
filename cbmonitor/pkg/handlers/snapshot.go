@@ -31,6 +31,27 @@ func NewSnapshotHandler(snapshotService *services.SnapshotService, couchbaseServ
 	}
 }
 
+func (h *SnapshotHandler) applyClusterFilter(ctx context.Context, snapshotID string, labelFilters map[string]string, whereClause string) (string, error) {
+    clusterFilter, ok := labelFilters["cluster"]
+    if !ok {
+        return whereClause, nil
+    }
+
+    clusterTargets := h.getClusterTargets(ctx, snapshotID, clusterFilter)
+    if len(clusterTargets) == 0 {
+        return whereClause, nil
+    }
+
+    instanceClause := querybuilder.BuildInstanceInClause(clusterTargets)
+    log.Printf("Added instance filter for cluster '%s': %d targets", clusterFilter, len(clusterTargets))
+
+    if whereClause != "" {
+        return whereClause + " AND " + instanceClause, nil
+    }
+    
+    return instanceClause, nil
+}
+
 // HandleGetSnapshot handles GET /snapshots/{snapshotId}
 func (h *SnapshotHandler) HandleGetSnapshot(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
@@ -134,17 +155,10 @@ func (h *SnapshotHandler) HandleGetMetric(w http.ResponseWriter, req *http.Reque
 	whereClause := querybuilder.BuildLabelWhereClause(labelFilters)
 
 	// If cluster filter is present, add instance IN clause for target nodes
-	if clusterFilter, ok := labelFilters["cluster"]; ok {
-		clusterTargets := h.getClusterTargets(req.Context(), snapshotID, clusterFilter)
-		if len(clusterTargets) > 0 {
-			instanceClause := querybuilder.BuildInstanceInClause(clusterTargets)
-			if whereClause != "" {
-				whereClause = whereClause + " AND " + instanceClause
-			} else {
-				whereClause = instanceClause
-			}
-			log.Printf("Added instance filter for cluster '%s': %d targets", clusterFilter, len(clusterTargets))
-		}
+	whereClause, err := h.applyClusterFilter(req.Context(), snapshotID, labelFilters, whereClause)
+	if err != nil {
+		h.sendMetricErrorResponse(w, fmt.Sprintf("Failed to apply cluster filter: %v", err), http.StatusInternalServerError)
+		return
 	}
 
 	query := querybuilder.BuildSnapshotQuery(metricName, snapshotID, []string{"time", "value"}, whereClause)
@@ -199,18 +213,11 @@ func (h *SnapshotHandler) HandleGetMetricPhase(w http.ResponseWriter, req *http.
 	whereClause := querybuilder.BuildLabelWhereClause(labelFilters)
 
 	// If cluster filter is present, add instance IN clause for target nodes
-	if clusterFilter, ok := labelFilters["cluster"]; ok {
-		clusterTargets := h.getClusterTargets(req.Context(), snapshotID, clusterFilter)
-		if len(clusterTargets) > 0 {
-			instanceClause := querybuilder.BuildInstanceInClause(clusterTargets)
-			if whereClause != "" {
-				whereClause = whereClause + " AND " + instanceClause
-			} else {
-				whereClause = instanceClause
-			}
-			log.Printf("Added instance filter for cluster '%s': %d targets", clusterFilter, len(clusterTargets))
+	whereClause, err := h.applyClusterFilter(req.Context(), snapshotID, labelFilters, whereClause)
+		if err != nil {
+			h.sendMetricErrorResponse(w, fmt.Sprintf("Failed to apply cluster filter: %v", err), http.StatusInternalServerError)
+			return
 		}
-	}
 
 	query := querybuilder.BuildPhaseQuery(metricName, snapshotID, phaseName, []string{"time", "value"}, whereClause)
 
@@ -284,17 +291,10 @@ func (h *SnapshotHandler) HandleGetMetricSummary(w http.ResponseWriter, req *htt
 	whereClause := querybuilder.BuildLabelWhereClause(labelFilters)
 
 	// If cluster filter is present, add instance IN clause for target nodes
-	if clusterFilter, ok := labelFilters["cluster"]; ok {
-		clusterTargets := h.getClusterTargets(req.Context(), snapshotID, clusterFilter)
-		if len(clusterTargets) > 0 {
-			instanceClause := querybuilder.BuildInstanceInClause(clusterTargets)
-			if whereClause != "" {
-				whereClause = whereClause + " AND " + instanceClause
-			} else {
-				whereClause = instanceClause
-			}
-			log.Printf("Added instance filter for cluster '%s': %d targets", clusterFilter, len(clusterTargets))
-		}
+	whereClause, err := h.applyClusterFilter(req.Context(), snapshotID, labelFilters, whereClause)
+	if err != nil {
+		h.sendMetricErrorResponse(w, fmt.Sprintf("Failed to apply cluster filter: %v", err), http.StatusInternalServerError)
+		return
 	}
 
 	query := querybuilder.BuildSnapshotQuery(metricName, snapshotID, []string{"value"}, whereClause)
@@ -350,17 +350,10 @@ func (h *SnapshotHandler) HandleGetMetricPhaseSummary(w http.ResponseWriter, req
 	whereClause := querybuilder.BuildLabelWhereClause(labelFilters)
 
 	// If cluster filter is present, add instance IN clause for target nodes
-	if clusterFilter, ok := labelFilters["cluster"]; ok {
-		clusterTargets := h.getClusterTargets(req.Context(), snapshotID, clusterFilter)
-		if len(clusterTargets) > 0 {
-			instanceClause := querybuilder.BuildInstanceInClause(clusterTargets)
-			if whereClause != "" {
-				whereClause = whereClause + " AND " + instanceClause
-			} else {
-				whereClause = instanceClause
-			}
-			log.Printf("Added instance filter for cluster '%s': %d targets", clusterFilter, len(clusterTargets))
-		}
+	whereClause, err := h.applyClusterFilter(req.Context(), snapshotID, labelFilters, whereClause)
+	if err != nil {
+		h.sendMetricErrorResponse(w, fmt.Sprintf("Failed to apply cluster filter: %v", err), http.StatusInternalServerError)
+		return
 	}
 
 	query := querybuilder.BuildPhaseQuery(metricName, snapshotID, phaseName, []string{"value"}, whereClause)

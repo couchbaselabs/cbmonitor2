@@ -14,7 +14,6 @@ type LabelFilter struct {
 
 // BuildLabelWhereClause builds a WHERE clause for label filters
 // Returns empty string if no filters, otherwise returns conditions joined with AND
-// Special handling: "cluster" parameter matches against both cluster_uuid and cluster_name
 func BuildLabelWhereClause(labelFilters map[string]string) string {
 	if len(labelFilters) == 0 {
 		return ""
