@@ -104,6 +104,8 @@ func main() {
 	metadataStorage, err := storage.NewMetadataStorage(cfg)
 	if err != nil {
 		logger.Error("Failed to initialize metadata storage. Metadata will not be collected.", "error", err)
+		metadataStorage = storage.NewFileMetadataStorage(cfg.Agent.Directory)
+		logger.Info("Falling back to file metadata storage", "directory", cfg.Agent.Directory)
 	} else {
 		logger.Info("Metadata storage initialized", "type", metadataStorage.Type())
 	}

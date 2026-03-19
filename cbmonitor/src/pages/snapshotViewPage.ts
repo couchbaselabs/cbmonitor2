@@ -6,11 +6,11 @@ import { locationService } from '@grafana/runtime';
 import { SnapshotSearchScene } from './SnapshotSearch';
 import { FormatMetadataSummary } from '../components/SnapshotDisplay/metadataSummary';
 import { Phase } from '../types/snapshot';
-import { LayoutToggle } from '../components/LayoutToggle/LayoutToggle';
-import { DataSourceToggle } from '../components/DataSourceToggle/DataSourceToggle';
+import { SettingsDropdown } from '../components/SettingsDropdown/SettingsDropdown';
 import { createNoUrlSyncTimeRange, buildQuickRanges, initializeTimeRange } from '../utils/timeRange';
 import { loadSnapshot } from '../services/snapshotLoader';
 import { sceneCacheService } from '../services/sceneCache';
+import { clusterFilterService } from '../services/clusterFilterService';
 import { Spinner } from '@grafana/ui';
 
 // Simple loading scene to show while snapshot is being loaded
@@ -84,6 +84,8 @@ snapshotViewPage.addActivationHandler(() => {
         // Clear scene cache when loading a different snapshot
         if (currentLoadedSnapshotId !== null && currentLoadedSnapshotId !== snapshotId) {
           sceneCacheService.clearAll();
+          // Reset cluster filter when loading a different snapshot
+          clusterFilterService.reset();
         }
 
         // Update the currently loaded snapshot
@@ -160,6 +162,28 @@ snapshotViewPage.addActivationHandler(() => {
           });
         };
 
+        // Handler for cluster filter change - regenerate tabs with cluster-filtered queries
+        const handleClusterChange = (clusterId: string | null) => {
+          // Update the cluster filter service
+          clusterFilterService.setCurrentCluster(clusterId);
+          // Clear scene cache so scenes are recreated with new cluster filter
+          sceneCacheService.clearAll();
+          // Regenerate tabs with current services and snapshotId
+          snapshotViewPage.setState({
+            tabs: getDashboardsForServices(metadata.services, snapshotId),
+          });
+        };
+
+        // Handler for hide empty toggle - regenerate tabs to apply new visibility
+        const handleHideEmptyChange = () => {
+          // Clear scene cache so scenes are recreated
+          sceneCacheService.clearAll();
+          // Regenerate tabs
+          snapshotViewPage.setState({
+            tabs: getDashboardsForServices(metadata.services, snapshotId),
+          });
+        };
+
         // Create controls array with time picker (with quick ranges) and layout toggle
         const controls: any[] = [
           new SceneTimePicker({
@@ -168,7 +192,7 @@ snapshotViewPage.addActivationHandler(() => {
           })
         ];
 
-        // If we have active snapshot, display the refresh picker before the layout toggle
+        // If we have active snapshot, display the refresh picker before the settings dropdown
         if (metadata.ts_end && metadata.ts_end.startsWith("now")) {
           controls.push(new SceneRefreshPicker({
             intervals: ['5s', '10s', '30s', '1m', '2m', '5m', '10m'],
@@ -176,15 +200,14 @@ snapshotViewPage.addActivationHandler(() => {
           }));
         }
 
-        // Add the layout toggle to the controls
-        controls.push(new LayoutToggle({
-          onLayoutChange: handleLayoutChange,
-        }));
-
-        // Add datasource toggle (Couchbase SQL++ ↔ PromQL)
-        controls.push(new DataSourceToggle({
+        // Add settings dropdown (combines layout, datasource, cluster, and hide empty toggles)
+        controls.push(new SettingsDropdown({
           snapshotId,
+          clusters: metadata.clusters || [],
+          onLayoutChange: handleLayoutChange,
           onDataSourceChange: handleDataSourceChange,
+          onClusterChange: handleClusterChange,
+          onHideEmptyChange: handleHideEmptyChange,
         }));
 
         // Update page with snapshot data

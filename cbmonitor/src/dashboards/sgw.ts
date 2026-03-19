@@ -1,16 +1,10 @@
-import {
-    EmbeddedScene,
-    SceneFlexLayout,
-} from '@grafana/scenes';
-import { createMetricPanel } from 'utils/utils.panel';
+import { EmbeddedScene } from '@grafana/scenes';
+import { createMetricPanel, createFlexLayout } from 'utils/utils.panel';
 
 export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
 
     return new EmbeddedScene({
-        body: new SceneFlexLayout({
-            minHeight: 50, // Intentional to allow the layout to be visible when  no data is available
-            direction: 'row',
-            wrap: 'wrap',
+        body: createFlexLayout({
             children: [
                 // Resource Utilization Metrics
                 createMetricPanel('sgw_resource_utilization_process_memory_resident', 'Process Memory Resident', {

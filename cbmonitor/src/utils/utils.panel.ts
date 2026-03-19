@@ -2,13 +2,69 @@
 // SQL++ queries are still generated from parameters via CBQueryBuilder when that datasource is active.
 // In the future, SQL++ queries will be derived from the PromQL expressions.
 
-import { PanelBuilders, SceneDataTransformer, SceneFlexItem, SceneQueryRunner } from '@grafana/scenes';
+import { PanelBuilders, SceneDataTransformer, SceneFlexItem, SceneFlexLayout, SceneQueryRunner, SceneDataState } from '@grafana/scenes';
 import { TooltipDisplayMode, LegendDisplayMode } from '@grafana/schema';
 import { CBQueryBuilder, AggregationQueryBuilder } from './utils.cbquery';
 import { layoutService } from '../services/layoutService';
 import { dataSourceService } from '../services/datasourceService';
+import { clusterFilterService } from '../services/clusterFilterService';
 import { DataSourceType } from '../types/datasource';
 import { PROM_DATASOURCE_REF } from '../constants';
+
+// Global counter for unique panel IDs
+let panelIdCounter = 0;
+
+/**
+ * Check if data state has actual data values
+ */
+function hasDataValues(dataState: SceneDataState | undefined): boolean {
+    if (!dataState?.data) {
+        return false;
+    }
+    
+    const series = dataState.data.series;
+    if (!series || series.length === 0) {
+        return false;
+    }
+    
+    // Check if any series has actual data points (not just empty fields)
+    for (const s of series) {
+        if (!s.fields || s.fields.length === 0) {
+            continue;
+        }
+        // Look for value fields (skip time fields)
+        for (const field of s.fields) {
+            if (field.name !== 'Time' && field.name !== 'time' && field.values && field.values.length > 0) {
+                // Check if values are not all null/undefined
+                const hasValue = field.values.some((v: unknown) => v !== null && v !== undefined);
+                if (hasValue) {
+                    return true;
+                }
+            }
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * Create a SceneFlexLayout - simple wrapper for consistency.
+ */
+export function createFlexLayout(options: {
+    direction?: 'row' | 'column';
+    wrap?: 'wrap' | 'nowrap';
+    minHeight?: number;
+    children: SceneFlexItem[];
+}): SceneFlexLayout {
+    const { direction = 'row', wrap = 'wrap', minHeight = 50, children } = options;
+    
+    return new SceneFlexLayout({
+        direction,
+        wrap,
+        minHeight,
+        children,
+    });
+}
 
 export function getNewTimeSeriesDataTransformer(queryRunner: SceneQueryRunner) {
     return new SceneDataTransformer({
@@ -80,6 +136,33 @@ function makeLegendTemplate(extraFields?: string[]): string {
 }
 
 /**
+ * Inject cluster filter into a PromQL expression.
+ * Adds `cluster_uuid="<id>"` label selector to metric selectors that already have labels.
+ *
+ * @param expr - The PromQL expression
+ * @param clusterId - The cluster ID to filter by
+ * @returns The modified PromQL expression with cluster filter
+ */
+function injectClusterFilter(expr: string, clusterId: string): string {
+    // Only inject into metric selectors that already have a label block {....}
+    // This avoids matching PromQL keywords like sum, by, rate, instance, etc.
+    // Match: metric_name{labels...} and inject cluster_uuid before closing brace
+    return expr.replace(/(\w+)\{([^}]*)\}/g, (_match, metric, labels) => {
+        // Skip SGW metrics - they don't have cluster_uuid labels
+        if (metric.startsWith('sgw_')) {
+            return `${metric}{${labels}}`;
+        }
+        // Skip if cluster_uuid is already present
+        if (labels.includes('cluster_uuid=')) {
+            return `${metric}{${labels}}`;
+        }
+        // Inject cluster_uuid into the label set
+        const separator = labels.trim() ? ', ' : '';
+        return `${metric}{${labels}${separator}cluster_uuid="${clusterId}"}`;
+    });
+}
+
+/**
  * Create a metric panel with a hardcoded PromQL expression (source of truth).
  *
  * When the active datasource is PromQL, uses the hardcoded `expr` directly.
@@ -120,13 +203,19 @@ export function createMetricPanel(
 
     let queryRunner: SceneQueryRunner;
 
+    // Get current cluster filter
+    const clusterFilter = clusterFilterService.getCurrentCluster();
+
     if (isPrometheus) {
         // --- PromQL path: use hardcoded expression directly ---
+        // If cluster filter is active, inject it into the PromQL expression
+        const finalExpr = clusterFilter ? injectClusterFilter(options.expr, clusterFilter) : options.expr;
+
         queryRunner = new SceneQueryRunner({
             datasource: PROM_DATASOURCE_REF,
             queries: [{
                 refId: metricName,
-                expr: options.expr,
+                expr: finalExpr,
             }],
         });
 
@@ -135,10 +224,11 @@ export function createMetricPanel(
             const descriptionMd = [
                 `**Metric:** ${metricName} \n`,
                 `**Datasource:** PromQL \n`,
+                clusterFilter ? `**Cluster:** ${clusterFilter} \n` : '',
                 '',
                 '**Query:**',
                 '```promql',
-                options.expr,
+                finalExpr,
                 '```',
             ].join('\n');
             panelBuilder.setDescription(descriptionMd);
@@ -154,6 +244,12 @@ export function createMetricPanel(
             builder = new CBQueryBuilder(options.snapshotId, metricName);
         }
         applyCBBuilderOptions(builder, options);
+
+        // If cluster filter is active, add it to the query
+        if (clusterFilter) {
+            builder.addLabelFilter('cluster', clusterFilter);
+        }
+
         queryRunner = builder.buildQueryRunner();
 
         // Description
@@ -179,12 +275,43 @@ export function createMetricPanel(
     }
 
     const panel = panelBuilder.build();
+    const dataTransformer = getNewTimeSeriesDataTransformer(queryRunner);
 
-    return new SceneFlexItem({
+    // Generate unique panel ID
+    const panelId = `panel-${metricName}-${++panelIdCounter}`;
+
+    // Check if we should hide this panel when empty
+    const shouldHideWhenEmpty = layoutService.getHideEmptyPanels();
+    const flexItem = new SceneFlexItem({
+        key: panelId,
         height: options.height ?? 300,
         width: panelWidth,
         minWidth: panelWidth === '100%' ? '100%' : '45%',
         body: panel,
-        $data: getNewTimeSeriesDataTransformer(queryRunner),
+        $data: dataTransformer,
+        isHidden: false, // Start visible, will hide if no data
     });
+
+    // If hideEmpty is enabled, add a behavior to watch data and toggle isHidden
+    if (shouldHideWhenEmpty) {
+        // Subscribe to data transformer state changes
+        dataTransformer.subscribeToState((state) => {
+            // Skip if still loading
+            if (state.data?.state === 'Loading') {
+                return;
+            }
+
+            const hasData = hasDataValues(state);
+            const currentHidden = flexItem.state.isHidden;
+
+            // Only update if state needs to change
+            if (hasData && currentHidden) {
+                flexItem.setState({ isHidden: false });
+            } else if (!hasData && !currentHidden) {
+                flexItem.setState({ isHidden: true });
+            }
+        });
+    }
+
+    return flexItem;
 }

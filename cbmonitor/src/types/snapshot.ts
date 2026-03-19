@@ -32,9 +32,16 @@ export interface Phase {
   ts_end: string;
 }
 
+export interface Cluster {
+  uid: string;
+  name?: string;
+  targets?: string[];
+}
+
 export interface SnapshotMetadata {
   snapshotId: string;
   services: string[];
+  clusters?: Cluster[];
   version: string;
   ts_start: string;
   ts_end: string;

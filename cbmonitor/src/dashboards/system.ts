@@ -5,7 +5,6 @@ import { createInstanceAwareScene } from 'utils/instanceScene';
 export function systemMetricsDashboard(snapshotId: string): EmbeddedScene {
     const buildBaseChildren = () => [
         // Per-service CPU and Memory utilisation
-        // TODO: Add a logic to only show the panels for the services that are actually present in the snapshot.
         // Overall (per node) CPU and Memory utilisation
         createMetricPanel('sys_cpu_utilization_rate', 'CPU Utilization (%)', {
             expr: `sum by (instance) (sys_cpu_utilization_rate{job="${snapshotId}"})`,

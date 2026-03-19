@@ -1,16 +1,10 @@
-import {
-    EmbeddedScene,
-    SceneFlexLayout,
-} from '@grafana/scenes';
-import { createMetricPanel } from 'utils/utils.panel';
+import { EmbeddedScene } from '@grafana/scenes';
+import { createMetricPanel, createFlexLayout } from 'utils/utils.panel';
 
 export function analyticsMetricsDashboard(snapshotId: string): EmbeddedScene {
 
     return new EmbeddedScene({
-        body: new SceneFlexLayout({
-            minHeight: 50, // Intentional to allow the layout to be visible when  no data is available
-            direction: 'row',
-            wrap: 'wrap',
+        body: createFlexLayout({
             children: [
                 createMetricPanel('sysproc_cpu_seconds_total', 'Java CPU Time (Cumulative Seconds)', {
                     expr: `sum by (instance) (sysproc_cpu_seconds_total{job="${snapshotId}",proc="java"})`,
