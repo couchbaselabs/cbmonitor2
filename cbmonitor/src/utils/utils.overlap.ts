@@ -2,7 +2,7 @@ import { PanelBuilders, SceneFlexItem, SceneQueryRunner, SceneTimeRange } from "
 import { FieldType } from "@grafana/data";
 import { getNewTimeSeriesDataTransformer, hasDataValues } from "./utils.panel";
 import { EVIL_PROM_DATASOURCE_REF } from "../constants";
-import { LegendDisplayMode, TooltipDisplayMode } from "@grafana/schema/dist/types/veneer/common.types";
+import { LegendDisplayMode, TooltipDisplayMode } from "@grafana/schema";
 import { layoutService } from "services/layoutService";
 import { EndTime } from "services/snapshotLoader";
 import { NoUrlSyncTimeRange } from "./timeRange";

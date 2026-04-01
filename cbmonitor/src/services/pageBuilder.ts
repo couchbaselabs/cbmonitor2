@@ -196,10 +196,9 @@ function buildComparisonPage(
                     // Use the first snapshotId and the first timeRange (if provided)
                     // If timeRanges is not provided, pass undefined
                     // Import systemTestingDashboard at the top if not already imported
-                    // @ts-ignore
-                    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
                     const { systemTestingDashboard } = require('../dashboards/testing_system');
-                    return systemTestingDashboard(snapshotIds[0], timeRanges ? timeRanges[0] : undefined);
+                    return systemTestingDashboard(snapshotIds.join('|'), timeRanges ? timeRanges[0] : undefined);
                 } else {
                     // Show placeholder for all other dashboards
                     return new EmbeddedScene({
