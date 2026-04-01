@@ -17,7 +17,7 @@ let panelIdCounter = 0;
 /**
  * Check if data state has actual data values
  */
-function hasDataValues(dataState: SceneDataState | undefined): boolean {
+export function hasDataValues(dataState: SceneDataState | undefined): boolean {
     if (!dataState?.data) {
         return false;
     }
@@ -115,7 +115,7 @@ function applyCBBuilderOptions(
 }
 
 // Build legend template for Grafana panel display name override
-function makeLegendTemplate(extraFields?: string[]): string {
+export function makeLegendTemplate(extraFields?: string[]): string {
     const ef = extraFields ?? [];
     const labelKeys = ef
         .map((f) => {
@@ -143,7 +143,7 @@ function makeLegendTemplate(extraFields?: string[]): string {
  * @param clusterId - The cluster ID to filter by
  * @returns The modified PromQL expression with cluster filter
  */
-function injectClusterFilter(expr: string, clusterId: string): string {
+export function InjectClusterFilter(expr: string, clusterId: string): string {
     // Only inject into metric selectors that already have a label block {....}
     // This avoids matching PromQL keywords like sum, by, rate, instance, etc.
     // Match: metric_name{labels...} and inject cluster_uuid before closing brace
@@ -209,7 +209,7 @@ export function createMetricPanel(
     if (isPrometheus) {
         // --- PromQL path: use hardcoded expression directly ---
         // If cluster filter is active, inject it into the PromQL expression
-        const finalExpr = clusterFilter ? injectClusterFilter(options.expr, clusterFilter) : options.expr;
+        const finalExpr = clusterFilter ? InjectClusterFilter(options.expr, clusterFilter) : options.expr;
 
         queryRunner = new SceneQueryRunner({
             datasource: PROM_DATASOURCE_REF,

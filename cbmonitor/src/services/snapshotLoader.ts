@@ -126,3 +126,41 @@ export function formatSnapshotInfo(snapshots: LoadedSnapshot[]): string {
         return `${idx + 1}. Snapshot ID: ${s.id}\n   Services: ${meta.services.join(', ')}\n   Time Range: ${meta.ts_start} to ${meta.ts_end}`;
     }).join('\n\n');
 }
+
+/**
+ * Compute the maximum duration among a list of snapshot metadata.
+ * Returns the largest (ts_end - ts_start) found, or 0 if none.
+ *
+ * @param metadatas - Array of SnapshotMetadata objects
+ * @returns The maximum duration in milliseconds
+ */
+export function getMaxSnapshotDuration(metadatas: SnapshotMetadata[]): number {
+    let maxDuration = 0;
+    for (const meta of metadatas) {
+        if (meta.ts_start && meta.ts_end) {
+            const start = Date.parse(meta.ts_start);
+            const end = Date.parse(meta.ts_end);
+            if (!isNaN(start) && !isNaN(end)) {
+                const duration = end - start;
+                if (duration > maxDuration) {
+                    maxDuration = duration;
+                }
+            }
+        }
+    }
+    return maxDuration;
+}
+
+/**
+ * Global EndTime value for use in panelBuilder x axis.
+ * Set this value after calling getMaxSnapshotDuration.
+ */
+export let EndTime: number = 0;
+
+/**
+ * Helper to set EndTime from a list of snapshot metadata.
+ * @param metadatas - Array of SnapshotMetadata
+ */
+export function setGlobalEndTime(metadatas: SnapshotMetadata[]): void {
+    EndTime = getMaxSnapshotDuration(metadatas);
+}

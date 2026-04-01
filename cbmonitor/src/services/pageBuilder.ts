@@ -189,18 +189,30 @@ function buildComparisonPage(
                 });
             }
 
-            // If overlap mode is enabled, show placeholder
+            // If overlap mode is enabled
             if (overlapMode) {
-                return new EmbeddedScene({
-                    body: new SceneFlexLayout({
-                        direction: 'row',
-                        children: [
-                            new SceneFlexItem({
-                                body: new PlaceholderScene({ text: 'Overlap view coming soon' }) as any
-                            })
-                        ],
-                    }),
-                });
+                if (serviceKey === 'system') {
+                    // Show the systemTestingDashboard with overlap view
+                    // Use the first snapshotId and the first timeRange (if provided)
+                    // If timeRanges is not provided, pass undefined
+                    // Import systemTestingDashboard at the top if not already imported
+                    // @ts-ignore
+                    // eslint-disable-next-line @typescript-eslint/no-var-requires
+                    const { systemTestingDashboard } = require('../dashboards/testing_system');
+                    return systemTestingDashboard(snapshotIds[0], timeRanges ? timeRanges[0] : undefined);
+                } else {
+                    // Show placeholder for all other dashboards
+                    return new EmbeddedScene({
+                        body: new SceneFlexLayout({
+                            direction: 'row',
+                            children: [
+                                new SceneFlexItem({
+                                    body: new PlaceholderScene({ text: 'Overlap view coming soon' }) as any
+                                })
+                            ],
+                        }),
+                    });
+                }
             }
 
             // Build side-by-side comparison view

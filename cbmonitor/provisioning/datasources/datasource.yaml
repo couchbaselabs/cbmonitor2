@@ -24,6 +24,7 @@ datasources:
     prometheusVersion: 2.9.1
   secureJsonData: {}
 - name: EvilPrometheus
+  uid: evilprometheus
   type: prometheus
   access: proxy
   url: ${EVIL_PROMETHEUS_URL}
@@ -31,7 +32,7 @@ datasources:
   isDefault: false
   jsonData:
     cacheLevel: High
-    httpMethod: POST
+    httpMethod: GET
     prometheusType: Mimir
     prometheusVersion: 2.9.1
   secureJsonData: {}

@@ -21,6 +21,11 @@ export const PROM_DATASOURCE_REF = {
   type: 'prometheus'
 } as const;
 
+export const EVIL_PROM_DATASOURCE_REF = {
+  uid: 'evilprometheus',
+  type: 'prometheus'
+} as const;
+
 export type DashboardId = keyof typeof DASHBOARD_UIDS;
 
 // Helper function to get UID from dashboard name
