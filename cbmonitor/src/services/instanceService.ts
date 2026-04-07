@@ -2,9 +2,9 @@ import { SceneQueryRunner } from '@grafana/scenes';
 import { CBQueryBuilder } from '../utils/utils.cbquery';
 import { dataSourceService } from './datasourceService';
 import { DataSourceType } from '../types/datasource';
-import { PROM_DATASOURCE_REF } from '../constants';
+import { EVIL_PROM_DATASOURCE_REF, PROM_DATASOURCE_REF } from '../constants';
 
-export function getInstancesFromMetricRunner(snapshotId: string, metricName = 'cm_http_requests_total'): SceneQueryRunner {
+export function getInstancesFromMetricRunner(snapshotId: string, metricName = 'sys_cpu_utilization_rate'): SceneQueryRunner {
   const ds = dataSourceService.getCurrentDataSource();
 
   if (ds === DataSourceType.Prometheus) {
@@ -18,6 +18,19 @@ export function getInstancesFromMetricRunner(snapshotId: string, metricName = 'c
         instant: true,
       }],
     });
+  }
+  if (ds === DataSourceType.EvilPrometheus) {
+    // Evil PromQL path: hardcoded expression with Evil Prometheus datasource ref
+    return new SceneQueryRunner({
+      datasource: PROM_DATASOURCE_REF,
+      queries: [{
+        refId: 'instances',
+        expr: `group by (instance) (${metricName}{job=~"${snapshotId}"})`,
+        legendFormat: '{{instance}}',
+        instant: true,
+      }],
+    });
+
   }
 
   // SQL++ path: use CBQueryBuilder

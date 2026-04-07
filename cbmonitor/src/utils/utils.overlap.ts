@@ -1,6 +1,6 @@
-import { PanelBuilders, SceneFlexItem, SceneQueryRunner, SceneTimeRange } from "@grafana/scenes";
+import { PanelBuilders, SceneDataTransformer, SceneFlexItem, SceneQueryRunner } from "@grafana/scenes";
 import { FieldType } from "@grafana/data";
-import { getNewTimeSeriesDataTransformer, hasDataValues } from "./utils.panel";
+import { hasDataValues } from "./utils.panel";
 import { EVIL_PROM_DATASOURCE_REF } from "../constants";
 import { LegendDisplayMode, TooltipDisplayMode } from "@grafana/schema";
 import { layoutService } from "services/layoutService";
@@ -17,15 +17,56 @@ type OverlapPanelOptions = {
     height?: string;
 }
 
+function createOverlapTimeRange(): NoUrlSyncTimeRange {
+    return new NoUrlSyncTimeRange({
+        from: new Date(0).toISOString(),
+        to: new Date(EndTime).toISOString(),
+        timeZone: 'utc',
+    });
+}
+
+function createOverlapDataTransformer(queryRunner: SceneQueryRunner): SceneDataTransformer {
+    return new SceneDataTransformer({
+        $data: queryRunner,
+        transformations: [
+            {
+                id: 'prepareTimeSeries',
+                options: {
+                    format: 'multi',
+                },
+            },
+            {
+                id: 'joinByField',
+                options: {
+                    byField: 'Time',
+                    mode: 'outer',
+                },
+            },
+            {
+                id: 'convertFieldType',
+                options: {
+                    conversions: [
+                        { targetField: 'Time', destinationType: FieldType.number },
+                        { targetField: 'time', destinationType: FieldType.number },
+                    ],
+                },
+            },
+        ],
+    });
+}
+
 export function createOverlapMetricPanel(
     metricName: string,
     title: string,
-    options: OverlapPanelOptions,
-    globalTimeRange: SceneTimeRange
+    options: OverlapPanelOptions
 ) : SceneFlexItem {
     const panelWidth = options.width ?? layoutService.getPanelWidth();
+    // Use separate Scene time range objects with identical bounds.
+    // A SceneObject instance cannot be attached to multiple parents.
+    const queryTimeRange = createOverlapTimeRange();
+    const panelTimeRange = createOverlapTimeRange();
     
-    const panelBuilder = PanelBuilders.timeseries().setTitle(title);
+    const panelBuilder = PanelBuilders.trend().setTitle(title) as any;
     panelBuilder.setOption('tooltip', { mode: TooltipDisplayMode.Multi });
     panelBuilder.setOption('legend', {
         showLegend: true,
@@ -34,13 +75,10 @@ export function createOverlapMetricPanel(
         sortBy: 'Name',
         sortDesc: false,
     });
-
-    panelBuilder.setOverrides((b) => {
-        b.matchFieldsByType(FieldType.time).overrideUnit('dtdurations');
-    }  )
+    panelBuilder.setOption('xField', 'Time');
 
     const queryRunner = new SceneQueryRunner({
-                $timeRange: globalTimeRange,
+                $timeRange: queryTimeRange,
                 datasource: EVIL_PROM_DATASOURCE_REF,
                 queries: [{
                     refId: metricName,
@@ -62,14 +100,13 @@ export function createOverlapMetricPanel(
         panelBuilder.setDescription(descriptionMd);
     } catch (_e) { /* skip */ }
 
-    const panel = panelBuilder.build();
-    const dataTransformer = getNewTimeSeriesDataTransformer(queryRunner);
+    if (options.unit) {
+        panelBuilder.setUnit(options.unit);
+    }
 
-    const localDisplayTimeRange = new NoUrlSyncTimeRange({
-        from: new Date(0).toISOString(),
-        to: new Date(EndTime *1000).toISOString(),
-        timeZone: 'utc',
-    })
+    const panel = panelBuilder.build();
+    const dataTransformer = createOverlapDataTransformer(queryRunner);
+
     // Generate unique panel ID
     const panelId = `panel-${metricName}-${++panelIdCounter}`;
 
@@ -77,7 +114,7 @@ export function createOverlapMetricPanel(
     const shouldHideWhenEmpty = layoutService.getHideEmptyPanels();
     const flexItem = new SceneFlexItem({
         key: panelId,
-        $timeRange: localDisplayTimeRange,
+        $timeRange: panelTimeRange,
         height: options.height ?? 300,
         width: panelWidth,
         minWidth: panelWidth === '100%' ? '100%' : '45%',

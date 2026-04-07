@@ -193,12 +193,8 @@ function buildComparisonPage(
             if (overlapMode) {
                 if (serviceKey === 'system') {
                     // Show the systemTestingDashboard with overlap view
-                    // Use the first snapshotId and the first timeRange (if provided)
-                    // If timeRanges is not provided, pass undefined
-                    // Import systemTestingDashboard at the top if not already imported
-
-                    const { systemTestingDashboard } = require('../dashboards/testing_system');
-                    return systemTestingDashboard(snapshotIds.join('|'), timeRanges ? timeRanges[0] : undefined);
+                    const { systemTestingDashboard } = require('../dashboards/overlap/testing_system');
+                    return systemTestingDashboard(snapshotIds.join('|'));
                 } else {
                     // Show placeholder for all other dashboards
                     return new EmbeddedScene({
