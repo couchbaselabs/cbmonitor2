@@ -47,7 +47,6 @@ function createOverlapDataTransformer(queryRunner: SceneQueryRunner): SceneDataT
                 options: {
                     conversions: [
                         { targetField: 'Time', destinationType: FieldType.number },
-                        { targetField: 'time', destinationType: FieldType.number },
                     ],
                 },
             },
@@ -61,10 +60,7 @@ export function createOverlapMetricPanel(
     options: OverlapPanelOptions
 ) : SceneFlexItem {
     const panelWidth = options.width ?? layoutService.getPanelWidth();
-    // Use separate Scene time range objects with identical bounds.
-    // A SceneObject instance cannot be attached to multiple parents.
-    const queryTimeRange = createOverlapTimeRange();
-    const panelTimeRange = createOverlapTimeRange();
+    const timeRange = createOverlapTimeRange();
     
     const panelBuilder = PanelBuilders.trend().setTitle(title) as any;
     panelBuilder.setOption('tooltip', { mode: TooltipDisplayMode.Multi });
@@ -75,18 +71,13 @@ export function createOverlapMetricPanel(
         sortBy: 'Name',
         sortDesc: false,
     });
-    panelBuilder.setOption('xField', 'Time');
-
-    const queryRunner = new SceneQueryRunner({
-                $timeRange: queryTimeRange,
-                datasource: EVIL_PROM_DATASOURCE_REF,
-                queries: [{
-                    refId: metricName,
-                    expr: options.expr,
-                }],
-            });
+    panelBuilder.setUnit(options.unit ?? 'short');
+    panelBuilder.setOption('xField', 'Time');   
+    panelBuilder.setOverrides((b: any) => {
+        b.matchFieldsWithName('Time').overrideUnit('dtdurationms');
+    });
     
-            // Description
+    // Description
     try {
         const descriptionMd = [
             `**Metric:** ${metricName} \n`,
@@ -100,11 +91,15 @@ export function createOverlapMetricPanel(
         panelBuilder.setDescription(descriptionMd);
     } catch (_e) { /* skip */ }
 
-    if (options.unit) {
-        panelBuilder.setUnit(options.unit);
-    }
-
     const panel = panelBuilder.build();
+    const queryRunner = new SceneQueryRunner({
+                $timeRange: timeRange,
+                datasource: EVIL_PROM_DATASOURCE_REF,
+                queries: [{
+                    refId: metricName,
+                    expr: options.expr,
+                }],
+            });
     const dataTransformer = createOverlapDataTransformer(queryRunner);
 
     // Generate unique panel ID
@@ -114,7 +109,7 @@ export function createOverlapMetricPanel(
     const shouldHideWhenEmpty = layoutService.getHideEmptyPanels();
     const flexItem = new SceneFlexItem({
         key: panelId,
-        $timeRange: panelTimeRange,
+        $timeRange: timeRange,
         height: options.height ?? 300,
         width: panelWidth,
         minWidth: panelWidth === '100%' ? '100%' : '45%',

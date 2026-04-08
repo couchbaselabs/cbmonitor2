@@ -2,14 +2,15 @@ import { EmbeddedScene } from "@grafana/scenes";
 import { createOverlapMetricPanel } from "utils/utils.overlap";
 import { createFlexLayout } from "utils/utils.panel";
 
-export function systemTestingDashboard(snapshotIds: string): EmbeddedScene {
+export function systemTestingDashboard(snapshotIds: string, overlapEndTimeMs?: number): EmbeddedScene {
     return new EmbeddedScene({
         body: createFlexLayout({
             children:[
                 createOverlapMetricPanel('sys_cpu_utilization_rate', 'CPU Utilization (%)', {
                     expr: `sum by (job, instance) (sys_cpu_utilization_rate{job=~"${snapshotIds}", instance="172.23.100.190"})`,
+                    legendFormat: '{{job}}',
                     unit: 'percent',
-                    width: '100%'
+                    width: '100%',
                 }),
 
                 createOverlapMetricPanel('sys_mem_free_sys', 'Free Memory (Bytes)', {

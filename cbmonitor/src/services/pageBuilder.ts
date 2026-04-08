@@ -18,6 +18,7 @@ export interface PageBuilderOptions {
     routePrefix: string;
     timeRanges?: SceneTimeRange[];
     overlapMode?: boolean;
+    overlapEndTimeMs?: number;
 }
 
 /**
@@ -47,7 +48,7 @@ export interface PageBuilderOptions {
  * });
  */
 export function buildServiceTabs(options: PageBuilderOptions): SceneAppPage[] {
-    const { snapshotIds, services, mode, routePrefix, timeRanges, overlapMode } = options;
+    const { snapshotIds, services, mode, routePrefix, timeRanges, overlapMode, overlapEndTimeMs } = options;
 
     if (mode === 'single' && snapshotIds.length !== 1) {
         throw new Error('Single mode requires exactly one snapshot ID');
@@ -68,7 +69,7 @@ export function buildServiceTabs(options: PageBuilderOptions): SceneAppPage[] {
         if (mode === 'single') {
             pages.push(buildSingleSnapshotPage(config.key, snapshotIds[0], routePrefix));
         } else {
-            pages.push(buildComparisonPage(config.key, snapshotIds, routePrefix, timeRanges, overlapMode));
+            pages.push(buildComparisonPage(config.key, snapshotIds, routePrefix, timeRanges, overlapMode, overlapEndTimeMs));
         }
     }
 
@@ -151,7 +152,8 @@ function buildComparisonPage(
     snapshotIds: string[],
     routePrefix: string,
     timeRanges?: SceneTimeRange[],
-    overlapMode?: boolean
+    overlapMode?: boolean,
+    overlapEndTimeMs?: number
 ): SceneAppPage {
     const config = getServiceConfig(serviceKey);
 
@@ -194,7 +196,7 @@ function buildComparisonPage(
                 if (serviceKey === 'system') {
                     // Show the systemTestingDashboard with overlap view
                     const { systemTestingDashboard } = require('../dashboards/overlap/testing_system');
-                    return systemTestingDashboard(snapshotIds.join('|'));
+                    return systemTestingDashboard(snapshotIds.join('|'), overlapEndTimeMs);
                 } else {
                     // Show placeholder for all other dashboards
                     return new EmbeddedScene({
