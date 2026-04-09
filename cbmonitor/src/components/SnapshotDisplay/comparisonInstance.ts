@@ -38,7 +38,7 @@ function invalidateComparisonTabs() {
             routePrefix: ROUTES.Compare,
             timeRanges: getComparisonTimeRanges(),
             overlapMode: isOverlapModeEnabled(),
-            overlapEndTimeMs: ctx.overlapEndTimeMs,
+            overlapEndTimeSeconds: ctx.overlapEndTimeSeconds,
         });
         comparisonPage.setState({ tabs });
     }
@@ -105,7 +105,7 @@ let lastComparisonContext: {
     snapshotIds: string[];
     commonServices: string[];
     commonPhases: string[];
-    overlapEndTimeMs: number;
+    overlapEndTimeSeconds: number;
 } | null = null;
 
 // Public getter for other modules to use when building dashboards
@@ -190,7 +190,7 @@ comparisonPage.addActivationHandler(() => {
                 // Find common services and phases using utility functions
                 const commonServices = findCommonServicesInSnapshots(snapshots);
                 const commonPhases = findCommonPhasesInSnapshots(snapshots);
-                const overlapEndTimeMs = getMaxSnapshotDuration(snapshots.map((s) => s.metadata));
+                const overlapEndTimeSeconds = Math.max(1, Math.floor(getMaxSnapshotDuration(snapshots.map((s) => s.metadata)) / 1000));
 
                 // Build success message with snapshot info
                 const snapshotInfo = formatSnapshotInfo(snapshots);
@@ -200,7 +200,7 @@ comparisonPage.addActivationHandler(() => {
                     snapshotIds: [...snapshotIds],
                     commonServices,
                     commonPhases,
-                    overlapEndTimeMs,
+                    overlapEndTimeSeconds,
                 };
 
                 const successMessage = `Successfully loaded ${snapshots.length} snapshots:\n\n${snapshotInfo}\n\nCommon services (${commonServices.length}): ${commonServices.join(', ') || 'none'}\nCommon phases (${commonPhases.length}): ${commonPhases.join(', ') || 'none'}\n\n✓ All snapshots validated and ready for comparison!`;
@@ -235,7 +235,7 @@ comparisonPage.addActivationHandler(() => {
                     routePrefix: ROUTES.Compare,
                     timeRanges,
                     overlapMode: isOverlapModeEnabled(),
-                    overlapEndTimeMs,
+                    overlapEndTimeSeconds,
                 });
 
                 // Handler: clicking a common phase sets all time ranges to that phase

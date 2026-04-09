@@ -4,7 +4,6 @@ import { hasDataValues } from "./utils.panel";
 import { EVIL_PROM_DATASOURCE_REF } from "../constants";
 import { LegendDisplayMode, TooltipDisplayMode } from "@grafana/schema";
 import { layoutService } from "services/layoutService";
-import { EndTime } from "services/snapshotLoader";
 import { NoUrlSyncTimeRange } from "./timeRange";
 
 let panelIdCounter = 0;
@@ -15,12 +14,23 @@ type OverlapPanelOptions = {
     unit?: string;
     width?: string;
     height?: string;
+    overlapEndTimeSeconds?: number;
 }
 
-function createOverlapTimeRange(): NoUrlSyncTimeRange {
+function normalizeToSeconds(value?: number): number {
+    if (!value || !Number.isFinite(value)) {
+        return 1;
+    }
+
+    // Guard against accidental millisecond values passed through overlap wiring.
+    return value > 1e10 ? Math.floor(value / 1000) : Math.floor(value);
+}
+
+function createOverlapTimeRange(overlapEndTimeSeconds?: number): NoUrlSyncTimeRange {
+    const endTimeSeconds = Math.max(1, normalizeToSeconds(overlapEndTimeSeconds));
     return new NoUrlSyncTimeRange({
         from: new Date(0).toISOString(),
-        to: new Date(EndTime).toISOString(),
+        to: new Date(endTimeSeconds * 1000).toISOString(),
         timeZone: 'utc',
     });
 }
@@ -50,6 +60,19 @@ function createOverlapDataTransformer(queryRunner: SceneQueryRunner): SceneDataT
                     ],
                 },
             },
+            {
+                id: 'calculateField',
+                options: {
+                    mode: 'binary',
+                    binary: {
+                        left: 'Time',
+                        operator: '/',
+                        right: '1000',
+                    },
+                    alias: 'TimeSeconds',
+                    replaceFields: false,
+                },
+            },
         ],
     });
 }
@@ -60,7 +83,7 @@ export function createOverlapMetricPanel(
     options: OverlapPanelOptions
 ) : SceneFlexItem {
     const panelWidth = options.width ?? layoutService.getPanelWidth();
-    const timeRange = createOverlapTimeRange();
+    const timeRange = createOverlapTimeRange(options.overlapEndTimeSeconds);
     
     const panelBuilder = PanelBuilders.trend().setTitle(title) as any;
     panelBuilder.setOption('tooltip', { mode: TooltipDisplayMode.Multi });
@@ -71,10 +94,21 @@ export function createOverlapMetricPanel(
         sortBy: 'Name',
         sortDesc: false,
     });
+    
     panelBuilder.setUnit(options.unit ?? 'short');
-    panelBuilder.setOption('xField', 'Time');   
+    panelBuilder.setOption('xField', 'TimeSeconds');
     panelBuilder.setOverrides((b: any) => {
-        b.matchFieldsWithName('Time').overrideUnit('dtdurationms');
+        b.matchFieldsWithName('Time').overrideCustomFieldConfig('hideFrom', {
+            viz: true,
+            legend: true,
+            tooltip: true,
+        });
+        b.matchFieldsWithName('TimeSeconds').overrideUnit('s');
+        // this does not work and needs DEBUGGING
+        if (options.legendFormat) {
+            options.legendFormat.replace(/\{\{(\w+)\}\}/g, '${__field.labels.$1}');
+            b.matchFieldsByQuery(metricName).overrideDisplayName("abc");
+        }
     });
     
     // Description
@@ -98,6 +132,7 @@ export function createOverlapMetricPanel(
                 queries: [{
                     refId: metricName,
                     expr: options.expr,
+                    legendFormat: options.legendFormat,
                 }],
             });
     const dataTransformer = createOverlapDataTransformer(queryRunner);
