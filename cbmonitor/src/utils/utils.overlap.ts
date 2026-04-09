@@ -103,7 +103,7 @@ export function createOverlapMetricPanel(
             legend: true,
             tooltip: true,
         });
-        b.matchFieldsWithName('TimeSeconds').overrideUnit('s');
+        b.matchFieldsWithName('TimeSeconds').overrideUnit('dtdhms');
         // this does not work and needs DEBUGGING
         if (options.legendFormat) {
             options.legendFormat.replace(/\{\{(\w+)\}\}/g, '${__field.labels.$1}');
