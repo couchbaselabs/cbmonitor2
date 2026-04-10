@@ -9,6 +9,16 @@ import { xdcrMetricsDashboard } from '../dashboards/xdcr';
 import { sgwMetricsDashboard } from '../dashboards/sgw';
 import { eventingMetricsDashboard } from '../dashboards/eventing';
 import { analyticsMetricsDashboard } from '../dashboards/analytics';
+import { systemOverlapMetricsDashboard } from '../dashboards/overlap/systemOverlap';
+import { clusterManagerOverlapMetricsDashboard } from '../dashboards/overlap/clusterManagerOverlap';
+import { kvOverlapMetricsDashboard } from '../dashboards/overlap/kvOverlap';
+import { indexOverlapMetricsDashboard } from '../dashboards/overlap/indexOverlap';
+import { queryOverlapMetricsDashboard } from '../dashboards/overlap/queryOverlap';
+import { ftsOverlapMetricsDashboard } from '../dashboards/overlap/ftsOverlap';
+import { xdcrOverlapMetricsDashboard } from '../dashboards/overlap/xdcrOverlap';
+import { sgwOverlapMetricsDashboard } from '../dashboards/overlap/sgwOverlap';
+import { eventingOverlapMetricsDashboard } from '../dashboards/overlap/eventingOverlap';
+import { analyticsOverlapMetricsDashboard } from '../dashboards/overlap/analyticsOverlap';
 
 /**
  * Configuration for a Couchbase service with all metadata needed for UI rendering
@@ -24,6 +34,8 @@ export interface ServiceConfig {
     aliases: string[];
     /** Dashboard builder function */
     dashboardBuilder: (snapshotId: string) => EmbeddedScene;
+    /** Overlap dashboard builder function */
+    overlapDashboardBuilder?: (snapshotIds: string, overlapEndTimeSeconds?: number) => EmbeddedScene;
     /** Always include this service even if not in snapshot */
     alwaysInclude?: boolean;
 }
@@ -39,6 +51,7 @@ export const SERVICE_CONFIGS: ServiceConfig[] = [
         segment: '',
         aliases: [],
         dashboardBuilder: systemMetricsDashboard,
+        overlapDashboardBuilder: systemOverlapMetricsDashboard,
         alwaysInclude: true,
     },
     {
@@ -47,6 +60,7 @@ export const SERVICE_CONFIGS: ServiceConfig[] = [
         segment: 'kv',
         aliases: [],
         dashboardBuilder: kvMetricsDashboard,
+        overlapDashboardBuilder: kvOverlapMetricsDashboard,
     },
     {
         key: 'index',
@@ -54,6 +68,7 @@ export const SERVICE_CONFIGS: ServiceConfig[] = [
         segment: 'index',
         aliases: [],
         dashboardBuilder: indexMetricsDashboard,
+        overlapDashboardBuilder: indexOverlapMetricsDashboard,
     },
     {
         key: 'query',
@@ -61,6 +76,7 @@ export const SERVICE_CONFIGS: ServiceConfig[] = [
         segment: 'query',
         aliases: ['n1ql'],
         dashboardBuilder: queryMetricsDashboard,
+        overlapDashboardBuilder: queryOverlapMetricsDashboard,
     },
     {
         key: 'fts',
@@ -68,6 +84,7 @@ export const SERVICE_CONFIGS: ServiceConfig[] = [
         segment: 'fts',
         aliases: [],
         dashboardBuilder: ftsMetricsDashboard,
+        overlapDashboardBuilder: ftsOverlapMetricsDashboard,
     },
     {
         key: 'eventing',
@@ -75,6 +92,7 @@ export const SERVICE_CONFIGS: ServiceConfig[] = [
         segment: 'eventing',
         aliases: [],
         dashboardBuilder: eventingMetricsDashboard,
+        overlapDashboardBuilder: eventingOverlapMetricsDashboard,
     },
     {
         key: 'sgw',
@@ -82,6 +100,7 @@ export const SERVICE_CONFIGS: ServiceConfig[] = [
         segment: 'sgw',
         aliases: ['sync-gateway'],
         dashboardBuilder: sgwMetricsDashboard,
+        overlapDashboardBuilder: sgwOverlapMetricsDashboard,
     },
     {
         key: 'xdcr',
@@ -89,6 +108,7 @@ export const SERVICE_CONFIGS: ServiceConfig[] = [
         segment: 'xdcr',
         aliases: [],
         dashboardBuilder: xdcrMetricsDashboard,
+        overlapDashboardBuilder: xdcrOverlapMetricsDashboard,
     },
     {
         key: 'analytics',
@@ -96,6 +116,7 @@ export const SERVICE_CONFIGS: ServiceConfig[] = [
         segment: 'analytics',
         aliases: ['cbas'],
         dashboardBuilder: analyticsMetricsDashboard,
+        overlapDashboardBuilder: analyticsOverlapMetricsDashboard,
     },
     {
         key: 'cluster_manager',
@@ -103,6 +124,7 @@ export const SERVICE_CONFIGS: ServiceConfig[] = [
         segment: 'cluster-manager',
         aliases: [],
         dashboardBuilder: clusterManagerMetricsDashboard,
+        overlapDashboardBuilder: clusterManagerOverlapMetricsDashboard,
         alwaysInclude: true,
     },
 ];

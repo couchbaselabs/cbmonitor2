@@ -59,7 +59,7 @@ export function analyticsOverlapMetricsDashboard(snapshotIds: string, overlapEnd
             unit: 'short'
         }),
         createOverlapMetricPanel('cbas_jobs_total', `Total Jobs${titleSuffix}`, {
-            expr: `sum by (result, instance${instanceSumBySuffix}) (cbas_jobs_total{job="${snapshotIds}"${instanceFilter}})`,
+            expr: `sum by (result, job${instanceSumBySuffix}) (cbas_jobs_total{job="${snapshotIds}"${instanceFilter}})`,
             unit: 'short'
         }),
         createOverlapMetricPanel('cbas_system_load_average', `System WorkLoad Average${titleSuffix}`, {

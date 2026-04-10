@@ -193,23 +193,20 @@ function buildComparisonPage(
 
             // If overlap mode is enabled
             if (overlapMode) {
-                if (serviceKey === 'system') {
-                    // Show the systemTestingDashboard with overlap view
-                    const { systemTestingDashboard } = require('../dashboards/overlap/testing_system');
-                    return systemTestingDashboard(snapshotIds.join('|'), overlapEndTimeSeconds);
-                } else {
-                    // Show placeholder for all other dashboards
-                    return new EmbeddedScene({
-                        body: new SceneFlexLayout({
-                            direction: 'row',
-                            children: [
-                                new SceneFlexItem({
-                                    body: new PlaceholderScene({ text: 'Overlap view coming soon' }) as any
-                                })
-                            ],
-                        }),
-                    });
+                const overlapSnapshotIds = snapshotIds.join('|');
+                if (config.overlapDashboardBuilder) {
+                    return config.overlapDashboardBuilder(overlapSnapshotIds, overlapEndTimeSeconds);
                 }
+                return new EmbeddedScene({
+                    body: new SceneFlexLayout({
+                        direction: 'row',
+                        children: [
+                            new SceneFlexItem({
+                                body: new PlaceholderScene({ text: 'Overlap view coming soon' }) as any
+                            })
+                        ],
+                    }),
+                });
             }
 
             // Build side-by-side comparison view
