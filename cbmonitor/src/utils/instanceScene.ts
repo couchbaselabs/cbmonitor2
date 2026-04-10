@@ -1,5 +1,5 @@
 import { EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneDataLayerSet } from '@grafana/scenes';
-import { getInstancesFromMetricRunner, parseInstancesFromFrames } from 'services/instanceService';
+import { getInstancesFromMetricRunner, getInstancesFromEvilPromMetricRunner, parseInstancesFromFrames } from 'services/instanceService';
 import { layoutService } from '../services/layoutService';
 import { SnapshotPhaseRegionsLayer } from '../layers/SnapshotPhaseRegionsLayer';
 
@@ -70,4 +70,50 @@ export function createInstanceAwareScene(
   });
 
   return new EmbeddedScene({ body: layout, $data: globalLayers });
+}
+
+export function createInstanceAwareOverlapScene(
+  snapshotIds: string,
+  buildPerInstancePanels: (instance: string) => SceneFlexItem[],
+  buildFallbackPanels: () => SceneFlexItem[]
+): EmbeddedScene {
+  const layout = new SceneFlexLayout({
+    minHeight: 55,
+    direction: 'row',
+    wrap: 'wrap',
+    children: [],
+  });
+
+  const instancesRunner = getInstancesFromEvilPromMetricRunner(snapshotIds);
+  layout.setState({ $data: instancesRunner });
+  (instancesRunner as any).run?.();
+
+  let currentInstances: string[] = [];
+
+  const rebuild = () => {
+    let perInstancePanels: SceneFlexItem[] = [];
+    if (currentInstances && currentInstances.length > 0) {
+      for (const i of currentInstances) {
+        perInstancePanels.push(...buildPerInstancePanels(i));
+      }
+    } else {
+      perInstancePanels = buildFallbackPanels();
+    }
+    layout.setState({ children: [...perInstancePanels] });
+  };
+
+  instancesRunner.subscribeToState((state: any) => {
+    const frames = state?.data?.series ?? [];
+    currentInstances = parseInstancesFromFrames(frames);
+    rebuild();
+  });
+
+  layoutService.subscribe((mode) => {
+    layout.setState({ direction: mode === 'rows' ? 'column' : 'row' });
+    rebuild();
+  });
+
+  rebuild();
+
+  return new EmbeddedScene({ body: layout });
 }

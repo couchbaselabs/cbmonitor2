@@ -145,7 +145,7 @@ export function createOverlapMetricPanel(
     const flexItem = new SceneFlexItem({
         key: panelId,
         $timeRange: timeRange,
-        height: options.height ?? 300,
+        height: options.height ?? 400,
         width: panelWidth,
         minWidth: panelWidth === '100%' ? '100%' : '45%',
         body: panel,

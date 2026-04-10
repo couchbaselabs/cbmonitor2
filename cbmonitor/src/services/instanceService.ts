@@ -19,19 +19,6 @@ export function getInstancesFromMetricRunner(snapshotId: string, metricName = 's
       }],
     });
   }
-  if (ds === DataSourceType.EvilPrometheus) {
-    // Evil PromQL path: hardcoded expression with Evil Prometheus datasource ref
-    return new SceneQueryRunner({
-      datasource: PROM_DATASOURCE_REF,
-      queries: [{
-        refId: 'instances',
-        expr: `group by (instance) (${metricName}{job=~"${snapshotId}"})`,
-        legendFormat: '{{instance}}',
-        instant: true,
-      }],
-    });
-
-  }
 
   // SQL++ path: use CBQueryBuilder
   const builder = new CBQueryBuilder(snapshotId, metricName);
@@ -68,4 +55,18 @@ export function parseInstancesFromFrames(frames: any[]): string[] {
     }
   }
   return Array.from(set);
+}
+
+export function getInstancesFromEvilPromMetricRunner(snapshotId: string): SceneQueryRunner {
+  // This is a bit of a hack to get instance lists from Evil Prometheus without needing to define a new query language or builder.
+  // We leverage the fact that Evil Prom supports PromQL syntax and just use a special datasource reference to route it correctly.
+  return new SceneQueryRunner({
+    datasource: EVIL_PROM_DATASOURCE_REF,
+    queries: [{
+      refId: 'instances',
+      expr: `group by (instance) (sys_cpu_utilization_rate{job=~"${snapshotId}"})`,
+      legendFormat: '{{instance}}',
+      instant: true,
+    }],
+  });
 }
