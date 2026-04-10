@@ -3,7 +3,7 @@ import { createOverlapMetricPanel } from 'utils/utils.panelOverlap';
 import { createInstanceAwareOverlapScene } from 'utils/instanceScene';
 
 
-export function analyticsOverlapMetricsDashboard(snapshotIds: string): EmbeddedScene {
+export function analyticsOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSeconds?: number): EmbeddedScene {
 
     return createInstanceAwareOverlapScene(snapshotIds, ({ titleSuffix, instanceFilter, instanceSumBySuffix
      }) => {
@@ -81,5 +81,5 @@ export function analyticsOverlapMetricsDashboard(snapshotIds: string): EmbeddedS
             unit: 'short'
         }),
     ];
-    });
+    }, overlapEndTimeSeconds);
 }

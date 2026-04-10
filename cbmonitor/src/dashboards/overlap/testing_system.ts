@@ -2,7 +2,7 @@ import { EmbeddedScene } from "@grafana/scenes";
 import { createOverlapMetricPanel } from "utils/utils.panelOverlap";
 import { createInstanceAwareOverlapScene } from "utils/instanceScene";
 
-export function systemTestingDashboard(snapshotIds: string): EmbeddedScene {
+export function systemTestingDashboard(snapshotIds: string, overlapEndTimeSeconds?: number): EmbeddedScene {
     return createInstanceAwareOverlapScene(snapshotIds, ({ instanceFilter, titleSuffix, instanceSumBySuffix }) => {
 
         return [
@@ -49,6 +49,6 @@ export function systemTestingDashboard(snapshotIds: string): EmbeddedScene {
                 unit: 'Bps',
             }),
         ];
-    });
+    }, overlapEndTimeSeconds);
 }
 

@@ -2,6 +2,7 @@ import { EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneDataLayerSet } from
 import { getInstancesFromMetricRunner, getInstancesFromEvilPromMetricRunner, parseInstancesFromFrames } from 'services/instanceService';
 import { layoutService } from '../services/layoutService';
 import { SnapshotPhaseRegionsLayer } from '../layers/SnapshotPhaseRegionsLayer';
+import { setDefaultOverlapEndTimeSeconds } from './utils.panelOverlap';
 
 export type OverlapPanelBuildContext = {
   instance?: string;
@@ -90,8 +91,11 @@ export function createInstanceAwareScene(
 
 export function createInstanceAwareOverlapScene(
   snapshotIds: string,
-  buildPanels: (context: OverlapPanelBuildContext) => SceneFlexItem[]
+  buildPanels: (context: OverlapPanelBuildContext) => SceneFlexItem[],
+  overlapEndTimeSeconds?: number
 ): EmbeddedScene {
+  setDefaultOverlapEndTimeSeconds(overlapEndTimeSeconds);
+
   const layout = new SceneFlexLayout({
     minHeight: 55,
     direction: 'row',

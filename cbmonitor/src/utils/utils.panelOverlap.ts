@@ -7,6 +7,8 @@ import { layoutService } from "services/layoutService";
 import { NoUrlSyncTimeRange } from "./timeRange";
 
 let panelIdCounter = 0;
+const DEFAULT_OVERLAP_END_TIME_SECONDS = 3 * 60 * 60;
+let defaultOverlapEndTimeSeconds: number | undefined = DEFAULT_OVERLAP_END_TIME_SECONDS;
 
 type OverlapPanelOptions = {
     expr: string;
@@ -15,6 +17,10 @@ type OverlapPanelOptions = {
     width?: string;
     height?: string;
     overlapEndTimeSeconds?: number;
+}
+
+export function setDefaultOverlapEndTimeSeconds(value?: number): void {
+    defaultOverlapEndTimeSeconds = value ?? DEFAULT_OVERLAP_END_TIME_SECONDS;
 }
 
 function normalizeToSeconds(value?: number): number {
@@ -26,8 +32,13 @@ function normalizeToSeconds(value?: number): number {
     return value > 1e10 ? Math.floor(value / 1000) : Math.floor(value);
 }
 
+function resolveOverlapEndTimeSeconds(overlapEndTimeSeconds?: number): number {
+    const configuredEnd = overlapEndTimeSeconds ?? defaultOverlapEndTimeSeconds;
+    return Math.max(1, normalizeToSeconds(configuredEnd));
+}
+
 function createOverlapTimeRange(overlapEndTimeSeconds?: number): NoUrlSyncTimeRange {
-    const endTimeSeconds = Math.max(1, normalizeToSeconds(overlapEndTimeSeconds));
+    const endTimeSeconds = resolveOverlapEndTimeSeconds(overlapEndTimeSeconds);
     return new NoUrlSyncTimeRange({
         from: new Date(0).toISOString(),
         to: new Date(endTimeSeconds * 1000).toISOString(),
@@ -82,6 +93,7 @@ export function createOverlapMetricPanel(
     title: string,
     options: OverlapPanelOptions
 ) : SceneFlexItem {
+    const endTimeSeconds = resolveOverlapEndTimeSeconds(options.overlapEndTimeSeconds);
     const panelWidth = options.width ?? layoutService.getPanelWidth();
     const timeRange = createOverlapTimeRange(options.overlapEndTimeSeconds);
     
@@ -103,7 +115,8 @@ export function createOverlapMetricPanel(
             legend: true,
             tooltip: true,
         });
-        b.matchFieldsWithName('TimeSeconds').overrideUnit('dtdhms');
+        // Pin the visible x-domain to overlap bounds even when first/last points are not at 0/end.
+        b.matchFieldsWithName('TimeSeconds').overrideUnit('dtdhms').overrideMin(0).overrideMax(endTimeSeconds);
         // this does not work and needs DEBUGGING
         if (options.legendFormat) {
             options.legendFormat.replace(/\{\{(\w+)\}\}/g, '${__field.labels.$1}');
