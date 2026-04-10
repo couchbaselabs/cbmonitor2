@@ -55,6 +55,7 @@ export function queryOverlapMetricsDashboard(snapshotIds: string, overlapEndTime
         unit: 'short',
       }),
     ],
+    "n1ql_requests",
     overlapEndTimeSeconds
   );
 }

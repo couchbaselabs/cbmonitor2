@@ -43,6 +43,7 @@ export function xdcrOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeS
         unit: 'bytes',
       }),
     ],
+    "xdcr_changes_left_total",
     overlapEndTimeSeconds
   );
 }

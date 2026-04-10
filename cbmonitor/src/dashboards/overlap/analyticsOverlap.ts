@@ -81,5 +81,5 @@ export function analyticsOverlapMetricsDashboard(snapshotIds: string, overlapEnd
             unit: 'short'
         }),
     ];
-    }, overlapEndTimeSeconds);
+    }, "cbas_io_writes_total", overlapEndTimeSeconds);
 }

@@ -92,9 +92,18 @@ export function createInstanceAwareScene(
 export function createInstanceAwareOverlapScene(
   snapshotIds: string,
   buildPanels: (context: OverlapPanelBuildContext) => SceneFlexItem[],
+  instanceMetricOrOverlapEndTimeSeconds?: string | number,
   overlapEndTimeSeconds?: number
 ): EmbeddedScene {
-  setDefaultOverlapEndTimeSeconds(overlapEndTimeSeconds);
+  const instanceMetric = typeof instanceMetricOrOverlapEndTimeSeconds === 'string'
+    ? instanceMetricOrOverlapEndTimeSeconds
+    : 'sys_cpu_utilization_rate';
+
+  const resolvedOverlapEndTimeSeconds = typeof instanceMetricOrOverlapEndTimeSeconds === 'number'
+    ? instanceMetricOrOverlapEndTimeSeconds
+    : overlapEndTimeSeconds;
+
+  setDefaultOverlapEndTimeSeconds(resolvedOverlapEndTimeSeconds);
 
   const layout = new SceneFlexLayout({
     minHeight: 55,
@@ -103,7 +112,7 @@ export function createInstanceAwareOverlapScene(
     children: [],
   });
 
-  const instancesRunner = getInstancesFromEvilPromMetricRunner(snapshotIds);
+  const instancesRunner = getInstancesFromEvilPromMetricRunner(snapshotIds, instanceMetric);
   layout.setState({ $data: instancesRunner });
   (instancesRunner as any).run?.();
 

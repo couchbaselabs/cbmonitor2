@@ -450,6 +450,7 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
             unit: 'ms'
         }),
     ],
+    "sgw_resource_utilization_system_memory_total",
     overlapEndTimeSeconds
   );
 }

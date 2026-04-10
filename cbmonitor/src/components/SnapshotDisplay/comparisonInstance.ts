@@ -12,6 +12,7 @@ import { sceneCacheService } from '../../services/sceneCache';
 import { buildServiceTabs } from '../../services/pageBuilder';
 import { StatusScene } from '../SceneComponents/StatusScene';
 import { InputScene } from '../SceneComponents/InputScene';
+import { SettingsDropdown } from '../SettingsDropdown/SettingsDropdown';
 
 // Global overlap mode (when true, hide columns and show placeholders)
 let overlapMode = false;
@@ -52,6 +53,18 @@ function setOverlapMode(value: boolean) {
 // Local header row showing Ready + Overlap button
 function CompareTopBar() {
     const [overlap, setOverlap] = React.useState(isOverlapModeEnabled());
+    const overlapSettingsDropdown = React.useMemo(() => new SettingsDropdown({
+        snapshotId: '',
+        clusters: [],
+        onLayoutChange: () => {
+            sceneCacheService.clearAll();
+            invalidateComparisonTabs();
+        },
+        showDataSourceSection: false,
+        showClusterSection: false,
+        showHideEmptySection: false,
+    }), []);
+
     const onToggle = () => {
         setOverlap((prev) => {
             const next = !prev;
@@ -63,12 +76,15 @@ function CompareTopBar() {
         style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' }
     },
         React.createElement('span', { style: { color: '#9CA3AF', fontSize: 12 } }, 'Ready'),
-        React.createElement((Button as any), {
-            variant: 'secondary',
-            size: 'sm',
-            onClick: onToggle,
-            style: overlap ? { background: '#065f46', borderColor: '#065f46', color: '#E5E7EB' } : undefined
-        }, 'Overlap')
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+            React.createElement((Button as any), {
+                variant: 'secondary',
+                size: 'sm',
+                onClick: onToggle,
+                style: overlap ? { background: '#065f46', borderColor: '#065f46', color: '#E5E7EB' } : undefined
+            }, 'Overlap'),
+            overlap ? React.createElement((overlapSettingsDropdown as any).Component, { model: overlapSettingsDropdown }) : null
+        )
     );
 }
 
