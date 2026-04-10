@@ -3,6 +3,22 @@ import { getInstancesFromMetricRunner, getInstancesFromEvilPromMetricRunner, par
 import { layoutService } from '../services/layoutService';
 import { SnapshotPhaseRegionsLayer } from '../layers/SnapshotPhaseRegionsLayer';
 
+export type OverlapPanelBuildContext = {
+  instance?: string;
+  titleSuffix: string;
+  instanceFilter: string;
+  instanceSumBySuffix: string;
+};
+
+function createOverlapPanelBuildContext(instance?: string): OverlapPanelBuildContext {
+  return {
+    instance,
+    titleSuffix: instance ? ` - ${instance}` : '',
+    instanceFilter: instance ? `, instance="${instance}"` : '',
+    instanceSumBySuffix: instance ? '' : ', instance',
+  };
+}
+
 /**
  * Build an EmbeddedScene with base panels and dynamic per-instance panels.
  * - Reads optional ?layout=rows|grid from URL and syncs to layoutService
@@ -74,8 +90,7 @@ export function createInstanceAwareScene(
 
 export function createInstanceAwareOverlapScene(
   snapshotIds: string,
-  buildPerInstancePanels: (instance: string) => SceneFlexItem[],
-  buildFallbackPanels: () => SceneFlexItem[]
+  buildPanels: (context: OverlapPanelBuildContext) => SceneFlexItem[]
 ): EmbeddedScene {
   const layout = new SceneFlexLayout({
     minHeight: 55,
@@ -94,10 +109,10 @@ export function createInstanceAwareOverlapScene(
     let perInstancePanels: SceneFlexItem[] = [];
     if (currentInstances && currentInstances.length > 0) {
       for (const i of currentInstances) {
-        perInstancePanels.push(...buildPerInstancePanels(i));
+        perInstancePanels.push(...buildPanels(createOverlapPanelBuildContext(i)));
       }
     } else {
-      perInstancePanels = buildFallbackPanels();
+      perInstancePanels = buildPanels(createOverlapPanelBuildContext());
     }
     layout.setState({ children: [...perInstancePanels] });
   };
