@@ -5,6 +5,7 @@ import { EVIL_PROM_DATASOURCE_REF } from "../constants";
 import { LegendDisplayMode, TooltipDisplayMode } from "@grafana/schema";
 import { layoutService } from "services/layoutService";
 import { NoUrlSyncTimeRange } from "./timeRange";
+import { overlapQueryCacheService } from "../services/overlapQueryCache";
 
 let panelIdCounter = 0;
 const DEFAULT_OVERLAP_END_TIME_SECONDS = 3 * 60 * 60;
@@ -88,6 +89,36 @@ function createOverlapDataTransformer(queryRunner: SceneQueryRunner): SceneDataT
     });
 }
 
+function getCachedOverlapQueryRunner(metricName: string, options: OverlapPanelOptions, timeRange: NoUrlSyncTimeRange): SceneQueryRunner {
+    const from = timeRange.state.value.from.toISOString();
+    const to = timeRange.state.value.to.toISOString();
+
+    return overlapQueryCacheService.getOrCreateRunner({
+        keyParts: [
+            'overlap-panel',
+            EVIL_PROM_DATASOURCE_REF.uid,
+            metricName,
+            options.expr,
+            options.legendFormat,
+            from,
+            to,
+        ],
+        createRunner: () => {
+            const runner = new SceneQueryRunner({
+                $timeRange: timeRange,
+                datasource: EVIL_PROM_DATASOURCE_REF,
+                queries: [{
+                    refId: metricName,
+                    expr: options.expr,
+                    legendFormat: options.legendFormat,
+                }],
+            });
+            (runner as any).run?.();
+            return runner;
+        },
+    });
+}
+
 export function createOverlapMetricPanel(
     metricName: string,
     title: string,
@@ -139,15 +170,7 @@ export function createOverlapMetricPanel(
     } catch (_e) { /* skip */ }
 
     const panel = panelBuilder.build();
-    const queryRunner = new SceneQueryRunner({
-                $timeRange: timeRange,
-                datasource: EVIL_PROM_DATASOURCE_REF,
-                queries: [{
-                    refId: metricName,
-                    expr: options.expr,
-                    legendFormat: options.legendFormat,
-                }],
-            });
+    const queryRunner = getCachedOverlapQueryRunner(metricName, options, timeRange);
     const dataTransformer = createOverlapDataTransformer(queryRunner);
 
     // Generate unique panel ID

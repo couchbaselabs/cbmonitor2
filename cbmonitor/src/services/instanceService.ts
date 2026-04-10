@@ -60,11 +60,13 @@ export function parseInstancesFromFrames(frames: any[]): string[] {
 export function getInstancesFromEvilPromMetricRunner(snapshotId: string, metricName = 'sys_cpu_utilization_rate'): SceneQueryRunner {
   // This is a bit of a hack to get instance lists from Evil Prometheus without needing to define a new query language or builder.
   // We leverage the fact that Evil Prom supports PromQL syntax and just use a special datasource reference to route it correctly.
+  const expr = `group by (instance) (${metricName}{job=~"${snapshotId}"})`;
+
   return new SceneQueryRunner({
     datasource: EVIL_PROM_DATASOURCE_REF,
     queries: [{
       refId: 'instances',
-      expr: `group by (instance) (${metricName}{job=~"${snapshotId}"})`,
+      expr,
       legendFormat: '{{instance}}',
       instant: true,
     }],
