@@ -53,16 +53,20 @@ function setOverlapMode(value: boolean) {
 // Local header row showing Ready + Overlap button
 function CompareTopBar() {
     const [overlap, setOverlap] = React.useState(isOverlapModeEnabled());
-    const overlapSettingsDropdown = React.useMemo(() => new SettingsDropdown({
+    const compareSettingsDropdown = React.useMemo(() => new SettingsDropdown({
         snapshotId: '',
         clusters: [],
         onLayoutChange: () => {
             sceneCacheService.clearAll();
             invalidateComparisonTabs();
         },
+        onHideEmptyChange: () => {
+            sceneCacheService.clearAll();
+            invalidateComparisonTabs();
+        },
         showDataSourceSection: false,
         showClusterSection: false,
-        showHideEmptySection: false,
+        showHideEmptySection: true,
     }), []);
 
     const onToggle = () => {
@@ -83,7 +87,7 @@ function CompareTopBar() {
                 onClick: onToggle,
                 style: overlap ? { background: '#065f46', borderColor: '#065f46', color: '#E5E7EB' } : undefined
             }, 'Overlap'),
-            overlap ? React.createElement((overlapSettingsDropdown as any).Component, { model: overlapSettingsDropdown }) : null
+            React.createElement((compareSettingsDropdown as any).Component, { model: compareSettingsDropdown })
         )
     );
 }
