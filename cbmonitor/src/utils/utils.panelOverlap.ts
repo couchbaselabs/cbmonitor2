@@ -19,18 +19,14 @@ type OverlapPanelOptions = {
     overlapEndTimeSeconds?: number;
 }
 
-function normalizeToSeconds(value?: number): number {
-    if (!value || !Number.isFinite(value)) {
-        return 1;
-    }
-
-    // Guard against accidental millisecond values passed through overlap wiring.
-    return value > 1e10 ? Math.floor(value / 1000) : Math.floor(value);
-}
-
 function resolveOverlapEndTimeSeconds(overlapEndTimeSeconds?: number): number {
-    const configuredEnd = overlapEndTimeSeconds ?? DEFAULT_OVERLAP_END_TIME_SECONDS;
-    return Math.max(1, normalizeToSeconds(configuredEnd));
+    const value = overlapEndTimeSeconds ?? DEFAULT_OVERLAP_END_TIME_SECONDS;
+    // Value must be a finite positive number of seconds. Fall back to default rather
+    // than silently producing a broken time range.
+    if (!Number.isFinite(value) || value <= 0) {
+        return DEFAULT_OVERLAP_END_TIME_SECONDS;
+    }
+    return Math.floor(value);
 }
 
 function createOverlapTimeRange(overlapEndTimeSeconds?: number): NoUrlSyncTimeRange {
