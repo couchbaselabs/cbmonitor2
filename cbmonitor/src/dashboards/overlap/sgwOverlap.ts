@@ -447,7 +447,7 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
         createOverlapMetricPanel('sgw_security_total_auth_time', `Security Total Authentication Time${titleSuffix}`, {
             expr: `sum by (job, database) (sgw_security_total_auth_time{job=~"${snapshotIds}"${instanceFilter}})`,
             legendFormat: '{{instance}} , {{database}}',
-            unit: 'ms'
+            unit: 'us'
         }),
     ],
     "sgw_resource_utilization_system_memory_total",
