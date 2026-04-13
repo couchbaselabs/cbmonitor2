@@ -33,6 +33,6 @@ export function clusterManagerOverlapMetricsDashboard(snapshotIds: string, overl
         width: '100%',
       }),
     ],
-    overlapEndTimeSeconds
+    { overlapEndTimeSeconds }
   );
 }

@@ -150,17 +150,3 @@ export function getMaxSnapshotDuration(metadatas: SnapshotMetadata[]): number {
     }
     return maxDuration;
 }
-
-/**
- * Global EndTime value for use in panelBuilder x axis.
- * Set this value after calling getMaxSnapshotDuration.
- */
-export let EndTime: number = 1000;
-
-/**
- * Helper to set EndTime from a list of snapshot metadata.
- * @param metadatas - Array of SnapshotMetadata
- */
-export function setGlobalEndTime(metadatas: SnapshotMetadata[]): void {
-    EndTime = getMaxSnapshotDuration(metadatas);
-}

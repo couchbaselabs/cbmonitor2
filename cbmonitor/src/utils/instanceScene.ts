@@ -11,6 +11,11 @@ export type OverlapPanelBuildContext = {
   instanceSumBySuffix: string;
 };
 
+export type InstanceAwareOverlapSceneOptions = {
+  instanceMetric?: string;
+  overlapEndTimeSeconds?: number;
+};
+
 function createOverlapPanelBuildContext(instance?: string): OverlapPanelBuildContext {
   return {
     instance,
@@ -92,22 +97,17 @@ export function createInstanceAwareScene(
 export function createInstanceAwareOverlapScene(
   snapshotIds: string,
   buildPanels: (context: OverlapPanelBuildContext) => SceneFlexItem[],
-  instanceMetricOrOverlapEndTimeSeconds?: string | number,
-  overlapEndTimeSeconds?: number
+  options: InstanceAwareOverlapSceneOptions = {}
 ): EmbeddedScene {
-  const instanceMetric = typeof instanceMetricOrOverlapEndTimeSeconds === 'string'
-    ? instanceMetricOrOverlapEndTimeSeconds
-    : 'sys_cpu_utilization_rate';
-
-  const resolvedOverlapEndTimeSeconds = typeof instanceMetricOrOverlapEndTimeSeconds === 'number'
-    ? instanceMetricOrOverlapEndTimeSeconds
-    : overlapEndTimeSeconds;
+  const instanceMetric = options.instanceMetric ?? 'sys_cpu_utilization_rate';
+  const resolvedOverlapEndTimeSeconds = options.overlapEndTimeSeconds;
 
   setDefaultOverlapEndTimeSeconds(resolvedOverlapEndTimeSeconds);
 
+  const initialLayout = layoutService.getLayout();
   const layout = new SceneFlexLayout({
     minHeight: 55,
-    direction: 'row',
+    direction: initialLayout === 'rows' ? 'column' : 'row',
     wrap: 'wrap',
     children: [],
   });

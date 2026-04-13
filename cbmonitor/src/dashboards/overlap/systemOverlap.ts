@@ -49,6 +49,6 @@ export function systemOverlapMetricsDashboard(snapshotIds: string, overlapEndTim
                 unit: 'Bps',
             }),
         ];
-    }, overlapEndTimeSeconds);
+    }, { overlapEndTimeSeconds });
 }
 

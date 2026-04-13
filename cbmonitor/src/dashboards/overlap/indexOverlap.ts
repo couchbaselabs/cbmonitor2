@@ -85,7 +85,6 @@ export function indexOverlapMetricsDashboard(snapshotIds: string, overlapEndTime
         unit: 'bytes',
       }),
     ],
-    "index_total_data_size",
-    overlapEndTimeSeconds
+    { instanceMetric: 'index_total_data_size', overlapEndTimeSeconds }
   );
 }

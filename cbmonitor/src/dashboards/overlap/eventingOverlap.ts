@@ -20,7 +20,6 @@ export function eventingOverlapMetricsDashboard(snapshotIds: string, overlapEndT
         width: '100%',
       }),
     ],
-    "eventing_worker_restart_count",
-    overlapEndTimeSeconds
+    { instanceMetric: 'eventing_worker_restart_count', overlapEndTimeSeconds }
   );
 }

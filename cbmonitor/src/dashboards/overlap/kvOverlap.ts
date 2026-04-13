@@ -82,7 +82,6 @@ export function kvOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSec
         width: '100%',
       }),
     ],
-    "kv_ops",
-    overlapEndTimeSeconds
+    { instanceMetric: 'kv_ops', overlapEndTimeSeconds }
   );
 }

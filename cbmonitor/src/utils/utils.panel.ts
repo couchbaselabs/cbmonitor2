@@ -143,7 +143,7 @@ export function makeLegendTemplate(extraFields?: string[]): string {
  * @param clusterId - The cluster ID to filter by
  * @returns The modified PromQL expression with cluster filter
  */
-export function InjectClusterFilter(expr: string, clusterId: string): string {
+export function injectClusterFilter(expr: string, clusterId: string): string {
     // Only inject into metric selectors that already have a label block {....}
     // This avoids matching PromQL keywords like sum, by, rate, instance, etc.
     // Match: metric_name{labels...} and inject cluster_uuid before closing brace
@@ -209,7 +209,7 @@ export function createMetricPanel(
     if (isPrometheus) {
         // --- PromQL path: use hardcoded expression directly ---
         // If cluster filter is active, inject it into the PromQL expression
-        const finalExpr = clusterFilter ? InjectClusterFilter(options.expr, clusterFilter) : options.expr;
+        const finalExpr = clusterFilter ? injectClusterFilter(options.expr, clusterFilter) : options.expr;
 
         queryRunner = new SceneQueryRunner({
             datasource: PROM_DATASOURCE_REF,

@@ -59,7 +59,6 @@ export function ftsOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
         unit: 'bytes',
       }),
     ],
-    "fts_total_queries",
-    overlapEndTimeSeconds
+    { instanceMetric: 'fts_total_queries', overlapEndTimeSeconds }
   );
 }

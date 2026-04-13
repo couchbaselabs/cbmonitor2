@@ -15,8 +15,8 @@ type OverlapPanelOptions = {
     expr: string;
     legendFormat?: string;
     unit?: string;
-    width?: string;
-    height?: string;
+    width?: number | string;
+    height?: number | string;
     overlapEndTimeSeconds?: number;
 }
 
@@ -127,7 +127,6 @@ export function createOverlapMetricPanel(
     const endTimeSeconds = resolveOverlapEndTimeSeconds(options.overlapEndTimeSeconds);
     const panelWidth = options.width ?? layoutService.getPanelWidth();
     const timeRange = createOverlapTimeRange(options.overlapEndTimeSeconds);
-    
     const panelBuilder = PanelBuilders.trend().setTitle(title) as any;
     panelBuilder.setOption('tooltip', { mode: TooltipDisplayMode.Multi });
     panelBuilder.setOption('legend', {
@@ -150,8 +149,8 @@ export function createOverlapMetricPanel(
         b.matchFieldsWithName('TimeSeconds').overrideUnit('dtdhms').overrideMin(0).overrideMax(endTimeSeconds);
         // this does not work and needs DEBUGGING
         if (options.legendFormat) {
-            options.legendFormat.replace(/\{\{(\w+)\}\}/g, '${__field.labels.$1}');
-            b.matchFieldsByQuery(metricName).overrideDisplayName("abc");
+            const legendTemplate = options.legendFormat.replace(/\{\{(\w+)\}\}/g, '${__field.labels.$1}');
+            b.matchFieldsByQuery(metricName).overrideDisplayName(legendTemplate);
         }
     });
     
