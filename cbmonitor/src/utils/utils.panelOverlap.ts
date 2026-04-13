@@ -9,7 +9,6 @@ import { overlapQueryCacheService } from "../services/overlapQueryCache";
 
 let panelIdCounter = 0;
 const DEFAULT_OVERLAP_END_TIME_SECONDS = 3 * 60 * 60;
-let defaultOverlapEndTimeSeconds: number | undefined = DEFAULT_OVERLAP_END_TIME_SECONDS;
 
 type OverlapPanelOptions = {
     expr: string;
@@ -18,10 +17,6 @@ type OverlapPanelOptions = {
     width?: number | string;
     height?: number | string;
     overlapEndTimeSeconds?: number;
-}
-
-export function setDefaultOverlapEndTimeSeconds(value?: number): void {
-    defaultOverlapEndTimeSeconds = value ?? DEFAULT_OVERLAP_END_TIME_SECONDS;
 }
 
 function normalizeToSeconds(value?: number): number {
@@ -34,7 +29,7 @@ function normalizeToSeconds(value?: number): number {
 }
 
 function resolveOverlapEndTimeSeconds(overlapEndTimeSeconds?: number): number {
-    const configuredEnd = overlapEndTimeSeconds ?? defaultOverlapEndTimeSeconds;
+    const configuredEnd = overlapEndTimeSeconds ?? DEFAULT_OVERLAP_END_TIME_SECONDS;
     return Math.max(1, normalizeToSeconds(configuredEnd));
 }
 

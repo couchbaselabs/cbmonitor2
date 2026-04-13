@@ -1,11 +1,10 @@
 import { EmbeddedScene } from '@grafana/scenes';
-import { createOverlapMetricPanel } from 'utils/utils.panelOverlap';
 import { createInstanceAwareOverlapScene } from 'utils/instanceScene';
 
 
 export function analyticsOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSeconds?: number): EmbeddedScene {
 
-    return createInstanceAwareOverlapScene(snapshotIds, ({ titleSuffix, instanceFilter, instanceSumBySuffix
+    return createInstanceAwareOverlapScene(snapshotIds, ({ titleSuffix, instanceFilter, instanceSumBySuffix, createOverlapMetricPanel
      }) => {
 
         return [

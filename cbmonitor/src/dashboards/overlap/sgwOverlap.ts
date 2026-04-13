@@ -1,11 +1,10 @@
 import { EmbeddedScene } from '@grafana/scenes';
-import { createOverlapMetricPanel } from 'utils/utils.panelOverlap';
 import { createInstanceAwareOverlapScene } from 'utils/instanceScene';
 
 export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSeconds?: number): EmbeddedScene {
   return createInstanceAwareOverlapScene(
     snapshotIds,
-    ({ titleSuffix, instanceFilter }) => [
+    ({ titleSuffix, instanceFilter, createOverlapMetricPanel }) => [
         // Resource Utilization Metrics
         createOverlapMetricPanel('sgw_resource_utilization_process_memory_resident', `Process Memory Resident${titleSuffix}`, {
             expr: `sum by (job) (sgw_resource_utilization_process_memory_resident{job=~"${snapshotIds}"${instanceFilter}})`,

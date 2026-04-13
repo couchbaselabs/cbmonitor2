@@ -2,13 +2,21 @@ import { EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneDataLayerSet } from
 import { getInstancesFromMetricRunner, getInstancesFromEvilPromMetricRunner, parseInstancesFromFrames } from 'services/instanceService';
 import { layoutService } from '../services/layoutService';
 import { SnapshotPhaseRegionsLayer } from '../layers/SnapshotPhaseRegionsLayer';
-import { setDefaultOverlapEndTimeSeconds } from './utils.panelOverlap';
+import { createOverlapMetricPanel } from './utils.panelOverlap';
+
+type OverlapMetricPanelFactoryOptions = Omit<Parameters<typeof createOverlapMetricPanel>[2], 'overlapEndTimeSeconds'>;
 
 export type OverlapPanelBuildContext = {
   instance?: string;
   titleSuffix: string;
   instanceFilter: string;
   instanceSumBySuffix: string;
+  overlapEndTimeSeconds?: number;
+  createOverlapMetricPanel: (
+    metricName: string,
+    title: string,
+    options: OverlapMetricPanelFactoryOptions
+  ) => SceneFlexItem;
 };
 
 export type InstanceAwareOverlapSceneOptions = {
@@ -16,12 +24,17 @@ export type InstanceAwareOverlapSceneOptions = {
   overlapEndTimeSeconds?: number;
 };
 
-function createOverlapPanelBuildContext(instance?: string): OverlapPanelBuildContext {
+function createOverlapPanelBuildContext(instance?: string, overlapEndTimeSeconds?: number): OverlapPanelBuildContext {
   return {
     instance,
     titleSuffix: instance ? ` - ${instance}` : '',
     instanceFilter: instance ? `, instance="${instance}"` : '',
     instanceSumBySuffix: instance ? '' : ', instance',
+    overlapEndTimeSeconds,
+    createOverlapMetricPanel: (metricName, title, options) => createOverlapMetricPanel(metricName, title, {
+      ...options,
+      overlapEndTimeSeconds,
+    }),
   };
 }
 
@@ -102,8 +115,6 @@ export function createInstanceAwareOverlapScene(
   const instanceMetric = options.instanceMetric ?? 'sys_cpu_utilization_rate';
   const resolvedOverlapEndTimeSeconds = options.overlapEndTimeSeconds;
 
-  setDefaultOverlapEndTimeSeconds(resolvedOverlapEndTimeSeconds);
-
   const initialLayout = layoutService.getLayout();
   const layout = new SceneFlexLayout({
     minHeight: 55,
@@ -122,10 +133,10 @@ export function createInstanceAwareOverlapScene(
     let perInstancePanels: SceneFlexItem[] = [];
     if (currentInstances && currentInstances.length > 0) {
       for (const i of currentInstances) {
-        perInstancePanels.push(...buildPanels(createOverlapPanelBuildContext(i)));
+        perInstancePanels.push(...buildPanels(createOverlapPanelBuildContext(i, resolvedOverlapEndTimeSeconds)));
       }
     } else {
-      perInstancePanels = buildPanels(createOverlapPanelBuildContext());
+      perInstancePanels = buildPanels(createOverlapPanelBuildContext(undefined, resolvedOverlapEndTimeSeconds));
     }
     layout.setState({ children: [...perInstancePanels] });
   };

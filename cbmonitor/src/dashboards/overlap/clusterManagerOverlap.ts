@@ -1,11 +1,10 @@
 import { EmbeddedScene } from '@grafana/scenes';
-import { createOverlapMetricPanel } from 'utils/utils.panelOverlap';
 import { createInstanceAwareOverlapScene } from 'utils/instanceScene';
 
 export function clusterManagerOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSeconds?: number): EmbeddedScene {
   return createInstanceAwareOverlapScene(
     snapshotIds,
-    ({ titleSuffix, instanceFilter, instanceSumBySuffix }) => [
+    ({ titleSuffix, instanceFilter, instanceSumBySuffix, createOverlapMetricPanel }) => [
       createOverlapMetricPanel('sysproc_cpu_seconds_total', `ns_server CPU Time (Cumulative Seconds)${titleSuffix}`, {
         expr: `sum by (job${instanceSumBySuffix}) (sysproc_cpu_seconds_total{job=~"${snapshotIds}",proc="ns_server"${instanceFilter}})`,
         unit: 's',

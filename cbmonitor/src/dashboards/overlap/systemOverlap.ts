@@ -1,9 +1,8 @@
 import { EmbeddedScene } from "@grafana/scenes";
-import { createOverlapMetricPanel } from "utils/utils.panelOverlap";
 import { createInstanceAwareOverlapScene } from "utils/instanceScene";
 
 export function systemOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSeconds?: number): EmbeddedScene {
-    return createInstanceAwareOverlapScene(snapshotIds, ({ instanceFilter, titleSuffix, instanceSumBySuffix }) => {
+    return createInstanceAwareOverlapScene(snapshotIds, ({ instanceFilter, titleSuffix, instanceSumBySuffix, createOverlapMetricPanel }) => {
 
         return [
             createOverlapMetricPanel('sys_cpu_utilization_rate', `CPU Utilization (%)${titleSuffix}`, {
