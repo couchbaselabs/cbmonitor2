@@ -23,6 +23,19 @@ datasources:
     prometheusType: Mimir
     prometheusVersion: 2.9.1
   secureJsonData: {}
+- name: ProxyPrometheus
+  uid: proxyprometheus
+  type: prometheus
+  access: proxy
+  url: ${PROXY_PROMETHEUS_URL}
+  basicAuth: false
+  isDefault: false
+  jsonData:
+    cacheLevel: High
+    httpMethod: GET
+    prometheusType: Mimir
+    prometheusVersion: 2.9.1
+  secureJsonData: {}
 - name: Showfast
   type: yesoreyeram-infinity-datasource
   access: proxy

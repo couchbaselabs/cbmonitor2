@@ -7,11 +7,12 @@ import { Button } from '@grafana/ui';
 import CompareHeader from './CompareHeader';
 import { layoutService } from '../../services/layoutService';
 import { createNoUrlSyncTimeRange, buildQuickRanges, syncTimeRangesToPhase, syncTimeRangesToFullRange, NoUrlSyncTimeRange } from '../../utils/timeRange';
-import { loadSnapshots, findCommonServicesInSnapshots, findCommonPhasesInSnapshots, formatSnapshotInfo } from '../../services/snapshotLoader';
+import { loadSnapshots, findCommonServicesInSnapshots, findCommonPhasesInSnapshots, formatSnapshotInfo, getMaxSnapshotDuration } from '../../services/snapshotLoader';
 import { sceneCacheService } from '../../services/sceneCache';
 import { buildServiceTabs } from '../../services/pageBuilder';
 import { StatusScene } from '../SceneComponents/StatusScene';
 import { InputScene } from '../SceneComponents/InputScene';
+import { SettingsDropdown } from '../SettingsDropdown/SettingsDropdown';
 
 // Global overlap mode (when true, hide columns and show placeholders)
 let overlapMode = false;
@@ -37,7 +38,8 @@ function invalidateComparisonTabs() {
             mode: 'comparison',
             routePrefix: ROUTES.Compare,
             timeRanges: getComparisonTimeRanges(),
-            overlapMode: isOverlapModeEnabled()
+            overlapMode: isOverlapModeEnabled(),
+            overlapEndTimeSeconds: ctx.overlapEndTimeSeconds,
         });
         comparisonPage.setState({ tabs });
     }
@@ -51,6 +53,22 @@ function setOverlapMode(value: boolean) {
 // Local header row showing Ready + Overlap button
 function CompareTopBar() {
     const [overlap, setOverlap] = React.useState(isOverlapModeEnabled());
+    const compareSettingsDropdown = React.useMemo(() => new SettingsDropdown({
+        snapshotId: '',
+        clusters: [],
+        onLayoutChange: () => {
+            sceneCacheService.clearAll();
+            invalidateComparisonTabs();
+        },
+        onHideEmptyChange: () => {
+            sceneCacheService.clearAll();
+            invalidateComparisonTabs();
+        },
+        showDataSourceSection: false,
+        showClusterSection: false,
+        showHideEmptySection: true,
+    }), []);
+
     const onToggle = () => {
         setOverlap((prev) => {
             const next = !prev;
@@ -62,12 +80,15 @@ function CompareTopBar() {
         style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' }
     },
         React.createElement('span', { style: { color: '#9CA3AF', fontSize: 12 } }, 'Ready'),
-        React.createElement((Button as any), {
-            variant: 'secondary',
-            size: 'sm',
-            onClick: onToggle,
-            style: overlap ? { background: '#065f46', borderColor: '#065f46', color: '#E5E7EB' } : undefined
-        }, 'Overlap')
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+            React.createElement((Button as any), {
+                variant: 'secondary',
+                size: 'sm',
+                onClick: onToggle,
+                style: overlap ? { background: '#065f46', borderColor: '#065f46', color: '#E5E7EB' } : undefined
+            }, 'Overlap'),
+            React.createElement((compareSettingsDropdown as any).Component, { model: compareSettingsDropdown })
+        )
     );
 }
 
@@ -100,7 +121,12 @@ export const comparisonPage = new SceneAppPage({
 });
 
 // Holds the last computed comparison context (snapshot IDs and common services)
-let lastComparisonContext: { snapshotIds: string[]; commonServices: string[]; commonPhases: string[] } | null = null;
+let lastComparisonContext: {
+    snapshotIds: string[];
+    commonServices: string[];
+    commonPhases: string[];
+    overlapEndTimeSeconds: number;
+} | null = null;
 
 // Public getter for other modules to use when building dashboards
 export function getComparisonContext() {
@@ -184,12 +210,18 @@ comparisonPage.addActivationHandler(() => {
                 // Find common services and phases using utility functions
                 const commonServices = findCommonServicesInSnapshots(snapshots);
                 const commonPhases = findCommonPhasesInSnapshots(snapshots);
+                const overlapEndTimeSeconds = Math.max(1, Math.floor(getMaxSnapshotDuration(snapshots.map((s) => s.metadata)) / 1000));
 
                 // Build success message with snapshot info
                 const snapshotInfo = formatSnapshotInfo(snapshots);
 
                 // Persist comparison context for later use when building dashboards
-                lastComparisonContext = { snapshotIds: [...snapshotIds], commonServices, commonPhases };
+                lastComparisonContext = {
+                    snapshotIds: [...snapshotIds],
+                    commonServices,
+                    commonPhases,
+                    overlapEndTimeSeconds,
+                };
 
                 const successMessage = `Successfully loaded ${snapshots.length} snapshots:\n\n${snapshotInfo}\n\nCommon services (${commonServices.length}): ${commonServices.join(', ') || 'none'}\nCommon phases (${commonPhases.length}): ${commonPhases.join(', ') || 'none'}\n\n✓ All snapshots validated and ready for comparison!`;
 
@@ -222,7 +254,8 @@ comparisonPage.addActivationHandler(() => {
                     mode: 'comparison',
                     routePrefix: ROUTES.Compare,
                     timeRanges,
-                    overlapMode: isOverlapModeEnabled()
+                    overlapMode: isOverlapModeEnabled(),
+                    overlapEndTimeSeconds,
                 });
 
                 // Handler: clicking a common phase sets all time ranges to that phase

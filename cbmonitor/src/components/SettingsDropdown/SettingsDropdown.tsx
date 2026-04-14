@@ -12,10 +12,14 @@ const ALL_CLUSTERS = '__all__';
 interface SettingsDropdownState extends SceneObjectState {
     snapshotId: string;
     clusters: Cluster[];
-    onLayoutChange: () => void;
-    onDataSourceChange: () => void;
-    onClusterChange: (clusterId: string | null) => void;
-    onHideEmptyChange: () => void;
+    onLayoutChange?: () => void;
+    onDataSourceChange?: () => void;
+    onClusterChange?: (clusterId: string | null) => void;
+    onHideEmptyChange?: () => void;
+    showLayoutSection?: boolean;
+    showDataSourceSection?: boolean;
+    showClusterSection?: boolean;
+    showHideEmptySection?: boolean;
 }
 
 export class SettingsDropdown extends SceneObjectBase<SettingsDropdownState> {
@@ -27,7 +31,17 @@ export class SettingsDropdown extends SceneObjectBase<SettingsDropdownState> {
 }
 
 function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdown>) {
-    const { clusters, onLayoutChange, onDataSourceChange, onClusterChange, onHideEmptyChange } = model.useState();
+    const {
+        clusters,
+        onLayoutChange,
+        onDataSourceChange,
+        onClusterChange,
+        onHideEmptyChange,
+        showLayoutSection = true,
+        showDataSourceSection = true,
+        showClusterSection = true,
+        showHideEmptySection = true,
+    } = model.useState();
     
     const [isOpen, setIsOpen] = useState(false);
     const [layout, setLayout] = useState<LayoutMode>(layoutService.getLayout());
@@ -118,25 +132,25 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
 
     const handleLayoutChange = (value: LayoutMode) => {
         layoutService.setLayout(value);
-        onLayoutChange();
+        onLayoutChange?.();
     };
 
     const handleDataSourceChange = (option: ComboboxOption<DataSourceType> | null) => {
         if (option?.value && option.value !== dataSource) {
             dataSourceService.setCurrentDataSource(option.value);
-            onDataSourceChange();
+            onDataSourceChange?.();
         }
     };
 
     const handleClusterChange = (option: ComboboxOption<string> | null) => {
         const newValue = option?.value ?? ALL_CLUSTERS;
         setSelectedCluster(newValue);
-        onClusterChange(newValue === ALL_CLUSTERS ? null : newValue);
+        onClusterChange?.(newValue === ALL_CLUSTERS ? null : newValue);
     };
 
     const handleHideEmptyChange = (checked: boolean) => {
         layoutService.setHideEmptyPanels(checked);
-        onHideEmptyChange();
+        onHideEmptyChange?.();
     };
 
     const layoutOptions = [
@@ -188,7 +202,7 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
                         border: '1px solid #374151',
                         borderRadius: 8,
                         padding: 16,
-                        minWidth: 280,
+                        minWidth: showDataSourceSection || showClusterSection || showHideEmptySection ? 280 : 240,
                         zIndex: 1000,
                         boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
                     }}
@@ -197,31 +211,32 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
                         Settings
                     </div>
 
-                    {/* Layout Section */}
-                    <div style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 6 }}>Layout</div>
-                        <RadioButtonGroup
-                            options={layoutOptions}
-                            value={layout}
-                            onChange={handleLayoutChange}
-                            size="sm"
-                            fullWidth
-                        />
-                    </div>
+                    {showLayoutSection && (
+                        <div style={{ marginBottom: 16 }}>
+                            <div style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 6 }}>Layout</div>
+                            <RadioButtonGroup
+                                options={layoutOptions}
+                                value={layout}
+                                onChange={handleLayoutChange}
+                                size="sm"
+                                fullWidth
+                            />
+                        </div>
+                    )}
 
-                    {/* Datasource Section */}
-                    <div style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 6 }}>Data Source</div>
-                        <Combobox
-                            options={dataSourceOptions}
-                            value={dataSource}
-                            onChange={handleDataSourceChange}
-                            width={30}
-                        />
-                    </div>
+                    {showDataSourceSection && (
+                        <div style={{ marginBottom: 16 }}>
+                            <div style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 6 }}>Data Source</div>
+                            <Combobox
+                                options={dataSourceOptions}
+                                value={dataSource}
+                                onChange={handleDataSourceChange}
+                                width={30}
+                            />
+                        </div>
+                    )}
 
-                    {/* Cluster Section - only show if clusters exist */}
-                    {clusters.length > 0 && (
+                    {showClusterSection && clusters.length > 0 && (
                         <div style={{ marginBottom: 16 }}>
                             <div style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 6 }}>Cluster Filter</div>
                             <Combobox
@@ -234,14 +249,15 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
                         </div>
                     )}
 
-                    {/* Hide Empty Panels */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ fontSize: 12, color: '#9CA3AF' }}>Hide Empty Panels</div>
-                        <Switch
-                            value={hideEmpty}
-                            onChange={(e) => handleHideEmptyChange(e.currentTarget.checked)}
-                        />
-                    </div>
+                    {showHideEmptySection && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ fontSize: 12, color: '#9CA3AF' }}>Hide Empty Panels</div>
+                            <Switch
+                                value={hideEmpty}
+                                onChange={(e) => handleHideEmptyChange(e.currentTarget.checked)}
+                            />
+                        </div>
+                    )}
                 </div>
             )}
         </div>

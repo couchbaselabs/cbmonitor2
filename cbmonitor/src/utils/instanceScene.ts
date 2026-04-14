@@ -1,7 +1,42 @@
 import { EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneDataLayerSet } from '@grafana/scenes';
-import { getInstancesFromMetricRunner, parseInstancesFromFrames } from 'services/instanceService';
+import { getInstancesFromMetricRunner, getInstancesFromProxyPromMetricRunner, parseInstancesFromFrames } from 'services/instanceService';
 import { layoutService } from '../services/layoutService';
 import { SnapshotPhaseRegionsLayer } from '../layers/SnapshotPhaseRegionsLayer';
+import { createOverlapMetricPanel } from './utils.panelOverlap';
+
+type OverlapMetricPanelFactoryOptions = Omit<Parameters<typeof createOverlapMetricPanel>[2], 'overlapEndTimeSeconds'>;
+
+export type OverlapPanelBuildContext = {
+  instance?: string;
+  titleSuffix: string;
+  instanceFilter: string;
+  instanceSumBySuffix: string;
+  overlapEndTimeSeconds?: number;
+  createOverlapMetricPanel: (
+    metricName: string,
+    title: string,
+    options: OverlapMetricPanelFactoryOptions
+  ) => SceneFlexItem;
+};
+
+export type InstanceAwareOverlapSceneOptions = {
+  instanceMetric?: string;
+  overlapEndTimeSeconds?: number;
+};
+
+function createOverlapPanelBuildContext(instance?: string, overlapEndTimeSeconds?: number): OverlapPanelBuildContext {
+  return {
+    instance,
+    titleSuffix: instance ? ` - ${instance}` : '',
+    instanceFilter: instance ? `, instance="${instance}"` : '',
+    instanceSumBySuffix: instance ? '' : ', instance',
+    overlapEndTimeSeconds,
+    createOverlapMetricPanel: (metricName, title, options) => createOverlapMetricPanel(metricName, title, {
+      ...options,
+      overlapEndTimeSeconds,
+    }),
+  };
+}
 
 /**
  * Build an EmbeddedScene with base panels and dynamic per-instance panels.
@@ -70,4 +105,54 @@ export function createInstanceAwareScene(
   });
 
   return new EmbeddedScene({ body: layout, $data: globalLayers });
+}
+
+export function createInstanceAwareOverlapScene(
+  snapshotIds: string,
+  buildPanels: (context: OverlapPanelBuildContext) => SceneFlexItem[],
+  options: InstanceAwareOverlapSceneOptions = {}
+): EmbeddedScene {
+  const instanceMetric = options.instanceMetric ?? 'sys_cpu_utilization_rate';
+  const resolvedOverlapEndTimeSeconds = options.overlapEndTimeSeconds;
+
+  const initialLayout = layoutService.getLayout();
+  const layout = new SceneFlexLayout({
+    minHeight: 55,
+    direction: initialLayout === 'rows' ? 'column' : 'row',
+    wrap: 'wrap',
+    children: [],
+  });
+
+  const instancesRunner = getInstancesFromProxyPromMetricRunner(snapshotIds, instanceMetric);
+  layout.setState({ $data: instancesRunner });
+  (instancesRunner as any).run?.();
+
+  let currentInstances: string[] = [];
+
+  const rebuild = () => {
+    let perInstancePanels: SceneFlexItem[] = [];
+    if (currentInstances && currentInstances.length > 0) {
+      for (const i of currentInstances) {
+        perInstancePanels.push(...buildPanels(createOverlapPanelBuildContext(i, resolvedOverlapEndTimeSeconds)));
+      }
+    } else {
+      perInstancePanels = buildPanels(createOverlapPanelBuildContext(undefined, resolvedOverlapEndTimeSeconds));
+    }
+    layout.setState({ children: [...perInstancePanels] });
+  };
+
+  instancesRunner.subscribeToState((state: any) => {
+    const frames = state?.data?.series ?? [];
+    currentInstances = parseInstancesFromFrames(frames);
+    rebuild();
+  });
+
+  layoutService.subscribe((mode) => {
+    layout.setState({ direction: mode === 'rows' ? 'column' : 'row' });
+    rebuild();
+  });
+
+  rebuild();
+
+  return new EmbeddedScene({ body: layout });
 }

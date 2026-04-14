@@ -3,7 +3,6 @@ import { createMetricPanel } from 'utils/utils.panel';
 import { createInstanceAwareScene } from 'utils/instanceScene';
 
 // TO DO: add a way to select which indexes you want to compare
-// TO DO: add a way to select which indexes you want to compare
 export function indexMetricsDashboard(snapshotId: string): EmbeddedScene {
     const buildBaseChildren = () => [
         // Indexer

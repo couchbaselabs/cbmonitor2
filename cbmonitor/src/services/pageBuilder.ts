@@ -18,6 +18,7 @@ export interface PageBuilderOptions {
     routePrefix: string;
     timeRanges?: SceneTimeRange[];
     overlapMode?: boolean;
+    overlapEndTimeSeconds?: number;
 }
 
 /**
@@ -47,7 +48,7 @@ export interface PageBuilderOptions {
  * });
  */
 export function buildServiceTabs(options: PageBuilderOptions): SceneAppPage[] {
-    const { snapshotIds, services, mode, routePrefix, timeRanges, overlapMode } = options;
+    const { snapshotIds, services, mode, routePrefix, timeRanges, overlapMode, overlapEndTimeSeconds } = options;
 
     if (mode === 'single' && snapshotIds.length !== 1) {
         throw new Error('Single mode requires exactly one snapshot ID');
@@ -68,7 +69,7 @@ export function buildServiceTabs(options: PageBuilderOptions): SceneAppPage[] {
         if (mode === 'single') {
             pages.push(buildSingleSnapshotPage(config.key, snapshotIds[0], routePrefix));
         } else {
-            pages.push(buildComparisonPage(config.key, snapshotIds, routePrefix, timeRanges, overlapMode));
+            pages.push(buildComparisonPage(config.key, snapshotIds, routePrefix, timeRanges, overlapMode, overlapEndTimeSeconds));
         }
     }
 
@@ -151,7 +152,8 @@ function buildComparisonPage(
     snapshotIds: string[],
     routePrefix: string,
     timeRanges?: SceneTimeRange[],
-    overlapMode?: boolean
+    overlapMode?: boolean,
+    overlapEndTimeSeconds?: number
 ): SceneAppPage {
     const config = getServiceConfig(serviceKey);
 
@@ -189,8 +191,12 @@ function buildComparisonPage(
                 });
             }
 
-            // If overlap mode is enabled, show placeholder
+            // If overlap mode is enabled
             if (overlapMode) {
+                const overlapSnapshotIds = snapshotIds.join('|');
+                if (config.overlapDashboardBuilder) {
+                    return config.overlapDashboardBuilder(overlapSnapshotIds, overlapEndTimeSeconds);
+                }
                 return new EmbeddedScene({
                     body: new SceneFlexLayout({
                         direction: 'row',
