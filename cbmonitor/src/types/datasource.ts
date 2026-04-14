@@ -4,7 +4,7 @@
 export enum DataSourceType {
     Couchbase = 'couchbase',
     Prometheus = 'prometheus',
-    EvilPrometheus = 'evilprometheus',
+    ProxyPrometheus = 'proxyprometheus',
 }
 
 /**

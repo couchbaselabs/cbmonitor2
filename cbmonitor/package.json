@@ -1,7 +1,6 @@
 {
   "name": "cbmonitor",
   "version": "0.0.1",
-  "type": "module",
   "scripts": {
     "build": "webpack -c ./.config/webpack/webpack.config.ts --env production",
     "dev": "webpack -w -c ./.config/webpack/webpack.config.ts --env development",

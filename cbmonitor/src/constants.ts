@@ -21,8 +21,8 @@ export const PROM_DATASOURCE_REF = {
   type: 'prometheus'
 } as const;
 
-export const EVIL_PROM_DATASOURCE_REF = {
-  uid: 'evilprometheus',
+export const PROXY_PROM_DATASOURCE_REF = {
+  uid: 'proxyprometheus',
   type: 'prometheus'
 } as const;
 

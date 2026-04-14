@@ -1,7 +1,7 @@
 import { PanelBuilders, SceneDataTransformer, SceneFlexItem, SceneQueryRunner } from "@grafana/scenes";
 import { FieldType } from "@grafana/data";
 import { hasDataValues } from "./utils.panel";
-import { EVIL_PROM_DATASOURCE_REF } from "../constants";
+import { PROXY_PROM_DATASOURCE_REF } from "../constants";
 import { LegendDisplayMode, TooltipDisplayMode } from "@grafana/schema";
 import { layoutService } from "services/layoutService";
 import { NoUrlSyncTimeRange } from "./timeRange";
@@ -87,7 +87,7 @@ function getCachedOverlapQueryRunner(metricName: string, options: OverlapPanelOp
     return overlapQueryCacheService.getOrCreateRunner({
         keyParts: [
             'overlap-panel',
-            EVIL_PROM_DATASOURCE_REF.uid,
+            PROXY_PROM_DATASOURCE_REF.uid,
             metricName,
             options.expr,
             options.legendFormat,
@@ -97,7 +97,7 @@ function getCachedOverlapQueryRunner(metricName: string, options: OverlapPanelOp
         createRunner: () => {
             const runner = new SceneQueryRunner({
                 $timeRange: timeRange,
-                datasource: EVIL_PROM_DATASOURCE_REF,
+                datasource: PROXY_PROM_DATASOURCE_REF,
                 queries: [{
                     refId: metricName,
                     expr: options.expr,
@@ -149,7 +149,7 @@ export function createOverlapMetricPanel(
     try {
         const descriptionMd = [
             `**Metric:** ${metricName} \n`,
-            `**Datasource:** Evil Prometheus \n`,
+            `**Datasource:** Proxy Prometheus \n`,
             '',
             '**Query:**',
             '```promql',

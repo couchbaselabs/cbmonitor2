@@ -23,11 +23,11 @@ datasources:
     prometheusType: Mimir
     prometheusVersion: 2.9.1
   secureJsonData: {}
-- name: EvilPrometheus
-  uid: evilprometheus
+- name: ProxyPrometheus
+  uid: proxyprometheus
   type: prometheus
   access: proxy
-  url: ${EVIL_PROMETHEUS_URL}
+  url: ${PROXY_PROMETHEUS_URL}
   basicAuth: false
   isDefault: false
   jsonData:
