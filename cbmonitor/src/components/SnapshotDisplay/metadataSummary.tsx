@@ -1,13 +1,18 @@
-import React, { useState } from "react";
-import { Icon } from "@grafana/ui";
-import { SnapshotMetadata } from "types/snapshot";
+import React from 'react';
+import { Icon } from '@grafana/ui';
+import { SnapshotMetadata } from 'types/snapshot';
 
 interface FormatMetadataSummaryProps {
     metadata: SnapshotMetadata;
+    onSelectPhase?: (phaseLabel: string) => void;
+    onSelectFullRange?: () => void;
+    initialActivePhase?: string | null;
 }
 
-// Helper function to check if a string is a valid URL
-function isValidURL(str: string): boolean {
+function isValidURL(str?: string): boolean {
+    if (!str) {
+        return false;
+    }
     try {
         const url = new URL(str);
         return url.protocol === 'http:' || url.protocol === 'https:';
@@ -16,8 +21,7 @@ function isValidURL(str: string): boolean {
     }
 }
 
-// Helper function to render label - as link if URL, otherwise as text
-function renderLabel(label: string | undefined): React.ReactNode {
+function renderLabel(label?: string): React.ReactNode {
     if (!label) {
         return null;
     }
@@ -28,78 +32,125 @@ function renderLabel(label: string | undefined): React.ReactNode {
                 href={label}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ color: '#5794F2', textDecoration: 'none' }}
+                style={{ color: '#5794F2', textDecoration: 'none', wordBreak: 'break-word' }}
             >
                 {label}
             </a>
         );
     }
 
-    return <span>{label}</span>;
+    return <span style={{ wordBreak: 'break-word' }}>{label}</span>;
 }
 
 export function FormatMetadataSummary(props: FormatMetadataSummaryProps) {
-    const { metadata } = props;
-    const [isExpanded, setIsExpanded] = useState(false);
-    const [copied, setCopied] = useState(false);
+    const { metadata, onSelectPhase, onSelectFullRange, initialActivePhase } = props;
+    const [copied, setCopied] = React.useState(false);
+    const [activePhase, setActivePhase] = React.useState<string | null>(null);
 
-    const copySnapshotId = () => {
-        navigator.clipboard.writeText(metadata.snapshotId);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+    React.useEffect(() => {
+        setActivePhase(initialActivePhase ?? null);
+    }, [metadata.snapshotId, initialActivePhase]);
+
+    const onCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(metadata.snapshotId);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1200);
+        } catch {
+            // ignore
+        }
     };
 
     return (
-        <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                <div>
-                    <b>Snapshot ID:</b>{' '}
-                    <span
-                        onClick={copySnapshotId}
-                        style={{ cursor: 'pointer' }}
-                        title="Click to copy"
-                    >
-                        {metadata.snapshotId}
-                        <Icon name={copied ? "check" : "copy"} style={{ marginLeft: '4px' }} />
-                    </span>
-                    <br /> <b>Server Version:</b> {metadata.version}
-                    {metadata.phases && metadata.phases.length > 0 && (
-                        <span style={{ marginLeft: '8px', fontSize: '12px', color: '#888' }}>
-                            ({metadata.phases.length} phases available in time picker)
-                        </span>
-                    )}
-                    <span
-                        onClick={() => setIsExpanded(!isExpanded)}
-                        style={{ marginLeft: '10px', cursor: 'pointer' }}
-                        title={isExpanded ? "Show less" : "Show more"}
-                    >
-                        <Icon name={isExpanded ? "angle-up" : "angle-down"} />
-                    </span>
-                </div>
+        <div style={{
+            background: '#111827',
+            border: '1px solid #374151',
+            borderRadius: 8,
+            padding: '10px 12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+            marginTop: 8
+        }}>
+            <div style={{ fontWeight: 600, marginBottom: 2, fontSize: 14 }}>Snapshot</div>
+            <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <b>ID:</b>
+                <span style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{metadata.snapshotId}</span>
+                <button
+                    onClick={onCopy}
+                    title={copied ? 'Copied' : 'Copy ID'}
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '1px solid #374151',
+                        background: copied ? '#064e3b' : '#1f2937',
+                        color: '#E5E7EB',
+                        borderRadius: 4,
+                        padding: '4px 6px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    <Icon name={copied ? 'check' : 'copy'} size={'md'} />
+                </button>
             </div>
-            {isExpanded && (
-                <div style={{ marginTop: '8px' }}>
-                    {metadata.label && (
-                        <div style={{ marginTop: '4px' }}>
-                            <b>Label:</b> {renderLabel(metadata.label)}
-                        </div>
-                    )}
-                    {metadata.phases && metadata.phases.length > 0 && (
-                        <div style={{ marginTop: '4px' }}>
-                            <b>Phases:</b> {metadata.phases.map((p) =>
-                                `📍 ${p.label}: ${formatPhaseTime(p.ts_start)} - ${formatPhaseTime(p.ts_end)}`
-                            ).join(' ,\n ')}
-                        </div>
-                    )}
+            <div style={{ fontSize: 12 }}>
+                <b>Server Version:</b> {metadata.version}
+            </div>
+            {metadata.label && (
+                <div style={{ fontSize: 12 }}>
+                    <b>Label:</b> {renderLabel(metadata.label)}
                 </div>
             )}
+            <div style={{ marginTop: 2 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <b style={{ fontSize: 12 }}>Phases:</b>
+                </div>
+                <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {!metadata.phases || metadata.phases.length === 0 ? (
+                        <span style={{ color: '#888', fontSize: 12 }}>No phases</span>
+                    ) : (
+                        metadata.phases.map((p) => {
+                            const isActive = activePhase === p.label;
+                            return (
+                                <button
+                                    key={p.label}
+                                    type="button"
+                                    onClick={() => {
+                                        setActivePhase((prev) => {
+                                            if (prev === p.label) {
+                                                onSelectFullRange?.();
+                                                return null;
+                                            }
+                                            onSelectPhase?.(p.label);
+                                            return p.label;
+                                        });
+                                    }}
+                                    title={`${p.label}: ${formatPhaseTime(p.ts_start)} - ${formatPhaseTime(p.ts_end)}`}
+                                    style={{
+                                        fontSize: 12,
+                                        padding: '2px 6px',
+                                        borderRadius: 4,
+                                        background: isActive ? '#065f46' : '#92400e',
+                                        border: isActive ? '1px solid #10b981' : '1px solid #b45309',
+                                        color: isActive ? '#ecfdf5' : '#ffedd5',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    {p.label}
+                                </button>
+                            );
+                        })
+                    )}
+                </div>
+            </div>
         </div>
     );
 }
 
-function formatPhaseTime(timestamp: string): string {
-    if (!timestamp || timestamp.startsWith("now")) {
-        return timestamp;
+function formatPhaseTime(timestamp?: string): string {
+    if (!timestamp || timestamp.startsWith('now')) {
+        return timestamp ?? '';
     }
     const date = new Date(timestamp);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });

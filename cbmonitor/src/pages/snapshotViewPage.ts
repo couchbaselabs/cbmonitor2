@@ -1,5 +1,6 @@
 import React from 'react';
-import { SceneAppPage, SceneTimePicker, SceneRefreshPicker, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectBase, SceneObjectState } from '@grafana/scenes';
+import { SceneAppPage, SceneRefreshPicker, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectBase, SceneObjectState } from '@grafana/scenes';
+import { dateTime } from '@grafana/data';
 import { ROUTES, prefixRoute } from '../utils/utils.routing';
 import { getDashboardsForServices } from '../pages';
 import { locationService } from '@grafana/runtime';
@@ -7,7 +8,7 @@ import { SnapshotSearchScene } from './SnapshotSearch';
 import { FormatMetadataSummary } from '../components/SnapshotDisplay/metadataSummary';
 import { Phase } from '../types/snapshot';
 import { SettingsDropdown } from '../components/SettingsDropdown/SettingsDropdown';
-import { createNoUrlSyncTimeRange, buildQuickRanges, initializeTimeRange } from '../utils/timeRange';
+import { createNoUrlSyncTimeRange, initializeTimeRange } from '../utils/timeRange';
 import { loadSnapshot } from '../services/snapshotLoader';
 import { sceneCacheService } from '../services/sceneCache';
 import { clusterFilterService } from '../services/clusterFilterService';
@@ -139,8 +140,31 @@ snapshotViewPage.addActivationHandler(() => {
           handleTimeRangeChange();
         });
 
-        // Build quick ranges using utility function
-        const quickRanges = buildQuickRanges(metadata);
+        const onSelectPhase = (phaseLabel: string) => {
+          if (!metadata.phases || metadata.phases.length === 0) {
+            return;
+          }
+
+          const selectedPhase = metadata.phases.find((p: Phase) => p.label === phaseLabel);
+          if (!selectedPhase) {
+            return;
+          }
+
+          const nextTo = selectedPhase.ts_end || metadata.ts_end;
+          timeRange.onTimeRangeChange({
+            from: dateTime(selectedPhase.ts_start),
+            to: dateTime(nextTo),
+            raw: { from: selectedPhase.ts_start, to: nextTo }
+          });
+        };
+
+        const onSelectFullRange = () => {
+          timeRange.onTimeRangeChange({
+            from: dateTime(metadata.ts_start),
+            to: dateTime(metadata.ts_end),
+            raw: { from: metadata.ts_start, to: metadata.ts_end }
+          });
+        };
 
         // Handler for layout change - regenerate tabs with new layout
         const handleLayoutChange = () => {
@@ -185,12 +209,7 @@ snapshotViewPage.addActivationHandler(() => {
         };
 
         // Create controls array with time picker (with quick ranges) and layout toggle
-        const controls: any[] = [
-          new SceneTimePicker({
-            isOnCanvas: true,
-            quickRanges: quickRanges,
-          })
-        ];
+        const controls: any[] = [];
 
         // If we have active snapshot, display the refresh picker before the settings dropdown
         if (metadata.ts_end && metadata.ts_end.startsWith("now")) {
@@ -218,7 +237,10 @@ snapshotViewPage.addActivationHandler(() => {
           controls: controls,
           renderTitle: () => {
             return FormatMetadataSummary({
-              metadata
+              metadata,
+              onSelectPhase,
+              onSelectFullRange,
+              initialActivePhase: urlPhase || null,
             });
           },
           getScene: undefined, // Remove getScene when using tabs
