@@ -224,6 +224,24 @@ function buildComparisonPage(
                 let scene = sceneCacheService.getScene(cacheKey);
                 if (!scene) {
                     scene = config.dashboardBuilder(sid);
+
+                    // Match single-snapshot behavior: attach phase annotations
+                    // unless the dashboard scene already provides its own data layer.
+                    const globalLayers = new SceneDataLayerSet({
+                        layers: [
+                            new SnapshotPhaseRegionsLayer({
+                                isEnabled: true,
+                                snapshotId: sid,
+                                name: 'Snapshot Phases'
+                            })
+                        ],
+                    });
+
+                    const currentState: any = (scene as any).state || {};
+                    if (!currentState.$data) {
+                        scene.setState({ $data: globalLayers });
+                    }
+
                     sceneCacheService.setScene(cacheKey, scene);
                 }
 
