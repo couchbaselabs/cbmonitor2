@@ -8,6 +8,7 @@ import { SnapshotSearchScene } from './SnapshotSearch';
 import { FormatMetadataSummary } from '../components/SnapshotDisplay/metadataSummary';
 import { Phase } from '../types/snapshot';
 import { SettingsDropdown } from '../components/SettingsDropdown/SettingsDropdown';
+import { ClusterToggle } from '../components/ClusterSelector/ClusterToggle';
 import { createNoUrlSyncTimeRange, initializeTimeRange } from '../utils/timeRange';
 import { loadSnapshot } from '../services/snapshotLoader';
 import { sceneCacheService } from '../services/sceneCache';
@@ -211,6 +212,11 @@ snapshotViewPage.addActivationHandler(() => {
         // Create controls array with time picker (with quick ranges) and layout toggle
         const controls: any[] = [];
 
+        const clusterToggle = new ClusterToggle({
+          clusters: metadata.clusters || [],
+          onClusterChange: handleClusterChange,
+        });
+
         // If we have active snapshot, display the refresh picker before the settings dropdown
         if (metadata.ts_end && metadata.ts_end.startsWith("now")) {
           controls.push(new SceneRefreshPicker({
@@ -225,8 +231,8 @@ snapshotViewPage.addActivationHandler(() => {
           clusters: metadata.clusters || [],
           onLayoutChange: handleLayoutChange,
           onDataSourceChange: handleDataSourceChange,
-          onClusterChange: handleClusterChange,
           onHideEmptyChange: handleHideEmptyChange,
+          showClusterSection: false,
         }));
 
         // Update page with snapshot data
@@ -236,12 +242,40 @@ snapshotViewPage.addActivationHandler(() => {
           $timeRange: timeRange,
           controls: controls,
           renderTitle: () => {
-            return FormatMetadataSummary({
-              metadata,
-              onSelectPhase,
-              onSelectFullRange,
-              initialActivePhase: urlPhase || null,
-            });
+            return React.createElement('div', {
+              style: {
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 12,
+                flexWrap: 'nowrap',
+                width: '100%',
+              }
+            },
+              React.createElement('div', { style: { flex: '1 1 auto', minWidth: 0, maxWidth: 600 } },
+                FormatMetadataSummary({
+                  metadata,
+                  onSelectPhase,
+                  onSelectFullRange,
+                  initialActivePhase: urlPhase || null,
+                })
+              ),
+              React.createElement('div', {
+                style: {
+                  marginLeft: 'auto',
+                  flex: '0 0 280px',
+                  background: '#111827',
+                  border: '1px solid #374151',
+                  borderRadius: 8,
+                  padding: '10px 12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                }
+              },
+                React.createElement('div', { style: { fontSize: 12, color: '#9CA3AF' } }, 'Cluster Filter'),
+                React.createElement((clusterToggle as any).Component, { model: clusterToggle })
+              )
+            );
           },
           getScene: undefined, // Remove getScene when using tabs
         });
