@@ -79,9 +79,6 @@ export function FormatMetadataSummary(props: FormatMetadataSummaryProps) {
             </div>
             {isExpanded && (
                 <div style={{ marginTop: '8px' }}>
-                    <div>
-                        <b>Services:</b> {metadata.services.join(', ')}
-                    </div>
                     {metadata.label && (
                         <div style={{ marginTop: '4px' }}>
                             <b>Label:</b> {renderLabel(metadata.label)}
@@ -94,14 +91,6 @@ export function FormatMetadataSummary(props: FormatMetadataSummaryProps) {
                             ).join(' ,\n ')}
                         </div>
                     )}
-                    {/* debugging: display clusters in snapshot info */}
-                    {/* {metadata.clusters && metadata.clusters.length > 0 && (
-                        <div style={{ marginTop: '4px' }}>
-                            <b>Clusters:</b> {metadata.clusters.map((c) =>
-                                `🖥️ ${c.name || 'unnamed'} (${c.uid})${c.targets ? ` - ${c.targets.length} nodes` : ''}`
-                            ).join(' , ')}
-                        </div>
-                    )} */}
                 </div>
             )}
         </div>

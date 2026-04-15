@@ -1,22 +1,18 @@
 import React, { useMemo } from 'react';
-import { Icon, Button } from '@grafana/ui';
+import { Icon } from '@grafana/ui';
 import { SnapshotMetadata } from 'types/snapshot';
 
 export interface CompareHeaderItem {
   id: string;
   meta: SnapshotMetadata;
   title?: string;
-  renderPickerScene?: () => React.ReactNode;
 }
 
 export interface CompareHeaderProps {
   items: CompareHeaderItem[];
-  commonServices?: string[];
   commonPhases?: string[];
   onSelectCommonPhase?: (label: string) => void;
   onSelectFullRange?: () => void;
-  activePhase?: string | 'FULL' | null;
-  onActivePhaseChange?: (phase: string | 'FULL' | null) => void;
 }
 
 // Helper: detect if a string is a valid http(s) URL
@@ -48,52 +44,71 @@ function renderLabel(label?: string): React.ReactNode {
   return <span style={{ wordBreak: 'break-word' }}>{label}</span>;
 }
 
-function PhasesRow({ meta }: { meta: SnapshotMetadata }) {
+function PhasesRow({
+  meta,
+  commonPhaseSet,
+  activeCommonPhase,
+  onPillClick,
+}: {
+  meta: SnapshotMetadata;
+  commonPhaseSet: Set<string>;
+  activeCommonPhase: string | null;
+  onPillClick: (phaseLabel: string) => void;
+}) {
   if (!meta.phases || meta.phases.length === 0) {
     return <span style={{ color: '#888' }}>No phases</span>;
   }
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-      {meta.phases.map((p) => (
-        <span key={p.label} style={{
-          fontSize: 12,
-          padding: '2px 6px',
-          borderRadius: 4,
-          background: '#1f2937',
-          border: '1px solid #374151'
-        }}>
-          {p.label}
-        </span>
-      ))}
+      {meta.phases.map((p) => {
+        const isCommon = commonPhaseSet.has(p.label);
+        if (isCommon) {
+          const isActive = activeCommonPhase === p.label;
+          return (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => onPillClick(p.label)}
+              title="Common phase"
+              style={{
+                fontSize: 12,
+                padding: '2px 6px',
+                borderRadius: 4,
+                background: isActive ? '#065f46' : '#92400e',
+                border: isActive ? '1px solid #10b981' : '1px solid #b45309',
+                color: isActive ? '#ecfdf5' : '#ffedd5',
+                cursor: 'pointer'
+              }}
+            >
+              {p.label}
+            </button>
+          );
+        }
+
+        return (
+          <span key={p.label} style={{
+            fontSize: 12,
+            padding: '2px 6px',
+            borderRadius: 4,
+            background: '#1f2937',
+            border: '1px solid #374151'
+          }}>
+            {p.label}
+          </span>
+        );
+      })}
     </div>
   );
 }
 
-export function CompareHeader({ items, commonServices = [], commonPhases = [], onSelectCommonPhase, onSelectFullRange, activePhase: initialActivePhase, onActivePhaseChange }: CompareHeaderProps) {
-  // Use local state initialized from prop, sync back via callback
-  const [activePhase, setActivePhase] = React.useState<string | 'FULL' | null>(initialActivePhase ?? null);
-  
-  // Sync local state when prop changes (e.g., on initial load)
+export function CompareHeader({ items, commonPhases = [], onSelectCommonPhase, onSelectFullRange }: CompareHeaderProps) {
+  const [activeCommonPhase, setActiveCommonPhase] = React.useState<string | null>(null);
+
   React.useEffect(() => {
-    if (initialActivePhase !== undefined) {
-      setActivePhase(initialActivePhase);
-    }
-  }, [initialActivePhase]);
+    onSelectFullRange?.();
+  }, [onSelectFullRange]);
 
-  const handlePhaseChange = (phase: string | 'FULL' | null) => {
-    setActivePhase(phase);
-    onActivePhaseChange?.(phase);
-  };
-
-  const commonServicesText = useMemo(() => {
-    if (commonServices.length === 0) {return 'None';}
-    return commonServices.join(', ');
-  }, [commonServices]);
-
-  const commonPhasesText = useMemo(() => {
-    if (commonPhases.length === 0) {return 'None';}
-    return commonPhases.join(', ');
-  }, [commonPhases]);
+  const commonPhaseSet = useMemo(() => new Set(commonPhases), [commonPhases]);
 
   const cols = Math.min(Math.max(items.length, 1), 6);
 
@@ -101,58 +116,9 @@ export function CompareHeader({ items, commonServices = [], commonPhases = [], o
     <div style={{
       display: 'flex',
       flexDirection: 'column',
-      gap: 10,
+      gap: 16,
       padding: '12px 0'
     }}>
-      <div style={{
-        fontSize: 12,
-        color: '#E5E7EB',
-        background: '#1f2937',
-        border: '1px solid #374151',
-        borderRadius: 8,
-        padding: '6px 10px'
-      }}>
-        <span style={{ color: '#9CA3AF', marginRight: 6 }}>Services (common):</span>
-        <span style={{ color: '#E5E7EB' }}>{commonServicesText}</span>
-      </div>
-      <div style={{
-        fontSize: 12,
-        color: '#E5E7EB',
-        background: '#1f2937',
-        border: '1px solid #374151',
-        borderRadius: 8,
-        padding: '6px 10px',
-        marginTop: 8,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        flexWrap: 'wrap'
-      }}>
-        <span style={{ color: '#9CA3AF' }}>Phases (common):</span>
-        <Button
-          size={'sm'}
-          variant={'secondary'}
-          onClick={() => { handlePhaseChange('FULL'); onSelectFullRange?.(); }}
-          style={activePhase === 'FULL' ? { background: '#b45309', borderColor: '#b45309', color: '#111827' } : undefined}
-        >
-          Full Snapshot Range
-        </Button>
-        {commonPhases.length === 0 ? (
-          <span style={{ color: '#E5E7EB' }}>{commonPhasesText}</span>
-        ) : (
-          commonPhases.map((label) => (
-            <Button
-              key={label}
-              size={'sm'}
-              variant={'secondary'}
-              onClick={() => { handlePhaseChange(label); onSelectCommonPhase?.(label); }}
-              style={activePhase === label ? { background: '#b45309', borderColor: '#b45309', color: '#111827' } : undefined}
-            >
-              {label}
-            </Button>
-          ))
-        )}
-      </div>
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 16, overflowX: 'auto', overflowY: 'visible' }}>
         {items.map((item, idx) => {
           const label = item.meta.label;
@@ -185,7 +151,22 @@ export function CompareHeader({ items, commonServices = [], commonPhases = [], o
               <div style={{ marginTop: 4 }}>
                 <b style={{ fontSize: 12 }}>Phases:</b>
                 <div style={{ marginTop: 4 }}>
-                  <PhasesRow meta={item.meta} />
+                  <PhasesRow
+                    meta={item.meta}
+                    commonPhaseSet={commonPhaseSet}
+                    activeCommonPhase={activeCommonPhase}
+                    onPillClick={(phaseLabel) => {
+                      setActiveCommonPhase((prev) => {
+                        if (prev === phaseLabel) {
+                          onSelectFullRange?.();
+                          return null;
+                        }
+
+                        onSelectCommonPhase?.(phaseLabel);
+                        return phaseLabel;
+                      });
+                    }}
+                  />
                 </div>
               </div>
             </div>
