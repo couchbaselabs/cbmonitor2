@@ -41,7 +41,7 @@ function setOverlapMode(value: boolean) {
     invalidateComparisonTabs();
 }
 
-// Local header row showing Ready + Overlap button
+// Local header row showing  Overlap button
 function CompareTopBar() {
     const [overlap, setOverlap] = React.useState(isOverlapModeEnabled());
     const compareSettingsDropdown = React.useMemo(() => new SettingsDropdown({
@@ -68,9 +68,8 @@ function CompareTopBar() {
         });
     };
     return React.createElement('div', {
-        style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' }
+        style: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', width: '100%' }
     },
-        React.createElement('span', { style: { color: '#9CA3AF', fontSize: 12 } }, 'Ready'),
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
             React.createElement((Button as any), {
                 variant: 'secondary',
@@ -260,6 +259,7 @@ comparisonPage.addActivationHandler(() => {
                             commonPhases,
                             onSelectCommonPhase,
                             onSelectFullRange,
+                            overlapEnabled: isOverlapModeEnabled(),
                         })
                     ),
                     // Clear controls to avoid duplicate pickers above tabs

@@ -13,7 +13,20 @@ export interface CompareHeaderProps {
   commonPhases?: string[];
   onSelectCommonPhase?: (label: string) => void;
   onSelectFullRange?: () => void;
+  overlapEnabled?: boolean;
 }
+
+const inactivePhasePillStyle = {
+  background: '#334155',
+  border: '1px solid #64748b',
+  color: '#e2e8f0',
+};
+
+const inactiveCommonPhasePillStyle = {
+  background: '#92400e',
+  border: '1px solid #b45309',
+  color: '#ffedd5',
+};
 
 // Helper: detect if a string is a valid http(s) URL
 function isValidURL(str?: string): boolean {
@@ -49,11 +62,13 @@ function PhasesRow({
   commonPhaseSet,
   activeCommonPhase,
   onPillClick,
+  overlapEnabled,
 }: {
   meta: SnapshotMetadata;
   commonPhaseSet: Set<string>;
   activeCommonPhase: string | null;
   onPillClick: (phaseLabel: string) => void;
+  overlapEnabled: boolean;
 }) {
   if (!meta.phases || meta.phases.length === 0) {
     return <span style={{ color: '#888' }}>No phases</span>;
@@ -69,15 +84,17 @@ function PhasesRow({
               key={p.label}
               type="button"
               onClick={() => onPillClick(p.label)}
-              title="Common phase"
+              title={overlapEnabled ? 'Phase selection disabled in overlap mode' : 'Common phase'}
+              disabled={overlapEnabled}
               style={{
                 fontSize: 12,
                 padding: '2px 6px',
                 borderRadius: 4,
-                background: isActive ? '#065f46' : '#92400e',
-                border: isActive ? '1px solid #10b981' : '1px solid #b45309',
-                color: isActive ? '#ecfdf5' : '#ffedd5',
-                cursor: 'pointer'
+                background: isActive ? '#065f46' : inactiveCommonPhasePillStyle.background,
+                border: isActive ? '1px solid #10b981' : inactiveCommonPhasePillStyle.border,
+                color: isActive ? '#ecfdf5' : inactiveCommonPhasePillStyle.color,
+                cursor: overlapEnabled ? 'not-allowed' : 'pointer',
+                opacity: overlapEnabled ? 0.7 : 1,
               }}
             >
               {p.label}
@@ -90,8 +107,9 @@ function PhasesRow({
             fontSize: 12,
             padding: '2px 6px',
             borderRadius: 4,
-            background: '#1f2937',
-            border: '1px solid #374151'
+            background: inactivePhasePillStyle.background,
+            border: inactivePhasePillStyle.border,
+            color: inactivePhasePillStyle.color,
           }}>
             {p.label}
           </span>
@@ -101,12 +119,18 @@ function PhasesRow({
   );
 }
 
-export function CompareHeader({ items, commonPhases = [], onSelectCommonPhase, onSelectFullRange }: CompareHeaderProps) {
+export function CompareHeader({ items, commonPhases = [], onSelectCommonPhase, onSelectFullRange, overlapEnabled = false }: CompareHeaderProps) {
   const [activeCommonPhase, setActiveCommonPhase] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     onSelectFullRange?.();
   }, [onSelectFullRange]);
+
+  React.useEffect(() => {
+    if (overlapEnabled) {
+      setActiveCommonPhase(null);
+    }
+  }, [overlapEnabled]);
 
   const commonPhaseSet = useMemo(() => new Set(commonPhases), [commonPhases]);
 
@@ -155,7 +179,12 @@ export function CompareHeader({ items, commonPhases = [], onSelectCommonPhase, o
                     meta={item.meta}
                     commonPhaseSet={commonPhaseSet}
                     activeCommonPhase={activeCommonPhase}
+                    overlapEnabled={overlapEnabled}
                     onPillClick={(phaseLabel) => {
+                      if (overlapEnabled) {
+                        return;
+                      }
+
                       setActiveCommonPhase((prev) => {
                         if (prev === phaseLabel) {
                           onSelectFullRange?.();
