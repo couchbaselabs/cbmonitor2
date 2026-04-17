@@ -46,16 +46,30 @@ export function FormatMetadataSummary(props: FormatMetadataSummaryProps) {
     const { metadata, onSelectPhase, onSelectFullRange, initialActivePhase } = props;
     const [copied, setCopied] = React.useState(false);
     const [activePhase, setActivePhase] = React.useState<string | null>(null);
+    const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
     React.useEffect(() => {
         setActivePhase(initialActivePhase ?? null);
     }, [metadata.snapshotId, initialActivePhase]);
 
+    React.useEffect(() => {
+        // Cleanup: clear timeout on unmount to prevent state updates on unmounted component
+        return () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+        };
+    }, []);
+
     const onCopy = async () => {
         try {
             await navigator.clipboard.writeText(metadata.snapshotId);
+            // Clear any pending timeout before starting a new one
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
             setCopied(true);
-            setTimeout(() => setCopied(false), 1200);
+            timeoutRef.current = setTimeout(() => setCopied(false), 1200);
         } catch {
             // ignore
         }
