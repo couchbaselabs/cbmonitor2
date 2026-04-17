@@ -1,4 +1,4 @@
-import { SceneAppPage, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneTimePicker } from '@grafana/scenes';
+import { SceneAppPage, EmbeddedScene, SceneFlexLayout, SceneFlexItem } from '@grafana/scenes';
 import { dateTime } from '@grafana/data';
 import { ROUTES, prefixRoute, ROUTE_PATHS } from '../../utils/utils.routing';
 import { locationService } from '@grafana/runtime';
@@ -6,7 +6,7 @@ import React from 'react';
 import { Button } from '@grafana/ui';
 import CompareHeader from './CompareHeader';
 import { layoutService } from '../../services/layoutService';
-import { createNoUrlSyncTimeRange, buildQuickRanges, syncTimeRangesToPhase, syncTimeRangesToFullRange, NoUrlSyncTimeRange } from '../../utils/timeRange';
+import { createNoUrlSyncTimeRange, syncTimeRangesToPhase, syncTimeRangesToFullRange, NoUrlSyncTimeRange } from '../../utils/timeRange';
 import { loadSnapshots, findCommonServicesInSnapshots, findCommonPhasesInSnapshots, formatSnapshotInfo, getMaxSnapshotDuration } from '../../services/snapshotLoader';
 import { sceneCacheService } from '../../services/sceneCache';
 import { buildServiceTabs } from '../../services/pageBuilder';
@@ -18,15 +18,6 @@ import { SettingsDropdown } from '../SettingsDropdown/SettingsDropdown';
 let overlapMode = false;
 function isOverlapModeEnabled() {
     return overlapMode;
-}
-
-// Global active phase selection (persists across tab switches)
-let activePhase: string | 'FULL' | null = null;
-function getActivePhase() {
-    return activePhase;
-}
-function setActivePhase(phase: string | 'FULL' | null) {
-    activePhase = phase;
 }
 
 function invalidateComparisonTabs() {
@@ -50,7 +41,7 @@ function setOverlapMode(value: boolean) {
     invalidateComparisonTabs();
 }
 
-// Local header row showing Ready + Overlap button
+// Local header row showing  Overlap button
 function CompareTopBar() {
     const [overlap, setOverlap] = React.useState(isOverlapModeEnabled());
     const compareSettingsDropdown = React.useMemo(() => new SettingsDropdown({
@@ -77,9 +68,8 @@ function CompareTopBar() {
         });
     };
     return React.createElement('div', {
-        style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' }
+        style: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', width: '100%' }
     },
-        React.createElement('span', { style: { color: '#9CA3AF', fontSize: 12 } }, 'Ready'),
         React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
             React.createElement((Button as any), {
                 variant: 'secondary',
@@ -201,9 +191,6 @@ comparisonPage.addActivationHandler(() => {
                 // Invalidate cached scenes when snapshot set changes
                 sceneCacheService.clearAll();
                 
-                // Reset phase selection when loading new snapshots
-                setActivePhase(null);
-
                 // Fetch all snapshots using unified loader
                 const snapshots = await loadSnapshots(snapshotIds);
 
@@ -223,7 +210,7 @@ comparisonPage.addActivationHandler(() => {
                     overlapEndTimeSeconds,
                 };
 
-                const successMessage = `Successfully loaded ${snapshots.length} snapshots:\n\n${snapshotInfo}\n\nCommon services (${commonServices.length}): ${commonServices.join(', ') || 'none'}\nCommon phases (${commonPhases.length}): ${commonPhases.join(', ') || 'none'}\n\n✓ All snapshots validated and ready for comparison!`;
+                const successMessage = `Successfully loaded ${snapshots.length} snapshots:\n\n${snapshotInfo}\n\nCommon phases (${commonPhases.length}): ${commonPhases.join(', ') || 'none'}\n\n✓ All snapshots validated and ready for comparison!`;
 
                 showStatusMessage(successMessage, 'success');
 
@@ -236,14 +223,6 @@ comparisonPage.addActivationHandler(() => {
                         from: dateTime(meta.ts_start),
                         to: dateTime(meta.ts_end),
                         raw: { from: meta.ts_start, to: meta.ts_end }
-                    });
-                });
-
-                const pickerScenes = snapshots.map((s, idx) => {
-                    const quickRanges = buildQuickRanges(s.metadata);
-                    const picker = new SceneTimePicker({ isOnCanvas: true, $timeRange: timeRanges[idx], quickRanges });
-                    return new EmbeddedScene({
-                        body: new SceneFlexLayout({ direction: 'column', children: [new SceneFlexItem({ body: picker })] }),
                     });
                 });
 
@@ -276,14 +255,11 @@ comparisonPage.addActivationHandler(() => {
                                 id: s.id,
                                 meta: s.snapshot.metadata,
                                 title: `Snapshot ${String.fromCharCode(65 + idx)}`,
-                                renderPickerScene: () => React.createElement((pickerScenes[idx] as any).Component, { model: pickerScenes[idx] }),
                             })),
-                            commonServices,
                             commonPhases,
                             onSelectCommonPhase,
                             onSelectFullRange,
-                            activePhase: getActivePhase(),
-                            onActivePhaseChange: setActivePhase,
+                            overlapEnabled: isOverlapModeEnabled(),
                         })
                     ),
                     // Clear controls to avoid duplicate pickers above tabs
@@ -325,8 +301,6 @@ comparisonPage.addActivationHandler(() => {
         }
         // Clear cached scenes to free memory upon leaving compare page
         sceneCacheService.clearAll();
-        // Reset phase selection
-        setActivePhase(null);
     };
 });
 

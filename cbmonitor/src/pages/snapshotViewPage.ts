@@ -1,5 +1,6 @@
 import React from 'react';
-import { SceneAppPage, SceneTimePicker, SceneRefreshPicker, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectBase, SceneObjectState } from '@grafana/scenes';
+import { SceneAppPage, SceneRefreshPicker, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectBase, SceneObjectState } from '@grafana/scenes';
+import { dateTime } from '@grafana/data';
 import { ROUTES, prefixRoute } from '../utils/utils.routing';
 import { getDashboardsForServices } from '../pages';
 import { locationService } from '@grafana/runtime';
@@ -7,7 +8,8 @@ import { SnapshotSearchScene } from './SnapshotSearch';
 import { FormatMetadataSummary } from '../components/SnapshotDisplay/metadataSummary';
 import { Phase } from '../types/snapshot';
 import { SettingsDropdown } from '../components/SettingsDropdown/SettingsDropdown';
-import { createNoUrlSyncTimeRange, buildQuickRanges, initializeTimeRange } from '../utils/timeRange';
+import { ClusterToggle } from '../components/ClusterSelector/ClusterToggle';
+import { createNoUrlSyncTimeRange, initializeTimeRange } from '../utils/timeRange';
 import { loadSnapshot } from '../services/snapshotLoader';
 import { sceneCacheService } from '../services/sceneCache';
 import { clusterFilterService } from '../services/clusterFilterService';
@@ -139,8 +141,31 @@ snapshotViewPage.addActivationHandler(() => {
           handleTimeRangeChange();
         });
 
-        // Build quick ranges using utility function
-        const quickRanges = buildQuickRanges(metadata);
+        const onSelectPhase = (phaseLabel: string) => {
+          if (!metadata.phases || metadata.phases.length === 0) {
+            return;
+          }
+
+          const selectedPhase = metadata.phases.find((p: Phase) => p.label === phaseLabel);
+          if (!selectedPhase) {
+            return;
+          }
+
+          const nextTo = selectedPhase.ts_end || metadata.ts_end;
+          timeRange.onTimeRangeChange({
+            from: dateTime(selectedPhase.ts_start),
+            to: dateTime(nextTo),
+            raw: { from: selectedPhase.ts_start, to: nextTo }
+          });
+        };
+
+        const onSelectFullRange = () => {
+          timeRange.onTimeRangeChange({
+            from: dateTime(metadata.ts_start),
+            to: dateTime(metadata.ts_end),
+            raw: { from: metadata.ts_start, to: metadata.ts_end }
+          });
+        };
 
         // Handler for layout change - regenerate tabs with new layout
         const handleLayoutChange = () => {
@@ -185,12 +210,12 @@ snapshotViewPage.addActivationHandler(() => {
         };
 
         // Create controls array with time picker (with quick ranges) and layout toggle
-        const controls: any[] = [
-          new SceneTimePicker({
-            isOnCanvas: true,
-            quickRanges: quickRanges,
-          })
-        ];
+        const controls: any[] = [];
+
+        const clusterToggle = new ClusterToggle({
+          clusters: metadata.clusters || [],
+          onClusterChange: handleClusterChange,
+        });
 
         // If we have active snapshot, display the refresh picker before the settings dropdown
         if (metadata.ts_end && metadata.ts_end.startsWith("now")) {
@@ -206,8 +231,8 @@ snapshotViewPage.addActivationHandler(() => {
           clusters: metadata.clusters || [],
           onLayoutChange: handleLayoutChange,
           onDataSourceChange: handleDataSourceChange,
-          onClusterChange: handleClusterChange,
           onHideEmptyChange: handleHideEmptyChange,
+          showClusterSection: false,
         }));
 
         // Update page with snapshot data
@@ -217,9 +242,40 @@ snapshotViewPage.addActivationHandler(() => {
           $timeRange: timeRange,
           controls: controls,
           renderTitle: () => {
-            return FormatMetadataSummary({
-              metadata
-            });
+            return React.createElement('div', {
+              style: {
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 12,
+                flexWrap: 'nowrap',
+                width: '100%',
+              }
+            },
+              React.createElement('div', { style: { flex: '1 1 auto', minWidth: 0, maxWidth: 600 } },
+                FormatMetadataSummary({
+                  metadata,
+                  onSelectPhase,
+                  onSelectFullRange,
+                  initialActivePhase: urlPhase || null,
+                })
+              ),
+              React.createElement('div', {
+                style: {
+                  marginLeft: 'auto',
+                  flex: '0 0 280px',
+                  background: '#111827',
+                  border: '1px solid #374151',
+                  borderRadius: 8,
+                  padding: '10px 12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                }
+              },
+                React.createElement('div', { style: { fontSize: 12, color: '#9CA3AF' } }, 'Cluster Filter'),
+                React.createElement((clusterToggle as any).Component, { model: clusterToggle })
+              )
+            );
           },
           getScene: undefined, // Remove getScene when using tabs
         });

@@ -1,23 +1,32 @@
 import React, { useMemo } from 'react';
-import { Icon, Button } from '@grafana/ui';
+import { Icon } from '@grafana/ui';
 import { SnapshotMetadata } from 'types/snapshot';
 
 export interface CompareHeaderItem {
   id: string;
   meta: SnapshotMetadata;
   title?: string;
-  renderPickerScene?: () => React.ReactNode;
 }
 
 export interface CompareHeaderProps {
   items: CompareHeaderItem[];
-  commonServices?: string[];
   commonPhases?: string[];
   onSelectCommonPhase?: (label: string) => void;
   onSelectFullRange?: () => void;
-  activePhase?: string | 'FULL' | null;
-  onActivePhaseChange?: (phase: string | 'FULL' | null) => void;
+  overlapEnabled?: boolean;
 }
+
+const inactivePhasePillStyle = {
+  background: '#334155',
+  border: '1px solid #64748b',
+  color: '#e2e8f0',
+};
+
+const inactiveCommonPhasePillStyle = {
+  background: '#92400e',
+  border: '1px solid #b45309',
+  color: '#ffedd5',
+};
 
 // Helper: detect if a string is a valid http(s) URL
 function isValidURL(str?: string): boolean {
@@ -48,52 +57,89 @@ function renderLabel(label?: string): React.ReactNode {
   return <span style={{ wordBreak: 'break-word' }}>{label}</span>;
 }
 
-function PhasesRow({ meta }: { meta: SnapshotMetadata }) {
+function PhasesRow({
+  meta,
+  commonPhaseSet,
+  activeCommonPhase,
+  onPillClick,
+  overlapEnabled,
+}: {
+  meta: SnapshotMetadata;
+  commonPhaseSet: Set<string>;
+  activeCommonPhase: string | null;
+  onPillClick: (phaseLabel: string) => void;
+  overlapEnabled: boolean;
+}) {
+  // Normalize labels for consistent case-insensitive comparison
+  const normalizeLabel = (label: string) => label.trim().toLowerCase();
+
   if (!meta.phases || meta.phases.length === 0) {
     return <span style={{ color: '#888' }}>No phases</span>;
   }
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-      {meta.phases.map((p) => (
-        <span key={p.label} style={{
-          fontSize: 12,
-          padding: '2px 6px',
-          borderRadius: 4,
-          background: '#1f2937',
-          border: '1px solid #374151'
-        }}>
-          {p.label}
-        </span>
-      ))}
+      {meta.phases.map((p) => {
+        const normalizedLabel = normalizeLabel(p.label);
+        const isCommon = commonPhaseSet.has(normalizedLabel);
+        if (isCommon) {
+          const isActive = activeCommonPhase === normalizedLabel;
+          return (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => onPillClick(normalizedLabel)}
+              title={overlapEnabled ? 'Phase selection disabled in overlap mode' : 'Common phase'}
+              disabled={overlapEnabled}
+              style={{
+                fontSize: 12,
+                padding: '2px 6px',
+                borderRadius: 4,
+                background: isActive ? '#065f46' : inactiveCommonPhasePillStyle.background,
+                border: isActive ? '1px solid #10b981' : inactiveCommonPhasePillStyle.border,
+                color: isActive ? '#ecfdf5' : inactiveCommonPhasePillStyle.color,
+                cursor: overlapEnabled ? 'not-allowed' : 'pointer',
+                opacity: overlapEnabled ? 0.7 : 1,
+              }}
+            >
+              {p.label}
+            </button>
+          );
+        }
+
+        return (
+          <span key={p.label} style={{
+            fontSize: 12,
+            padding: '2px 6px',
+            borderRadius: 4,
+            background: inactivePhasePillStyle.background,
+            border: inactivePhasePillStyle.border,
+            color: inactivePhasePillStyle.color,
+          }}>
+            {p.label}
+          </span>
+        );
+      })}
     </div>
   );
 }
 
-export function CompareHeader({ items, commonServices = [], commonPhases = [], onSelectCommonPhase, onSelectFullRange, activePhase: initialActivePhase, onActivePhaseChange }: CompareHeaderProps) {
-  // Use local state initialized from prop, sync back via callback
-  const [activePhase, setActivePhase] = React.useState<string | 'FULL' | null>(initialActivePhase ?? null);
-  
-  // Sync local state when prop changes (e.g., on initial load)
+export function CompareHeader({ items, commonPhases = [], onSelectCommonPhase, onSelectFullRange, overlapEnabled = false }: CompareHeaderProps) {
+  const [activeCommonPhase, setActiveCommonPhase] = React.useState<string | null>(null);
+
+  // Normalize labels for consistent case-insensitive comparison
+  const normalizeLabel = (label: string) => label.trim().toLowerCase();
+
   React.useEffect(() => {
-    if (initialActivePhase !== undefined) {
-      setActivePhase(initialActivePhase);
+    onSelectFullRange?.();
+  }, [onSelectFullRange]);
+
+  React.useEffect(() => {
+    if (overlapEnabled) {
+      setActiveCommonPhase(null);
     }
-  }, [initialActivePhase]);
+  }, [overlapEnabled]);
 
-  const handlePhaseChange = (phase: string | 'FULL' | null) => {
-    setActivePhase(phase);
-    onActivePhaseChange?.(phase);
-  };
-
-  const commonServicesText = useMemo(() => {
-    if (commonServices.length === 0) {return 'None';}
-    return commonServices.join(', ');
-  }, [commonServices]);
-
-  const commonPhasesText = useMemo(() => {
-    if (commonPhases.length === 0) {return 'None';}
-    return commonPhases.join(', ');
-  }, [commonPhases]);
+  const commonPhaseSet = useMemo(() => new Set(commonPhases.map(normalizeLabel)), [commonPhases]);
 
   const cols = Math.min(Math.max(items.length, 1), 6);
 
@@ -101,58 +147,9 @@ export function CompareHeader({ items, commonServices = [], commonPhases = [], o
     <div style={{
       display: 'flex',
       flexDirection: 'column',
-      gap: 10,
+      gap: 16,
       padding: '12px 0'
     }}>
-      <div style={{
-        fontSize: 12,
-        color: '#E5E7EB',
-        background: '#1f2937',
-        border: '1px solid #374151',
-        borderRadius: 8,
-        padding: '6px 10px'
-      }}>
-        <span style={{ color: '#9CA3AF', marginRight: 6 }}>Services (common):</span>
-        <span style={{ color: '#E5E7EB' }}>{commonServicesText}</span>
-      </div>
-      <div style={{
-        fontSize: 12,
-        color: '#E5E7EB',
-        background: '#1f2937',
-        border: '1px solid #374151',
-        borderRadius: 8,
-        padding: '6px 10px',
-        marginTop: 8,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        flexWrap: 'wrap'
-      }}>
-        <span style={{ color: '#9CA3AF' }}>Phases (common):</span>
-        <Button
-          size={'sm'}
-          variant={'secondary'}
-          onClick={() => { handlePhaseChange('FULL'); onSelectFullRange?.(); }}
-          style={activePhase === 'FULL' ? { background: '#b45309', borderColor: '#b45309', color: '#111827' } : undefined}
-        >
-          Full Snapshot Range
-        </Button>
-        {commonPhases.length === 0 ? (
-          <span style={{ color: '#E5E7EB' }}>{commonPhasesText}</span>
-        ) : (
-          commonPhases.map((label) => (
-            <Button
-              key={label}
-              size={'sm'}
-              variant={'secondary'}
-              onClick={() => { handlePhaseChange(label); onSelectCommonPhase?.(label); }}
-              style={activePhase === label ? { background: '#b45309', borderColor: '#b45309', color: '#111827' } : undefined}
-            >
-              {label}
-            </Button>
-          ))
-        )}
-      </div>
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 16, overflowX: 'auto', overflowY: 'visible' }}>
         {items.map((item, idx) => {
           const label = item.meta.label;
@@ -185,7 +182,27 @@ export function CompareHeader({ items, commonServices = [], commonPhases = [], o
               <div style={{ marginTop: 4 }}>
                 <b style={{ fontSize: 12 }}>Phases:</b>
                 <div style={{ marginTop: 4 }}>
-                  <PhasesRow meta={item.meta} />
+                  <PhasesRow
+                    meta={item.meta}
+                    commonPhaseSet={commonPhaseSet}
+                    activeCommonPhase={activeCommonPhase}
+                    overlapEnabled={overlapEnabled}
+                    onPillClick={(phaseLabel) => {
+                      if (overlapEnabled) {
+                        return;
+                      }
+
+                      setActiveCommonPhase((prev) => {
+                        if (prev === phaseLabel) {
+                          onSelectFullRange?.();
+                          return null;
+                        }
+
+                        onSelectCommonPhase?.(phaseLabel);
+                        return phaseLabel;
+                      });
+                    }}
+                  />
                 </div>
               </div>
             </div>
