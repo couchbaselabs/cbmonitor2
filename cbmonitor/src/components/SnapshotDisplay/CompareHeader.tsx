@@ -70,20 +70,24 @@ function PhasesRow({
   onPillClick: (phaseLabel: string) => void;
   overlapEnabled: boolean;
 }) {
+  // Normalize labels for consistent case-insensitive comparison
+  const normalizeLabel = (label: string) => label.trim().toLowerCase();
+
   if (!meta.phases || meta.phases.length === 0) {
     return <span style={{ color: '#888' }}>No phases</span>;
   }
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
       {meta.phases.map((p) => {
-        const isCommon = commonPhaseSet.has(p.label);
+        const normalizedLabel = normalizeLabel(p.label);
+        const isCommon = commonPhaseSet.has(normalizedLabel);
         if (isCommon) {
-          const isActive = activeCommonPhase === p.label;
+          const isActive = activeCommonPhase === normalizedLabel;
           return (
             <button
               key={p.label}
               type="button"
-              onClick={() => onPillClick(p.label)}
+              onClick={() => onPillClick(normalizedLabel)}
               title={overlapEnabled ? 'Phase selection disabled in overlap mode' : 'Common phase'}
               disabled={overlapEnabled}
               style={{
@@ -122,6 +126,9 @@ function PhasesRow({
 export function CompareHeader({ items, commonPhases = [], onSelectCommonPhase, onSelectFullRange, overlapEnabled = false }: CompareHeaderProps) {
   const [activeCommonPhase, setActiveCommonPhase] = React.useState<string | null>(null);
 
+  // Normalize labels for consistent case-insensitive comparison
+  const normalizeLabel = (label: string) => label.trim().toLowerCase();
+
   React.useEffect(() => {
     onSelectFullRange?.();
   }, [onSelectFullRange]);
@@ -132,7 +139,7 @@ export function CompareHeader({ items, commonPhases = [], onSelectCommonPhase, o
     }
   }, [overlapEnabled]);
 
-  const commonPhaseSet = useMemo(() => new Set(commonPhases), [commonPhases]);
+  const commonPhaseSet = useMemo(() => new Set(commonPhases.map(normalizeLabel)), [commonPhases]);
 
   const cols = Math.min(Math.max(items.length, 1), 6);
 
