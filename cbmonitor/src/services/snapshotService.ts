@@ -53,8 +53,15 @@ class SnapshotService {
         return apiResponse.data;
       } catch (error) {
         const isLastAttempt = attempt === this.maxSnapshotFetchAttempts;
-        if (!isLastAttempt) {
-          await this.wait(attempt * 300);
+        const isRetryableNetworkError = error instanceof TypeError;
+
+        if (isRetryableNetworkError && !isLastAttempt) {
+          const retryDelayMs = attempt * 300;
+          console.warn(
+            `Snapshot fetch encountered a network error. Retrying in ${retryDelayMs}ms...`,
+            error
+          );
+          await this.wait(retryDelayMs);
           continue;
         }
         console.error(`Error fetching snapshot ${snapshotId}:`, error);
