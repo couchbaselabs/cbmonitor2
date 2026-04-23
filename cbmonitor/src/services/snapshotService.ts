@@ -2,36 +2,67 @@ import { SnapshotData, SnapshotApiResponse } from '../types/snapshot';
 import { API_BASE_URL } from '../constants';
 
 class SnapshotService {
+  private readonly maxSnapshotFetchAttempts = 3;
+
+  private async wait(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   /**
    * Fetch snapshot metadata by snapshot ID
    */
   async getSnapshot(snapshotId: string): Promise<SnapshotData> {
-    try {
-      const url = `${API_BASE_URL}/snapshots/${snapshotId}`;
-      console.log(`Fetching snapshot from: ${url}`);
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+    const url = `${API_BASE_URL}/snapshots/${snapshotId}`;
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch snapshot ${snapshotId}: ${response.statusText}`);
+    for (let attempt = 1; attempt <= this.maxSnapshotFetchAttempts; attempt++) {
+      try {
+        console.log(`Fetching snapshot from: ${url} (attempt ${attempt}/${this.maxSnapshotFetchAttempts})`);
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          const rawError = await response.text();
+          const canRetry = response.status >= 500 && response.status < 600 && attempt < this.maxSnapshotFetchAttempts;
+
+          if (canRetry) {
+            const retryDelayMs = attempt * 300;
+            console.warn(
+              `Snapshot fetch failed with ${response.status}. Retrying in ${retryDelayMs}ms...`
+            );
+            await this.wait(retryDelayMs);
+            continue;
+          }
+
+          const suffix = rawError ? ` - ${rawError}` : '';
+          throw new Error(
+            `Failed to fetch snapshot ${snapshotId}: HTTP ${response.status} ${response.statusText}${suffix}`
+          );
+        }
+
+        const apiResponse: SnapshotApiResponse = await response.json();
+
+        if (!apiResponse.success) {
+          throw new Error(apiResponse.error || 'Unknown API error');
+        }
+
+        console.log(`Successfully fetched snapshot: ${snapshotId}`);
+        return apiResponse.data;
+      } catch (error) {
+        const isLastAttempt = attempt === this.maxSnapshotFetchAttempts;
+        if (!isLastAttempt) {
+          await this.wait(attempt * 300);
+          continue;
+        }
+        console.error(`Error fetching snapshot ${snapshotId}:`, error);
+        throw error;
       }
-
-      const apiResponse: SnapshotApiResponse = await response.json();
-
-      if (!apiResponse.success) {
-        throw new Error(apiResponse.error || 'Unknown API error');
-      }
-
-      console.log(`Successfully fetched snapshot: ${snapshotId}`);
-      return apiResponse.data;
-    } catch (error) {
-      console.error(`Error fetching snapshot ${snapshotId}:`, error);
-      throw error;
     }
+
+    throw new Error(`Failed to fetch snapshot ${snapshotId}: exhausted retry attempts`);
   }
 
   /**
