@@ -25,7 +25,6 @@ class SnapshotService {
         });
 
         if (!response.ok) {
-          const rawError = await response.text();
           const canRetry = response.status >= 500 && response.status < 600 && attempt < this.maxSnapshotFetchAttempts;
 
           if (canRetry) {
@@ -37,6 +36,7 @@ class SnapshotService {
             continue;
           }
 
+          const rawError = await response.text();
           const suffix = rawError ? ` - ${rawError}` : '';
           throw new Error(
             `Failed to fetch snapshot ${snapshotId}: HTTP ${response.status} ${response.statusText}${suffix}`
