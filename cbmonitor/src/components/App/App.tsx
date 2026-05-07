@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { AppRootProps } from '@grafana/data';
 import { config } from '@grafana/runtime';
-import { CB_DATASOURCE_REF } from '../../constants';
+import { CB_DATASOURCE_REF, PROM_DATASOURCE_REF } from '../../constants';
 import { SceneApp, useSceneApp } from '@grafana/scenes';
 import { Alert } from '@grafana/ui';
 import { PluginPropsContext } from 'utils/utils.plugin';
@@ -36,9 +36,9 @@ function CBMonitorHome() {
 
   return (
     <> {/* For debugging we list all installed datasources, as id mismatch could be the reason we cannot see the datasource */}
-      {!config.datasources[CB_DATASOURCE_REF.uid] && (
-        <Alert title={`${CB_DATASOURCE_REF.type} is missing`}>
-          <code>{JSON.stringify(CB_DATASOURCE_REF)}</code> datasource is required to use this app.
+      {!config.datasources[CB_DATASOURCE_REF.uid] && !config.datasources[PROM_DATASOURCE_REF.uid] && (
+        <Alert title="Missing required datasource">
+          <code>{JSON.stringify(CB_DATASOURCE_REF)}</code> or <code>{JSON.stringify(PROM_DATASOURCE_REF)}</code> datasource is required to use this app.
           Available datasources:
           <ul>
             {Object.values(config.datasources).map((datasource) => (
