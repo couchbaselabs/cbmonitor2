@@ -3,9 +3,8 @@ import { PLUGIN_BASE_URL } from '../constants';
 
 // Top-level route names (no leading slash)
 export const ROUTES = {
-  CBMonitor: 'cbmonitor',
+  CBMonitor: 'snapshots',
   Compare: 'compare',
-  Showfast: 'showfast',
   // Add more top-level routes here as needed
 } as const;
 
@@ -15,7 +14,6 @@ export const ROUTE_PATHS = {
   search: () => `/${ROUTES.CBMonitor}`,
   cbmonitor: () => `/${ROUTES.CBMonitor}`,
   compare: () => `/${ROUTES.Compare}`,
-  showfast: () => `/${ROUTES.Showfast}`,
 
   // Snapshot viewing with query parameter (for backward compatibility)
   snapshotView: (snapshotId: string) => `/${ROUTES.CBMonitor}?snapshotId=${encodeURIComponent(snapshotId)}`,

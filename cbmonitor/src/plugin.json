@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
   "type": "app",
-  "name": "Showfast",
+  "name": "cbmonitor",
   "id": "cbmonitor",
   "backend": true,
   "executable": "cbmonitor",
@@ -22,10 +22,10 @@
   "includes": [
     {
       "type": "page",
-      "name": "cbmonitor",
-      "path": "/a/%PLUGIN_ID%/cbmonitor",
+      "name": "Metrics",
+      "path": "/a/%PLUGIN_ID%/snapshots",
       "addToNav": true,
-      "defaultNav": false,
+      "defaultNav": true,
       "icon": "home-alt"
     },
     {
@@ -35,14 +35,6 @@
       "addToNav": true,
       "defaultNav": false,
       "icon": "home-alt"
-    },
-    {
-      "type": "page",
-      "name": "Showfast",
-      "path": "/a/%PLUGIN_ID%/showfast",
-      "addToNav": true,
-      "defaultNav": false,
-      "icon": "apps"
     },
     {
       "type": "page",
