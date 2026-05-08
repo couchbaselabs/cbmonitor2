@@ -11,6 +11,7 @@ import (
 
 	"github.com/couchbase/cbmonitor/pkg/handlers"
 	"github.com/couchbase/cbmonitor/pkg/services"
+	sdklog "github.com/grafana/grafana-plugin-sdk-go/backend/log"
 )
 
 // handlePing is an example HTTP GET resource that returns a {"message": "ok"} JSON response.
@@ -137,19 +138,29 @@ func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
 	snapshotBucket := getEnvWithDefault("COUCHBASE_SNAPSHOT_BUCKET", "metadata")
 
 	// Initialize Snapshot service
+	sdklog.DefaultLogger.Info("setupSnapshotRoutes: connecting to Couchbase",
+		"connectionString", connectionString,
+		"username", username,
+		"snapshotBucket", snapshotBucket)
 	snapshotService, err := services.NewSnapshotService(connectionString, username, password, snapshotBucket)
 	if err != nil {
+		sdklog.DefaultLogger.Error("setupSnapshotRoutes: NewSnapshotService failed", "error", err.Error())
 		log.Printf("Warning: Failed to initialize Snapshot service: %v", err)
 		log.Printf("Snapshot endpoints will not be available")
 		snapshotService = nil
+	} else {
+		sdklog.DefaultLogger.Info("setupSnapshotRoutes: NewSnapshotService ok")
 	}
 
 	// Initialize Couchbase service for metric queries
 	bucketName := getEnvWithDefault("COUCHBASE_BUCKET", "showfast")
 	couchbaseService, err := services.NewCouchbaseService(connectionString, username, password, bucketName)
 	if err != nil {
+		sdklog.DefaultLogger.Error("setupSnapshotRoutes: NewCouchbaseService failed", "error", err.Error())
 		log.Printf("Warning: Failed to initialize Couchbase service for snapshot metrics: %v", err)
 		couchbaseService = nil
+	} else {
+		sdklog.DefaultLogger.Info("setupSnapshotRoutes: NewCouchbaseService ok")
 	}
 
 	// Initialize snapshot handler
