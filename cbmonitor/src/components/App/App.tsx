@@ -34,14 +34,18 @@ function CBMonitorHome() {
     });
   }, []);
 
+  const datasources = Object.values(config.datasources);
+  const haveCb = datasources.some((d) => d.uid === CB_DATASOURCE_REF.uid);
+  const haveProm = datasources.some((d) => d.uid === PROM_DATASOURCE_REF.uid);
+
   return (
-    <> {/* For debugging we list all installed datasources, as id mismatch could be the reason we cannot see the datasource */}
-      {!config.datasources[CB_DATASOURCE_REF.uid] && !config.datasources[PROM_DATASOURCE_REF.uid] && (
+    <>
+      {!haveCb && !haveProm && (
         <Alert title="Missing required datasource">
           <code>{JSON.stringify(CB_DATASOURCE_REF)}</code> or <code>{JSON.stringify(PROM_DATASOURCE_REF)}</code> datasource is required to use this app.
           Available datasources:
           <ul>
-            {Object.values(config.datasources).map((datasource) => (
+            {datasources.map((datasource) => (
               <li key={datasource.uid}>{datasource.name} ({datasource.uid})</li>
             ))}
           </ul>
