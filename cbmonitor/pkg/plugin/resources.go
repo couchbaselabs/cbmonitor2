@@ -1,11 +1,13 @@
 package plugin
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/couchbase/cbmonitor/pkg/handlers"
 	"github.com/couchbase/cbmonitor/pkg/services"
@@ -79,6 +81,9 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 
 	// Datasource configuration endpoint
 	mux.HandleFunc("/config/datasources", a.handleGetDatasourceConfig)
+
+	// On-demand probe used by the AppConfig "Test connection" button
+	mux.HandleFunc("/healthcheck/connection", a.handleHealthCheckConnection)
 
 	// Initialize Couchbase service and metrics handlers
 	a.setupMetricsRoutes(mux)
@@ -218,6 +223,50 @@ func (a *App) setupPrometheusRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/series", promQLHandler.HandleSeries)
 
 	log.Printf("PromQL Query API routes registered: /query, /query_range, /series")
+}
+
+// handleHealthCheckConnection performs a fresh, short-timeout probe of the
+// configured Couchbase snapshot bucket. The endpoint always responds with HTTP
+// 200; failures are encoded inside the JSON body so the frontend can render
+// per-check status without distinguishing transport vs application errors.
+func (a *App) handleHealthCheckConnection(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	cs := getEnvWithDefault("COUCHBASE_CONNECTION_STRING", "couchbase://localhost")
+	user := getEnvWithDefault("COUCHBASE_USERNAME", "Administrator")
+	pass := getEnvWithDefault("COUCHBASE_PASSWORD", "password")
+	bucket := getEnvWithDefault("COUCHBASE_SNAPSHOT_BUCKET", "metadata")
+
+	// Outer kill-switch in case gocb ignores its own deadline.
+	ctx, cancel := context.WithTimeout(req.Context(), 6*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	err := services.ProbeCouchbaseBucket(ctx, cs, user, pass, bucket, 5*time.Second)
+	resp := map[string]any{
+		"couchbase": map[string]any{
+			"ok":               err == nil,
+			"bucket":           bucket,
+			"connectionString": cs,
+			"latencyMs":        time.Since(start).Milliseconds(),
+			"error":            errString(err),
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {
+		log.Printf("[handleHealthCheckConnection] error encoding response: %v", encErr)
+	}
+}
+
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
 
 // getEnvWithDefault gets environment variable with a default value
