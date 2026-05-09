@@ -6,6 +6,7 @@ import { SceneApp, useSceneApp } from '@grafana/scenes';
 import { Alert } from '@grafana/ui';
 import { PluginPropsContext } from 'utils/utils.plugin';
 import { snapshotViewPage } from '../../pages/snapshotViewPage';
+import { preferencesPage } from '../../pages/preferencesPage';
 import { comparisonPage } from '../../components/SnapshotDisplay/comparisonInstance';
 import { dataSourceService } from '../../services/datasourceService';
 
@@ -15,6 +16,7 @@ function getCBMonitorApp(){
     pages: [
       snapshotViewPage, // Main page: /cbmonitor (search + snapshot viewer)
       comparisonPage,   // Comparison page: /cbmonitor/compare
+      preferencesPage,  // Preferences page: /cbmonitor/preferences
     ],
     urlSyncOptions: {
       updateUrlOnInit: false,

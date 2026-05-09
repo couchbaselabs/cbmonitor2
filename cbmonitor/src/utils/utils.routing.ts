@@ -5,6 +5,7 @@ import { PLUGIN_BASE_URL } from '../constants';
 export const ROUTES = {
   CBMonitor: 'snapshots',
   Compare: 'compare',
+  Preferences: 'preferences',
   // Add more top-level routes here as needed
 } as const;
 
@@ -14,6 +15,7 @@ export const ROUTE_PATHS = {
   search: () => `/${ROUTES.CBMonitor}`,
   cbmonitor: () => `/${ROUTES.CBMonitor}`,
   compare: () => `/${ROUTES.Compare}`,
+  preferences: () => `/${ROUTES.Preferences}`,
 
   // Snapshot viewing with query parameter (for backward compatibility)
   snapshotView: (snapshotId: string) => `/${ROUTES.CBMonitor}?snapshotId=${encodeURIComponent(snapshotId)}`,

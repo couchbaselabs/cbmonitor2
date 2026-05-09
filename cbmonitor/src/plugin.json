@@ -5,6 +5,7 @@
   "id": "cbmonitor",
   "backend": true,
   "executable": "cbmonitor",
+  "preload": true,
   "info": {
     "keywords": ["app"],
     "description": "",
@@ -35,6 +36,15 @@
       "addToNav": true,
       "defaultNav": false,
       "icon": "home-alt"
+    },
+    {
+      "type": "page",
+      "name": "User Preferences",
+      "path": "/a/%PLUGIN_ID%/preferences",
+      "role": "Viewer",
+      "addToNav": true,
+      "defaultNav": false,
+      "icon": "sliders-v-alt"
     },
     {
       "type": "page",

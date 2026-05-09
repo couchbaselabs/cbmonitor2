@@ -2,6 +2,11 @@ import React, { Suspense, lazy } from 'react';
 import { AppPlugin, type AppRootProps } from '@grafana/data';
 import { LoadingPlaceholder } from '@grafana/ui';
 import type { AppConfigProps } from './components/AppConfig/AppConfig';
+import { applyKioskFromPref } from './kiosk';
+
+// Runs on every Grafana page because plugin.json has "preload": true.
+// Must execute before React renders so the URL rewrite is invisible to the user.
+applyKioskFromPref();
 
 const LazyApp = lazy(() => import('./components/App/App'));
 const LazyAppConfig = lazy(() => import('./components/AppConfig/AppConfig'));
