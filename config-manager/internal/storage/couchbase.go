@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/couchbase/config-manager/internal/config"
@@ -25,8 +26,12 @@ func NewCouchbaseStorage(cfg *config.Config) (*CouchbaseStorage, error) {
 		return nil, fmt.Errorf("metadata storage is disabled")
 	}
 
-	// Build connection string
-	connectionString := fmt.Sprintf("couchbase://%s", cfg.Metadata.Host)
+	// Build connection string. If the configured host already includes a
+	// URI scheme, use it as-is; otherwise default to plaintext couchbase://
+	connectionString := cfg.Metadata.Host
+	if !strings.Contains(connectionString, "://") {
+		connectionString = fmt.Sprintf("couchbase://%s", connectionString)
+	}
 
 	// Connect to Couchbase cluster
 	cluster, err := gocb.Connect(connectionString, gocb.ClusterOptions{
@@ -48,7 +53,7 @@ func NewCouchbaseStorage(cfg *config.Config) (*CouchbaseStorage, error) {
 	// Wait for bucket to be ready
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Metadata.Timeout)
 	defer cancel()
-	
+
 	err = bucket.WaitUntilReady(cfg.Metadata.Timeout, &gocb.WaitUntilReadyOptions{
 		Context: ctx,
 	})
@@ -57,8 +62,8 @@ func NewCouchbaseStorage(cfg *config.Config) (*CouchbaseStorage, error) {
 		return nil, fmt.Errorf("bucket not ready: %w", err)
 	}
 
-	logger.Info("Connected to Couchbase for metadata storage", 
-		"host", cfg.Metadata.Host, 
+	logger.Info("Connected to Couchbase for metadata storage",
+		"host", cfg.Metadata.Host,
 		"bucket", cfg.Metadata.Bucket)
 
 	return &CouchbaseStorage{
@@ -167,7 +172,7 @@ func (cs *CouchbaseStorage) UpdateServices(snapshotID string, services []string)
 	}
 
 	return nil
-}	
+}
 
 func (cs *CouchbaseStorage) EoLSnapshot(snapshotID string) error {
 	eol, err := cs.GetMetadata(snapshotID)
