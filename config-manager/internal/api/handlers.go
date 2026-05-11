@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/couchbase/config-manager/internal/logger"
+	"github.com/couchbase/config-manager/internal/metrics"
 	"github.com/couchbase/config-manager/internal/models"
 	"github.com/couchbase/config-manager/internal/services"
 	"github.com/couchbase/config-manager/internal/storage"
@@ -74,6 +75,7 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to save snapshot"+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	metrics.SnapshotsCreated.Inc()
 
 	// Collect cluster metadata
 	metadataService := services.NewMetadataService()
@@ -258,6 +260,7 @@ func (h *Handler) DeleteSnapshotRequest(w http.ResponseWriter, r *http.Request) 
 		// http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	metrics.SnapshotsDeleted.Inc()
 
 	// Set response headers
 	w.Header().Set("Content-Type", "application/json")
@@ -310,6 +313,7 @@ func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to patch snapshot: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	metrics.SnapshotsPatched.Inc()
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

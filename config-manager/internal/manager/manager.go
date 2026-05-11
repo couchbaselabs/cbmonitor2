@@ -8,6 +8,7 @@ import (
 
 	"github.com/couchbase/config-manager/internal/config"
 	"github.com/couchbase/config-manager/internal/logger"
+	"github.com/couchbase/config-manager/internal/metrics"
 	"github.com/couchbase/config-manager/internal/storage"
 )
 
@@ -35,6 +36,13 @@ func StartManagerWithInterval(information Information, directory string, cfg *co
 			return
 		}
 		logger.Info("Scrape files found", "count", len(files))
+		ymlCount := 0
+		for _, f := range files {
+			if filepath.Ext(f.Name()) == ".yml" {
+				ymlCount++
+			}
+		}
+		metrics.SetActiveSnapshots(ymlCount)
 		for _, file := range files {
 			if filepath.Ext(file.Name()) == ".yml" {
 				filepath := filepath.Join(directory, file.Name())
@@ -61,6 +69,7 @@ func StartManagerWithInterval(information Information, directory string, cfg *co
 						logger.Error("Failed to delete stale file", "filepath", filepath, "error", err)
 					} else {
 						logger.Info("Deleted stale file", "filepath", filepath, "age_minutes", int(time.Since(info.ModTime()).Minutes()))
+						metrics.SnapshotsExpired.Inc()
 					}
 				}
 			}

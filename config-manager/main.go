@@ -15,6 +15,7 @@ import (
 	"github.com/couchbase/config-manager/internal/config"
 	"github.com/couchbase/config-manager/internal/logger"
 	"github.com/couchbase/config-manager/internal/manager"
+	"github.com/couchbase/config-manager/internal/metrics"
 	"github.com/couchbase/config-manager/internal/storage"
 )
 
@@ -119,12 +120,15 @@ func main() {
 	// Register routes
 	mux.HandleFunc("/api/v1/snapshot", handler.CreateSnapshot)
 	mux.HandleFunc("/api/v1/snapshot/", handler.Manager)
+	mux.Handle("/metrics", metrics.Handler())
 
 	// Create server
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
 		Handler: mux,
 	}
+
+	metrics.MarkUp()
 
 	// Start server
 	go func() {
