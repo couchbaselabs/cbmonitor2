@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -46,26 +45,19 @@ func (a *App) handleEcho(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// handleGetDatasourceConfig returns the datasource configuration to the UI
+// handleGetDatasourceConfig returns the datasource configuration to the UI.
+// Values are sourced from the Grafana-managed plugin settings (jsonData).
 func (a *App) handleGetDatasourceConfig(w http.ResponseWriter, req *http.Request) {
-	log.Printf("[handleGetDatasourceConfig] Called with method=%s path=%s", req.Method, req.URL.Path)
-
 	if req.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Parse environment variables
-	prometheusAvailable := getBooleanEnvWithDefault("DS_PROMETHEUS_AVAILABLE", "true")
-	couchbaseAvailable := getBooleanEnvWithDefault("DS_COUCHBASE_AVAILABLE", "false")
-
 	config := map[string]interface{}{
-		"defaultDataSource":   "prometheus",
-		"prometheusAvailable": prometheusAvailable,
-		"couchbaseAvailable":  couchbaseAvailable,
+		"defaultDataSource":   a.settings.DefaultDataSource(),
+		"prometheusAvailable": a.settings.PrometheusDatasource.Enabled,
+		"couchbaseAvailable":  a.settings.CouchbaseDatasource.Enabled,
 	}
-
-	log.Printf("[handleGetDatasourceConfig] Returning config: %+v", config)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -75,74 +67,62 @@ func (a *App) handleGetDatasourceConfig(w http.ResponseWriter, req *http.Request
 	}
 }
 
-// registerRoutes takes a *http.ServeMux and registers some HTTP handlers.
+// registerRoutes takes a *http.ServeMux and registers HTTP handlers based
+// on the plugin settings. Feature-specific routes are only registered when
+// their owning feature is enabled.
 func (a *App) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/ping", a.handlePing)
 	mux.HandleFunc("/echo", a.handleEcho)
 
-	// Datasource configuration endpoint
 	mux.HandleFunc("/config/datasources", a.handleGetDatasourceConfig)
-
-	// On-demand probe used by the AppConfig "Test connection" button
 	mux.HandleFunc("/healthcheck/connection", a.handleHealthCheckConnection)
 
-	// Initialize Couchbase service and metrics handlers
-	a.setupMetricsRoutes(mux)
+	if a.settings.CouchbaseDatasource.Enabled {
+		a.setupMetricsRoutes(mux)
+		a.setupPrometheusRoutes(mux)
+	}
 
-	// Initialize snapshot routes
-	a.setupSnapshotRoutes(mux)
-
-	// Initialize Prometheus Query API routes
-	a.setupPrometheusRoutes(mux)
+	if a.settings.Snapshots.Enabled {
+		a.setupSnapshotRoutes(mux)
+	}
 }
 
-// setupMetricsRoutes initializes the metrics API routes
+// setupMetricsRoutes registers the metrics API routes against the Couchbase
+// datasource bucket. Only called when CouchbaseDatasource.Enabled is true.
 func (a *App) setupMetricsRoutes(mux *http.ServeMux) {
-	// Get Couchbase connection details from environment variables
-	connectionString := getEnvWithDefault("COUCHBASE_CONNECTION_STRING", "couchbase://localhost")
-	username := getEnvWithDefault("COUCHBASE_USERNAME", "Administrator")
-	password := getEnvWithDefault("COUCHBASE_PASSWORD", "password")
-	bucketName := getEnvWithDefault("COUCHBASE_BUCKET", "showfast")
+	cb := a.settings.CouchbaseServer
+	bucket := a.settings.CouchbaseDatasource.Bucket
 
-	// Initialize Couchbase service
-	couchbaseService, err := services.NewCouchbaseService(connectionString, username, password, bucketName)
+	couchbaseService, err := services.NewCouchbaseService(cb.ConnectionString, cb.Username, cb.Password, bucket)
 	if err != nil {
 		log.Printf("Warning: Failed to initialize Couchbase service: %v", err)
 		log.Printf("Metrics endpoints will return mock data")
-		// Continue without Couchbase - handlers will fall back to mock data
 		couchbaseService = nil
 	}
 
-	// Initialize metrics handler
 	metricsHandler := handlers.NewMetricsHandler(couchbaseService)
 
-	// Register metrics routes
 	mux.HandleFunc("/metrics/health", metricsHandler.HandleHealthCheck)
 	mux.HandleFunc("/metrics/", func(w http.ResponseWriter, r *http.Request) {
-		// Route to appropriate handler based on path structure
-		pathParts := len(r.URL.Path)
-		if pathParts > 20 { // Rough check for /metrics/{component}/{metric}
+		if len(r.URL.Path) > 20 {
 			metricsHandler.HandleGetMetricHistory(w, r)
-		} else { // /metrics/{component}
+		} else {
 			metricsHandler.HandleGetComponentMetrics(w, r)
 		}
 	})
 }
 
-// setupSnapshotRoutes initializes the snapshot API routes
+// setupSnapshotRoutes registers the snapshot API routes against the
+// Snapshots (metadata) bucket. Only called when Snapshots.Enabled is true.
 func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
-	// Get Couchbase connection details from environment variables
-	connectionString := getEnvWithDefault("COUCHBASE_CONNECTION_STRING", "couchbase://localhost")
-	username := getEnvWithDefault("COUCHBASE_USERNAME", "Administrator")
-	password := getEnvWithDefault("COUCHBASE_PASSWORD", "password")
-	snapshotBucket := getEnvWithDefault("COUCHBASE_SNAPSHOT_BUCKET", "metadata")
+	cb := a.settings.CouchbaseServer
+	snapshotBucket := a.settings.Snapshots.Bucket
 
-	// Initialize Snapshot service
 	sdklog.DefaultLogger.Info("setupSnapshotRoutes: connecting to Couchbase",
-		"connectionString", connectionString,
-		"username", username,
+		"connectionString", cb.ConnectionString,
+		"username", cb.Username,
 		"snapshotBucket", snapshotBucket)
-	snapshotService, err := services.NewSnapshotService(connectionString, username, password, snapshotBucket)
+	snapshotService, err := services.NewSnapshotService(cb.ConnectionString, cb.Username, cb.Password, snapshotBucket)
 	if err != nil {
 		sdklog.DefaultLogger.Error("setupSnapshotRoutes: NewSnapshotService failed", "error", err.Error())
 		log.Printf("Warning: Failed to initialize Snapshot service: %v", err)
@@ -152,44 +132,39 @@ func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
 		sdklog.DefaultLogger.Info("setupSnapshotRoutes: NewSnapshotService ok")
 	}
 
-	// Initialize Couchbase service for metric queries
-	bucketName := getEnvWithDefault("COUCHBASE_BUCKET", "showfast")
-	couchbaseService, err := services.NewCouchbaseService(connectionString, username, password, bucketName)
-	if err != nil {
-		sdklog.DefaultLogger.Error("setupSnapshotRoutes: NewCouchbaseService failed", "error", err.Error())
-		log.Printf("Warning: Failed to initialize Couchbase service for snapshot metrics: %v", err)
-		couchbaseService = nil
-	} else {
-		sdklog.DefaultLogger.Info("setupSnapshotRoutes: NewCouchbaseService ok")
+	// If the Couchbase datasource is also enabled, snapshot metric queries
+	// can reach the showfast bucket; otherwise leave the metric service nil
+	// and let handlers fall back gracefully.
+	var couchbaseService *services.CouchbaseService
+	if a.settings.CouchbaseDatasource.Enabled {
+		metricBucket := a.settings.CouchbaseDatasource.Bucket
+		couchbaseService, err = services.NewCouchbaseService(cb.ConnectionString, cb.Username, cb.Password, metricBucket)
+		if err != nil {
+			sdklog.DefaultLogger.Error("setupSnapshotRoutes: NewCouchbaseService failed", "error", err.Error())
+			log.Printf("Warning: Failed to initialize Couchbase service for snapshot metrics: %v", err)
+			couchbaseService = nil
+		} else {
+			sdklog.DefaultLogger.Info("setupSnapshotRoutes: NewCouchbaseService ok")
+		}
 	}
 
-	// Initialize snapshot handler
 	snapshotHandler := handlers.NewSnapshotHandler(snapshotService, couchbaseService, snapshotBucket)
 
-	// Register snapshot routes with nested path handling
 	mux.HandleFunc("/snapshots/", func(w http.ResponseWriter, r *http.Request) {
-		// Extract path after /snapshots/
 		path := strings.TrimPrefix(r.URL.Path, "/snapshots/")
 		pathParts := strings.Split(strings.Trim(path, "/"), "/")
 
-		// Route based on path structure
 		if len(pathParts) == 1 && pathParts[0] != "" {
-			// /snapshots/{id}
 			snapshotHandler.HandleGetSnapshot(w, r)
 		} else if len(pathParts) >= 3 && pathParts[1] == "metrics" {
-			// Handle metric-related paths
 			if len(pathParts) == 3 {
-				// /snapshots/{id}/metrics/{metric_name}
 				snapshotHandler.HandleGetMetric(w, r)
 			} else if len(pathParts) == 4 && pathParts[3] == "summary" {
-				// /snapshots/{id}/metrics/{metric_name}/summary
 				snapshotHandler.HandleGetMetricSummary(w, r)
 			} else if len(pathParts) >= 5 && pathParts[3] == "phases" {
 				if len(pathParts) == 5 {
-					// /snapshots/{id}/metrics/{metric_name}/phases/{phase_name}
 					snapshotHandler.HandleGetMetricPhase(w, r)
 				} else if len(pathParts) == 6 && pathParts[5] == "summary" {
-					// /snapshots/{id}/metrics/{metric_name}/phases/{phase_name}/summary
 					snapshotHandler.HandleGetMetricPhaseSummary(w, r)
 				} else {
 					http.Error(w, "Invalid path", http.StatusBadRequest)
@@ -198,10 +173,8 @@ func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
 				http.Error(w, "Invalid path", http.StatusBadRequest)
 			}
 		} else if path == "" || path == "/" {
-			// /snapshots/ or /snapshots
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		} else {
-			// Unknown path
 			http.Error(w, "Not found", http.StatusNotFound)
 		}
 	})
@@ -209,26 +182,22 @@ func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
 	log.Printf("Snapshot routes registered: /snapshots/{id}, /snapshots/{id}/metrics/{metric}, /snapshots/{id}/metrics/{metric}/phases/{phase}")
 }
 
-// setupPrometheusRoutes initializes the Prometheus Query API routes
+// setupPrometheusRoutes registers the Prometheus Query API routes backed
+// by the Couchbase datasource bucket. Only called when
+// CouchbaseDatasource.Enabled is true.
 func (a *App) setupPrometheusRoutes(mux *http.ServeMux) {
-	// Get Couchbase connection details from environment variables
-	connectionString := getEnvWithDefault("COUCHBASE_CONNECTION_STRING", "couchbase://localhost")
-	username := getEnvWithDefault("COUCHBASE_USERNAME", "Administrator")
-	password := getEnvWithDefault("COUCHBASE_PASSWORD", "password")
-	bucketName := getEnvWithDefault("COUCHBASE_BUCKET", "showfast")
+	cb := a.settings.CouchbaseServer
+	bucket := a.settings.CouchbaseDatasource.Bucket
 
-	// Initialize Couchbase service (reuse if already initialized)
-	couchbaseService, err := services.NewCouchbaseService(connectionString, username, password, bucketName)
+	couchbaseService, err := services.NewCouchbaseService(cb.ConnectionString, cb.Username, cb.Password, bucket)
 	if err != nil {
 		log.Printf("Warning: Failed to initialize Couchbase service for Prometheus API: %v", err)
 		log.Printf("Prometheus Query API endpoints will not be available")
 		couchbaseService = nil
 	}
 
-	// Initialize PromQL handler
 	promQLHandler := handlers.NewPromQLHandler(couchbaseService)
 
-	// Register Prometheus Query API routes
 	mux.HandleFunc("/query", promQLHandler.HandleQuery)
 	mux.HandleFunc("/query_range", promQLHandler.HandleQueryRange)
 	mux.HandleFunc("/series", promQLHandler.HandleSeries)
@@ -238,30 +207,43 @@ func (a *App) setupPrometheusRoutes(mux *http.ServeMux) {
 
 // handleHealthCheckConnection performs a fresh, short-timeout probe of the
 // configured Couchbase snapshot bucket. The endpoint always responds with HTTP
-// 200; failures are encoded inside the JSON body so the frontend can render
-// per-check status without distinguishing transport vs application errors.
+// 200; failures (including "snapshots disabled") are encoded inside the JSON
+// body so the frontend can render per-check status without distinguishing
+// transport vs application errors.
 func (a *App) handleHealthCheckConnection(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	cs := getEnvWithDefault("COUCHBASE_CONNECTION_STRING", "couchbase://localhost")
-	user := getEnvWithDefault("COUCHBASE_USERNAME", "Administrator")
-	pass := getEnvWithDefault("COUCHBASE_PASSWORD", "password")
-	bucket := getEnvWithDefault("COUCHBASE_SNAPSHOT_BUCKET", "metadata")
+	if !a.settings.Snapshots.Enabled {
+		resp := map[string]any{
+			"couchbase": map[string]any{
+				"ok":     false,
+				"bucket": "",
+				"error":  "snapshots disabled",
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {
+			log.Printf("[handleHealthCheckConnection] error encoding response: %v", encErr)
+		}
+		return
+	}
 
-	// Outer kill-switch in case gocb ignores its own deadline.
+	cb := a.settings.CouchbaseServer
+	bucket := a.settings.Snapshots.Bucket
+
 	ctx, cancel := context.WithTimeout(req.Context(), 6*time.Second)
 	defer cancel()
 
 	start := time.Now()
-	err := services.ProbeCouchbaseBucket(ctx, cs, user, pass, bucket, 5*time.Second)
+	err := services.ProbeCouchbaseBucket(ctx, cb.ConnectionString, cb.Username, cb.Password, bucket, 5*time.Second)
 	resp := map[string]any{
 		"couchbase": map[string]any{
 			"ok":               err == nil,
 			"bucket":           bucket,
-			"connectionString": cs,
+			"connectionString": cb.ConnectionString,
 			"latencyMs":        time.Since(start).Milliseconds(),
 			"error":            errString(err),
 		},
@@ -278,18 +260,4 @@ func errString(err error) string {
 		return ""
 	}
 	return err.Error()
-}
-
-// getEnvWithDefault gets environment variable with a default value
-func getEnvWithDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
-// getBooleanEnvWithDefault parses a boolean environment variable with a fallback
-func getBooleanEnvWithDefault(key string, defaultValue string) bool {
-	value := getEnvWithDefault(key, defaultValue)
-	return strings.ToLower(value) == "true"
 }

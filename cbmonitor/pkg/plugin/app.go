@@ -6,6 +6,7 @@ import (
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
+	sdklog "github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/resource/httpadapter"
 )
 
@@ -19,23 +20,29 @@ var (
 	_ backend.CheckHealthHandler    = (*App)(nil)
 )
 
-// App is an example app backend plugin which can respond to data queries.
+// App is the cbmonitor Grafana app backend.
 type App struct {
 	backend.CallResourceHandler
+	settings *PluginSettings
 }
 
-// NewApp creates a new example *App instance.
-func NewApp(_ context.Context, _ backend.AppInstanceSettings) (instancemgmt.Instance, error) {
-	var app App
+// NewApp creates a new App instance, parsing the Grafana-managed plugin
+// settings up front. Grafana disposes and re-creates the instance whenever
+// settings change, so registered routes always reflect the latest config.
+func NewApp(_ context.Context, instSettings backend.AppInstanceSettings) (instancemgmt.Instance, error) {
+	settings, err := LoadSettings(instSettings)
+	if err != nil {
+		sdklog.DefaultLogger.Warn("cbmonitor plugin settings invalid; using disabled-everything fallback", "error", err.Error())
+		settings = defaultSettings()
+	}
 
-	// Use a httpadapter (provided by the SDK) for resource calls. This allows us
-	// to use a *http.ServeMux for resource calls, so we can map multiple routes
-	// to CallResource without having to implement extra logic.
+	app := &App{settings: settings}
+
 	mux := http.NewServeMux()
 	app.registerRoutes(mux)
 	app.CallResourceHandler = httpadapter.New(mux)
 
-	return &app, nil
+	return app, nil
 }
 
 // Dispose here tells plugin SDK that plugin wants to clean up resources when a new instance

@@ -36,19 +36,5 @@ services:
       GF_SECURITY_ALLOW_EMBEDDING: ${GF_SECURITY_ALLOW_EMBEDDING:-true} # TODO: Fix this properly
       GF_SECURITY_COOKIE_SAMESITE: ${GF_SECURITY_COOKIE_SAMESITE:-lax} # TODO: Fix this properly
 
-      # Couchbase Configuration
-      COUCHBASE_CONNECTION_STRING: ${COUCHBASE_CONNECTION_STRING:-couchbase://host.docker.internal:8091}
       COUCHBASE_USERNAME: ${COUCHBASE_USERNAME:-Administrator}
       COUCHBASE_PASSWORD: ${COUCHBASE_PASSWORD:-password}
-      COUCHBASE_BUCKET: ${COUCHBASE_BUCKET:-showfast}
-
-      SHOWFAST_URL: ${SHOWFAST_URL:-https://showfast.sc.couchbase.com}
-
-      # Plugin Configuration
-      DEFAULT_METRIC_LIMIT: ${DEFAULT_METRIC_LIMIT:-50}
-      ENABLE_MOCK_DATA: ${ENABLE_MOCK_DATA:-false}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-
-      # Install Infinity Datasource Plugin
-      GF_INSTALL_PLUGINS: ${GF_INSTALL_PLUGINS:-yesoreyeram-infinity-datasource}
-

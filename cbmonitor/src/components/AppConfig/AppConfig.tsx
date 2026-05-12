@@ -1,25 +1,65 @@
-import React, { ChangeEvent, useState } from 'react';
+import React, { ChangeEvent, useMemo, useState } from 'react';
 import { lastValueFrom } from 'rxjs';
 import { css } from '@emotion/css';
 import { AppPluginMeta, GrafanaTheme2, PluginConfigPageProps, PluginMeta } from '@grafana/data';
 import { getBackendSrv } from '@grafana/runtime';
-import { Alert, Badge, Button, Field, FieldSet, Input, SecretInput, Spinner, useStyles2 } from '@grafana/ui';
+import {
+  Alert,
+  Badge,
+  Button,
+  Field,
+  FieldSet,
+  Input,
+  SecretInput,
+  Spinner,
+  Switch,
+  useStyles2,
+} from '@grafana/ui';
 import { testIds } from '../testIds';
 import { dataSourceService } from '../../services/datasourceService';
 import { DataSourceType } from '../../types/datasource';
 import { API_BASE_URL, CB_DATASOURCE_REF, PROM_DATASOURCE_REF } from '../../constants';
 
+// Mirror of the Go PluginSettings JSON shape, minus the password (which lives
+// in secureJsonData and is never readable from the frontend).
+type CouchbaseServerJsonData = {
+  connectionString?: string;
+  username?: string;
+};
+
+type SnapshotsJsonData = {
+  enabled?: boolean;
+  bucket?: string;
+};
+
+type CouchbaseDatasourceJsonData = {
+  enabled?: boolean;
+  bucket?: string;
+};
+
+type PrometheusDatasourceJsonData = {
+  enabled?: boolean;
+  isDefault?: boolean;
+};
+
 type AppPluginSettings = {
-  apiUrl?: string;
+  couchbaseServer?: CouchbaseServerJsonData;
+  snapshots?: SnapshotsJsonData;
+  couchbaseDatasource?: CouchbaseDatasourceJsonData;
+  prometheusDatasource?: PrometheusDatasourceJsonData;
+};
+
+type SecureFields = {
+  couchbasePassword?: boolean;
 };
 
 type State = {
-  // The URL to reach our custom API.
-  apiUrl: string;
-  // Tells us if the API key secret is set.
-  isApiKeySet: boolean;
-  // A secret key for our custom API.
-  apiKey: string;
+  couchbaseServer: { connectionString: string; username: string };
+  snapshots: { enabled: boolean; bucket: string };
+  couchbaseDatasource: { enabled: boolean; bucket: string };
+  prometheusDatasource: { enabled: boolean; isDefault: boolean };
+  password: string;
+  isPasswordSet: boolean;
 };
 
 type ProbeResult = { ok: boolean; message: string; latencyMs?: number };
@@ -29,10 +69,27 @@ export interface AppConfigProps extends PluginConfigPageProps<AppPluginMeta<AppP
 const AppConfig = ({ plugin }: AppConfigProps) => {
   const s = useStyles2(getStyles);
   const { enabled, pinned, jsonData, secureJsonFields } = plugin.meta;
+  const secure = (secureJsonFields ?? {}) as SecureFields;
+
   const [state, setState] = useState<State>({
-    apiUrl: jsonData?.apiUrl || '',
-    apiKey: '',
-    isApiKeySet: Boolean(secureJsonFields?.apiKey),
+    couchbaseServer: {
+      connectionString: jsonData?.couchbaseServer?.connectionString ?? '',
+      username: jsonData?.couchbaseServer?.username ?? '',
+    },
+    snapshots: {
+      enabled: jsonData?.snapshots?.enabled ?? false,
+      bucket: jsonData?.snapshots?.bucket ?? '',
+    },
+    couchbaseDatasource: {
+      enabled: jsonData?.couchbaseDatasource?.enabled ?? false,
+      bucket: jsonData?.couchbaseDatasource?.bucket ?? '',
+    },
+    prometheusDatasource: {
+      enabled: jsonData?.prometheusDatasource?.enabled ?? true,
+      isDefault: jsonData?.prometheusDatasource?.isDefault ?? true,
+    },
+    password: '',
+    isPasswordSet: Boolean(secure.couchbasePassword),
   });
 
   const [isTesting, setIsTesting] = useState(false);
@@ -40,7 +97,9 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
   const [dsResult, setDsResult] = useState<ProbeResult | null>(null);
   const [dsUid, setDsUid] = useState<string>(PROM_DATASOURCE_REF.uid);
 
-  const isSubmitDisabled = Boolean(!state.apiUrl || (!state.isApiKeySet && !state.apiKey));
+  const needsCouchbaseServer = state.snapshots.enabled || state.couchbaseDatasource.enabled;
+  const validationError = useMemo(() => validate(state), [state]);
+  const isSubmitDisabled = Boolean(validationError);
 
   const runProbe = async () => {
     setIsTesting(true);
@@ -54,126 +113,254 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
         : PROM_DATASOURCE_REF.uid;
     setDsUid(uid);
 
-    const cbProbe = getBackendSrv()
-      .get(`${API_BASE_URL}/healthcheck/connection`)
-      .then((r: any) => ({
-        ok: Boolean(r?.couchbase?.ok),
-        message: r?.couchbase?.ok
-          ? `Bucket "${r.couchbase.bucket}" reachable at ${r.couchbase.connectionString}`
-          : r?.couchbase?.error ?? 'unknown error',
-        latencyMs: r?.couchbase?.latencyMs,
-      }))
-      .catch((e: any) => ({
-        ok: false,
-        message: e?.data?.message ?? e?.message ?? 'request failed',
-      }));
+    const probes: Array<Promise<unknown>> = [];
 
-    const dsProbe = getBackendSrv()
-      .get(`/api/datasources/uid/${uid}/health`)
-      .then((r: any) => ({
-        ok: typeof r?.status === 'string' && r.status.toLowerCase() === 'ok',
-        message: r?.message ?? `Datasource ${uid} healthy`,
-      }))
-      .catch((e: any) => ({
-        ok: false,
-        message: e?.data?.message ?? e?.message ?? 'unknown error',
-      }));
+    if (state.snapshots.enabled) {
+      probes.push(
+        getBackendSrv()
+          .get(`${API_BASE_URL}/healthcheck/connection`)
+          .then((r: any) =>
+            setCbResult({
+              ok: Boolean(r?.couchbase?.ok),
+              message: r?.couchbase?.ok
+                ? `Bucket "${r.couchbase.bucket}" reachable at ${r.couchbase.connectionString}`
+                : r?.couchbase?.error ?? 'unknown error',
+              latencyMs: r?.couchbase?.latencyMs,
+            })
+          )
+          .catch((e: any) =>
+            setCbResult({
+              ok: false,
+              message: e?.data?.message ?? e?.message ?? 'request failed',
+            })
+          )
+      );
+    }
 
-    const [cb, ds] = await Promise.allSettled([cbProbe, dsProbe]);
-    setCbResult(
-      cb.status === 'fulfilled' ? cb.value : { ok: false, message: String((cb as any).reason) }
+    probes.push(
+      getBackendSrv()
+        .get(`/api/datasources/uid/${uid}/health`)
+        .then((r: any) =>
+          setDsResult({
+            ok: typeof r?.status === 'string' && r.status.toLowerCase() === 'ok',
+            message: r?.message ?? `Datasource ${uid} healthy`,
+          })
+        )
+        .catch((e: any) =>
+          setDsResult({
+            ok: false,
+            message: e?.data?.message ?? e?.message ?? 'unknown error',
+          })
+        )
     );
-    setDsResult(
-      ds.status === 'fulfilled' ? ds.value : { ok: false, message: String((ds as any).reason) }
-    );
+
+    await Promise.allSettled(probes);
     setIsTesting(false);
   };
 
-  const onResetApiKey = () =>
+  const onChangeCouchbaseServer = (event: ChangeEvent<HTMLInputElement>) => {
     setState({
       ...state,
-      apiKey: '',
-      isApiKeySet: false,
-    });
-
-  const onChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setState({
-      ...state,
-      [event.target.name]: event.target.value.trim(),
+      couchbaseServer: { ...state.couchbaseServer, [event.target.name]: event.target.value.trim() },
     });
   };
 
-  const onSubmit = () => {
+  const onChangePassword = (event: ChangeEvent<HTMLInputElement>) => {
+    setState({ ...state, password: event.target.value });
+  };
+
+  const onResetPassword = () => {
+    setState({ ...state, password: '', isPasswordSet: false });
+  };
+
+  const onChangeBucket = (group: 'snapshots' | 'couchbaseDatasource') => (event: ChangeEvent<HTMLInputElement>) => {
+    setState({
+      ...state,
+      [group]: { ...state[group], bucket: event.target.value.trim() },
+    });
+  };
+
+  const toggleSnapshots = (e: React.FormEvent<HTMLInputElement>) => {
+    setState({ ...state, snapshots: { ...state.snapshots, enabled: e.currentTarget.checked } });
+  };
+  const toggleCouchbaseDs = (e: React.FormEvent<HTMLInputElement>) => {
+    setState({ ...state, couchbaseDatasource: { ...state.couchbaseDatasource, enabled: e.currentTarget.checked } });
+  };
+  const togglePromDs = (e: React.FormEvent<HTMLInputElement>) => {
+    setState({ ...state, prometheusDatasource: { ...state.prometheusDatasource, enabled: e.currentTarget.checked } });
+  };
+  const togglePromDefault = (e: React.FormEvent<HTMLInputElement>) => {
+    setState({ ...state, prometheusDatasource: { ...state.prometheusDatasource, isDefault: e.currentTarget.checked } });
+  };
+
+  const onSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     if (isSubmitDisabled) {
       return;
     }
 
+    const nextJsonData: AppPluginSettings = {
+      couchbaseServer: {
+        connectionString: state.couchbaseServer.connectionString,
+        username: state.couchbaseServer.username,
+      },
+      snapshots: {
+        enabled: state.snapshots.enabled,
+        bucket: state.snapshots.bucket,
+      },
+      couchbaseDatasource: {
+        enabled: state.couchbaseDatasource.enabled,
+        bucket: state.couchbaseDatasource.bucket,
+      },
+      prometheusDatasource: {
+        enabled: state.prometheusDatasource.enabled,
+        isDefault: state.prometheusDatasource.isDefault,
+      },
+    };
+
     updatePluginAndReload(plugin.meta.id, {
       enabled,
       pinned,
-      jsonData: {
-        apiUrl: state.apiUrl,
-      },
-      // This cannot be queried later by the frontend.
-      // We don't want to override it in case it was set previously and left untouched now.
-      secureJsonData: state.isApiKeySet
+      jsonData: nextJsonData,
+      // Only send password if the user typed a new one; an empty secureJsonData
+      // would clear the existing value on Grafana's side.
+      secureJsonData: state.isPasswordSet
         ? undefined
         : {
-            apiKey: state.apiKey,
+          couchbasePassword: state.password,
           },
     });
   };
 
   return (
-    <>
-      <form onSubmit={onSubmit}>
-        <FieldSet label="API Settings">
-          <Field label="API Key" description="A secret key for authenticating to our custom API">
-            <SecretInput
-              width={60}
-              id="config-api-key"
-              data-testid={testIds.appConfig.apiKey}
-              name="apiKey"
-              value={state.apiKey}
-              isConfigured={state.isApiKeySet}
-              placeholder={'Your secret API key'}
-              onChange={onChange}
-              onReset={onResetApiKey}
-            />
-          </Field>
-
-          <Field label="API Url" description="" className={s.marginTop}>
+    <form onSubmit={onSubmit}>
+      <FieldSet label="Snapshots">
+        <Field label="Enable snapshots" description="Read snapshot metadata from a Couchbase bucket.">
+          <Switch
+            value={state.snapshots.enabled}
+            onChange={toggleSnapshots}
+            data-testid={testIds.appConfig.snapshotsEnabled}
+          />
+        </Field>
+        {state.snapshots.enabled && (
+          <Field label="Metadata bucket name">
             <Input
               width={60}
-              name="apiUrl"
-              id="config-api-url"
-              data-testid={testIds.appConfig.apiUrl}
-              value={state.apiUrl}
-              placeholder={`E.g.: http://mywebsite.com/api/v1`}
-              onChange={onChange}
+              value={state.snapshots.bucket}
+              placeholder="cbmonitor"
+              onChange={onChangeBucket('snapshots')}
+              data-testid={testIds.appConfig.snapshotsBucket}
             />
           </Field>
+        )}
+      </FieldSet>
 
-          <div className={s.marginTop}>
-            <Button type="submit" data-testid={testIds.appConfig.submit} disabled={isSubmitDisabled}>
-              Save API settings
-            </Button>
-          </div>
-        </FieldSet>
-      </form>
+      <FieldSet label="Couchbase data source" className={s.marginTop}>
+        <Field
+          label="Enable Couchbase data source"
+          description="Use Couchbase as a metric source for the snapshots/compare timeseries data"
+        >
+          <Switch
+            value={state.couchbaseDatasource.enabled}
+            onChange={toggleCouchbaseDs}
+            data-testid={testIds.appConfig.couchbaseDsEnabled}
+          />
+        </Field>
+        {state.couchbaseDatasource.enabled && (
+          <Field label="Metrics bucket name">
+            <Input
+              width={60}
+              value={state.couchbaseDatasource.bucket}
+              placeholder="cbmonitor"
+              onChange={onChangeBucket('couchbaseDatasource')}
+              data-testid={testIds.appConfig.couchbaseDsBucket}
+            />
+          </Field>
+        )}
+      </FieldSet>
 
-      <FieldSet label="Connection Test" className={s.marginTop}>
+      <FieldSet label="Couchbase server" className={s.marginTop}>
         <p className={s.colorWeak}>
-          Probes the Couchbase snapshot bucket and the default Grafana datasource using the
-          plugin&apos;s current environment.
+          Connection details shared by Snapshots and the Couchbase metric data source.
+          {!needsCouchbaseServer && ' Currently unused — no Couchbase-backed feature is enabled.'}
         </p>
+        <Field label="Connection string" description="e.g. couchbase://host">
+          <Input
+            width={60}
+            name="connectionString"
+            value={state.couchbaseServer.connectionString}
+            placeholder="couchbase://localhost"
+            disabled={!needsCouchbaseServer}
+            onChange={onChangeCouchbaseServer}
+            data-testid={testIds.appConfig.couchbaseConnectionString}
+          />
+        </Field>
+        <Field label="Username">
+          <Input
+            width={60}
+            name="username"
+            value={state.couchbaseServer.username}
+            placeholder="Administrator"
+            disabled={!needsCouchbaseServer}
+            onChange={onChangeCouchbaseServer}
+            data-testid={testIds.appConfig.couchbaseUsername}
+          />
+        </Field>
+        <Field label="Password">
+          <SecretInput
+            width={60}
+            name="couchbasePassword"
+            value={state.password}
+            isConfigured={state.isPasswordSet}
+            placeholder="Couchbase server password"
+            disabled={!needsCouchbaseServer}
+            onChange={onChangePassword}
+            onReset={onResetPassword}
+            data-testid={testIds.appConfig.couchbasePassword}
+          />
+        </Field>
+      </FieldSet>
 
+      <FieldSet label="Prometheus data source" className={s.marginTop}>
+        <Field label="Enable Prometheus data source">
+          <Switch
+            value={state.prometheusDatasource.enabled}
+            onChange={togglePromDs}
+            data-testid={testIds.appConfig.prometheusDsEnabled}
+          />
+        </Field>
+        {state.prometheusDatasource.enabled && (
+          <Field label="Use as default" description="When both data sources are enabled, prefer Prometheus.">
+            <Switch
+              value={state.prometheusDatasource.isDefault}
+              onChange={togglePromDefault}
+              data-testid={testIds.appConfig.prometheusDsDefault}
+            />
+          </Field>
+        )}
+      </FieldSet>
+
+      {validationError && (
+        <Alert severity="warning" title="Configuration incomplete" className={s.marginTop}>
+          {validationError}
+        </Alert>
+      )}
+
+      <div className={s.marginTop}>
+        <Button type="submit" data-testid={testIds.appConfig.submit} disabled={isSubmitDisabled}>
+          Save settings
+        </Button>
+      </div>
+
+      <FieldSet label="Connection test" className={s.marginTop}>
+        <p className={s.colorWeak}>Probes any enabled Couchbase-backed feature plus the default Grafana datasource.</p>
         <div className={s.marginTop}>
           <Button
             variant="secondary"
             icon="sync"
             onClick={runProbe}
             disabled={isTesting}
+            type="button"
             data-testid={testIds.appConfig.testConnection}
           >
             {isTesting ? (
@@ -194,7 +381,7 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
               icon={cbResult.ok ? 'check' : 'times'}
             />
             <span className={s.resultLabel}>
-              Couchbase snapshot bucket
+              Snapshots bucket
               {typeof cbResult.latencyMs === 'number' ? ` (${cbResult.latencyMs} ms)` : ''}
             </span>
             {!cbResult.ok && (
@@ -223,9 +410,31 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
           </div>
         )}
       </FieldSet>
-    </>
+    </form>
   );
 };
+
+function validate(state: State): string | null {
+  const needsServer = state.snapshots.enabled || state.couchbaseDatasource.enabled;
+  if (needsServer) {
+    if (!state.couchbaseServer.connectionString) {
+      return 'Couchbase connection string is required when Snapshots or the Couchbase data source is enabled.';
+    }
+    if (!state.couchbaseServer.username) {
+      return 'Couchbase username is required when Snapshots or the Couchbase data source is enabled.';
+    }
+    if (!state.isPasswordSet && !state.password) {
+      return 'Couchbase password is required when Snapshots or the Couchbase data source is enabled.';
+    }
+  }
+  if (state.snapshots.enabled && !state.snapshots.bucket) {
+    return 'Snapshots bucket name is required.';
+  }
+  if (state.couchbaseDatasource.enabled && !state.couchbaseDatasource.bucket) {
+    return 'Couchbase data source bucket name is required.';
+  }
+  return null;
+}
 
 export default AppConfig;
 
@@ -259,9 +468,6 @@ const getStyles = (theme: GrafanaTheme2) => ({
 const updatePluginAndReload = async (pluginId: string, data: Partial<PluginMeta<AppPluginSettings>>) => {
   try {
     await updatePlugin(pluginId, data);
-
-    // Reloading the page as the changes made here wouldn't be propagated to the actual plugin otherwise.
-    // This is not ideal, however unfortunately currently there is no supported way for updating the plugin state.
     window.location.reload();
   } catch (e) {
     console.error('Error while updating the plugin', e);
