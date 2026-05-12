@@ -6,7 +6,17 @@ apps:
     org_name: 'couchbase'
     disabled: false
     jsonData:
-      apiUrl: http://default-url.com
+      couchbaseServer:
+        connectionString: $COUCHBASE_CONNECTION_STRING
+        username: $COUCHBASE_USERNAME
+      snapshots:
+        enabled: $CBMONITOR_SNAPSHOTS_ENABLED
+        bucket: $COUCHBASE_SNAPSHOT_BUCKET
+      couchbaseDatasource:
+        enabled: $CBMONITOR_COUCHBASE_DS_ENABLED
+        bucket: $COUCHBASE_BUCKET
+      prometheusDatasource:
+        enabled: $CBMONITOR_PROMETHEUS_DS_ENABLED
+        isDefault: $CBMONITOR_PROMETHEUS_DS_IS_DEFAULT
     secureJsonData:
-      apiKey: secret-key
-
+      couchbasePassword: $COUCHBASE_PASSWORD
