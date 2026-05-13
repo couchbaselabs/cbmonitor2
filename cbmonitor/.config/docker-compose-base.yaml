@@ -36,6 +36,12 @@ services:
       GF_SECURITY_ALLOW_EMBEDDING: ${GF_SECURITY_ALLOW_EMBEDDING:-true} # TODO: Fix this properly
       GF_SECURITY_COOKIE_SAMESITE: ${GF_SECURITY_COOKIE_SAMESITE:-lax} # TODO: Fix this properly
 
+      # Two flags must align for the plugin's `iam` block in plugin.json to take effect.
+      # Without BOTH set, Grafana never injects GF_PLUGIN_APP_CLIENT_SECRET, and
+      # the in-app datasource reconciler reports `reconciliation.status: "disabled"`.
+      GF_AUTH_MANAGED_SERVICE_ACCOUNTS_ENABLED: 'true'
+      GF_FEATURE_TOGGLES_ENABLE: ${GF_FEATURE_TOGGLES_ENABLE:-externalServiceAccounts}
+
       # Couchbase credentials are consumed by:
       # 1. provisioning/datasources/datasource.yaml (couchbase-datasource plugin)
       # 2. provisioning/plugins/apps.yaml

@@ -1,28 +1,9 @@
 apiVersion: 1
 
+# The `prometheus` and `cbdatasource` datasources are managed by the
+# cbmonitor app plugin itself (reconciled at runtime from app jsonData via
+# the Grafana HTTP API). Don't add them back here or you'll get duplicates.
 datasources:
-- name: cbdatasource
-  uid: cbdatasource
-  type: couchbase-datasource
-  access: proxy
-  jsonData:
-    host: ${COUCHBASE_HOST}
-    username: ${COUCHBASE_USERNAME}
-  secureJsonData:
-    password: ${COUCHBASE_PASSWORD}
-- name: Prometheus
-  uid: prometheus
-  type: prometheus
-  access: proxy
-  url: ${PROMETHEUS_URL}
-  basicAuth: false
-  isDefault: true
-  jsonData:
-    cacheLevel: High
-    httpMethod: POST
-    prometheusType: Mimir
-    prometheusVersion: 2.9.1
-  secureJsonData: {}
 - name: ProxyPrometheus
   uid: proxyprometheus
   type: prometheus
@@ -46,4 +27,3 @@ datasources:
     tlsSkipVerify: true
     allowDangerousHTTPMethods: false
   secureJsonData: {}
- 
