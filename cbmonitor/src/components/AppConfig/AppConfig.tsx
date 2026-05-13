@@ -495,6 +495,14 @@ const getStyles = (theme: GrafanaTheme2) => ({
 const updatePluginAndReload = async (pluginId: string, data: Partial<PluginMeta<AppPluginSettings>>) => {
   try {
     await updatePlugin(pluginId, data);
+    // Trigger datasource reconciliation synchronously so the page reload
+    // sees up-to-date datasources. Failure here is non-fatal — the UI
+    // surfaces reconciliation status on the next /config/datasources read.
+    try {
+      await getBackendSrv().post(`${API_BASE_URL}/admin/reconcile-datasources`);
+    } catch (e) {
+      console.warn('Datasource reconciliation request failed; status will appear in the next page load', e);
+    }
     window.location.reload();
   } catch (e) {
     console.error('Error while updating the plugin', e);

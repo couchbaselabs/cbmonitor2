@@ -57,6 +57,7 @@ func (a *App) handleGetDatasourceConfig(w http.ResponseWriter, req *http.Request
 		"defaultDataSource":   a.settings.DefaultDataSource(),
 		"prometheusAvailable": a.settings.PrometheusDatasource.Enabled,
 		"couchbaseAvailable":  a.settings.CouchbaseDatasource.Enabled,
+		"reconciliation":      a.getReconcileState(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -64,6 +65,27 @@ func (a *App) handleGetDatasourceConfig(w http.ResponseWriter, req *http.Request
 	if err := json.NewEncoder(w).Encode(config); err != nil {
 		log.Printf("Error encoding response: %v", err)
 		return
+	}
+}
+
+// handleReconcileDatasources forces a synchronous reconciliation pass.
+// Exposed so the AppConfig save flow can apply URL/credential changes
+// before the page reloads, instead of waiting for the lazy first-request path.
+// Returns the post-run reconciliation status as JSON.
+func (a *App) handleReconcileDatasources(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	// Mark the lazy gate as already-fired so a subsequent CallResource
+	// doesn't trigger a duplicate background pass.
+	a.reconcileOnce.Do(func() {})
+	a.reconcileNow(req.Context())
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(a.getReconcileState()); err != nil {
+		log.Printf("Error encoding response: %v", err)
 	}
 }
 
@@ -75,6 +97,7 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/echo", a.handleEcho)
 
 	mux.HandleFunc("/config/datasources", a.handleGetDatasourceConfig)
+	mux.HandleFunc("/admin/reconcile-datasources", a.handleReconcileDatasources)
 	mux.HandleFunc("/healthcheck/connection", a.handleHealthCheckConnection)
 
 	if a.settings.CouchbaseDatasource.Enabled {

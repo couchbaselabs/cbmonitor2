@@ -60,8 +60,17 @@
       "path": "couchbase-datasource/plugin.json"
     }
   ],
+  "iam": {
+    "permissions": [
+      { "action": "datasources:read",   "scope": "datasources:uid:prometheus" },
+      { "action": "datasources:read",   "scope": "datasources:uid:cbdatasource" },
+      { "action": "datasources:create" },
+      { "action": "datasources:write",  "scope": "datasources:uid:prometheus" },
+      { "action": "datasources:write",  "scope": "datasources:uid:cbdatasource" }
+    ]
+  },
   "dependencies": {
-    "grafanaDependency": ">=10.4.0",
+    "grafanaDependency": ">=11.6.0",
     "plugins": []
   }
 }
