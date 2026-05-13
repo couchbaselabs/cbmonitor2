@@ -1,8 +1,6 @@
 apiVersion: 1
 
-plugins:
-  - type: yesoreyeram-infinity-datasource
-    name: infinity-datasource
-    org_id: 1
-    enabled: true
-    pinned: false
+# No plugins to enable here. The cbmonitor app plugin itself is provisioned
+# via plugins/apps.yaml; datasource plugins (prometheus, couchbase-datasource)
+# come from Grafana's built-ins / bundled includes.
+plugins: []

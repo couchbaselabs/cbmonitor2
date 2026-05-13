@@ -24,7 +24,4 @@ export const testIds = {
     searchInput: 'data-testid home-search-input',
     searchButton: 'data-testid home-search-button',
   },
-  showfast: {
-    container: 'data-testid showfast-container',
-  },
 };

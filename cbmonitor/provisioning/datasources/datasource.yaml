@@ -17,13 +17,3 @@ datasources:
     prometheusType: Mimir
     prometheusVersion: 2.9.1
   secureJsonData: {}
-- name: Showfast
-  type: yesoreyeram-infinity-datasource
-  access: proxy
-  url: ${SHOWFAST_URL}
-  basicAuth: false
-  isDefault: false
-  jsonData:
-    tlsSkipVerify: true
-    allowDangerousHTTPMethods: false
-  secureJsonData: {}

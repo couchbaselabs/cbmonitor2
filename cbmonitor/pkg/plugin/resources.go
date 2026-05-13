@@ -101,38 +101,12 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/healthcheck/connection", a.handleHealthCheckConnection)
 
 	if a.settings.CouchbaseDatasource.Enabled {
-		a.setupMetricsRoutes(mux)
 		a.setupPrometheusRoutes(mux)
 	}
 
 	if a.settings.Snapshots.Enabled {
 		a.setupSnapshotRoutes(mux)
 	}
-}
-
-// setupMetricsRoutes registers the metrics API routes against the Couchbase
-// datasource bucket. Only called when CouchbaseDatasource.Enabled is true.
-func (a *App) setupMetricsRoutes(mux *http.ServeMux) {
-	cb := a.settings.CouchbaseServer
-	ds := a.settings.CouchbaseDatasource
-
-	couchbaseService, err := services.NewCouchbaseService(cb.ConnectionString, cb.Username, cb.Password, ds.Bucket, ds.Scope)
-	if err != nil {
-		log.Printf("Warning: Failed to initialize Couchbase service: %v", err)
-		log.Printf("Metrics endpoints will return mock data")
-		couchbaseService = nil
-	}
-
-	metricsHandler := handlers.NewMetricsHandler(couchbaseService)
-
-	mux.HandleFunc("/metrics/health", metricsHandler.HandleHealthCheck)
-	mux.HandleFunc("/metrics/", func(w http.ResponseWriter, r *http.Request) {
-		if len(r.URL.Path) > 20 {
-			metricsHandler.HandleGetMetricHistory(w, r)
-		} else {
-			metricsHandler.HandleGetComponentMetrics(w, r)
-		}
-	})
 }
 
 // setupSnapshotRoutes registers the snapshot API routes against the
@@ -158,7 +132,7 @@ func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
 	}
 
 	// If the Couchbase datasource is also enabled, snapshot metric queries
-	// can reach the showfast bucket; otherwise leave the metric service nil
+	// can reach the metrics bucket; otherwise leave the metric service nil
 	// and let handlers fall back gracefully.
 	var couchbaseService *services.CouchbaseService
 	if a.settings.CouchbaseDatasource.Enabled {

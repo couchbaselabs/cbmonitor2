@@ -99,7 +99,7 @@ func TestCallResource_DatasourceConfigReflectsSettings(t *testing.T) {
 	settings := &PluginSettings{
 		CouchbaseServer:      CouchbaseServerSettings{ConnectionString: "couchbase://x", Username: "u"},
 		Snapshots:            SnapshotsSettings{Enabled: false},
-		CouchbaseDatasource:  CouchbaseDatasourceSettings{Enabled: true, Bucket: "showfast"},
+		CouchbaseDatasource:  CouchbaseDatasourceSettings{Enabled: true, Bucket: "cbmonitor"},
 		PrometheusDatasource: PrometheusDatasourceSettings{Enabled: false},
 	}
 	app := newAppWithSettings(t, settings)
@@ -128,10 +128,10 @@ func TestCallResource_DatasourceConfigReflectsSettings(t *testing.T) {
 }
 
 func TestCallResource_DatasourceRoutesGatedByToggle(t *testing.T) {
-	// Couchbase datasource OFF → /metrics/health, /query, /query_range, /series should 404.
+	// Couchbase datasource OFF → /query, /query_range, /series should 404.
 	app := newAppWithSettings(t, defaultSettings())
 
-	for _, path := range []string{"metrics/health", "query", "query_range", "series"} {
+	for _, path := range []string{"query", "query_range", "series"} {
 		t.Run("off/"+path, func(t *testing.T) {
 			resp := call(t, app, http.MethodGet, path, nil)
 			if resp.Status != http.StatusNotFound {

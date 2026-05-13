@@ -65,7 +65,7 @@ func TestLoadSettings_ScopeCollectionDefaultToEmpty(t *testing.T) {
 	jsonData := []byte(`{
 		"couchbaseServer": {"connectionString": "couchbase://cb-1", "username": "admin"},
 		"snapshots": {"enabled": true, "bucket": "metadata"},
-		"couchbaseDatasource": {"enabled": true, "bucket": "showfast"}
+		"couchbaseDatasource": {"enabled": true, "bucket": "cbmonitor"}
 	}`)
 	s, err := LoadSettings(backend.AppInstanceSettings{JSONData: jsonData})
 	if err != nil {
@@ -117,7 +117,7 @@ func TestDefaultDataSource(t *testing.T) {
 			name: "prom default on, both enabled",
 			s: PluginSettings{
 				PrometheusDatasource: PrometheusDatasourceSettings{Enabled: true, IsDefault: true},
-				CouchbaseDatasource:  CouchbaseDatasourceSettings{Enabled: true, Bucket: "showfast"},
+				CouchbaseDatasource:  CouchbaseDatasourceSettings{Enabled: true, Bucket: "cbmonitor"},
 				CouchbaseServer:      CouchbaseServerSettings{ConnectionString: "couchbase://x", Username: "u"},
 			},
 			want: "prometheus",
@@ -126,7 +126,7 @@ func TestDefaultDataSource(t *testing.T) {
 			name: "couchbase default on, both enabled",
 			s: PluginSettings{
 				PrometheusDatasource: PrometheusDatasourceSettings{Enabled: true, IsDefault: false},
-				CouchbaseDatasource:  CouchbaseDatasourceSettings{Enabled: true, Bucket: "showfast"},
+				CouchbaseDatasource:  CouchbaseDatasourceSettings{Enabled: true, Bucket: "cbmonitor"},
 				CouchbaseServer:      CouchbaseServerSettings{ConnectionString: "couchbase://x", Username: "u"},
 			},
 			want: "couchbase",
@@ -135,7 +135,7 @@ func TestDefaultDataSource(t *testing.T) {
 			name: "only couchbase enabled",
 			s: PluginSettings{
 				PrometheusDatasource: PrometheusDatasourceSettings{Enabled: false, IsDefault: true},
-				CouchbaseDatasource:  CouchbaseDatasourceSettings{Enabled: true, Bucket: "showfast"},
+				CouchbaseDatasource:  CouchbaseDatasourceSettings{Enabled: true, Bucket: "cbmonitor"},
 				CouchbaseServer:      CouchbaseServerSettings{ConnectionString: "couchbase://x", Username: "u"},
 			},
 			want: "couchbase",

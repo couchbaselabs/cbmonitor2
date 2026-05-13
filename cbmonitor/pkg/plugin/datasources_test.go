@@ -335,7 +335,7 @@ func TestDesiredDatasources_OnlyIncludesEnabledWithRequiredFields(t *testing.T) 
 			name: "both enabled with required fields",
 			s: PluginSettings{
 				PrometheusDatasource: PrometheusDatasourceSettings{Enabled: true, URL: "http://prom"},
-				CouchbaseDatasource:  CouchbaseDatasourceSettings{Enabled: true, Bucket: "showfast"},
+				CouchbaseDatasource:  CouchbaseDatasourceSettings{Enabled: true, Bucket: "cbmonitor"},
 				CouchbaseServer:      CouchbaseServerSettings{ConnectionString: "couchbase://x"},
 			},
 			wantUIDs: []string{"prometheus", "cbdatasource"},
@@ -343,7 +343,7 @@ func TestDesiredDatasources_OnlyIncludesEnabledWithRequiredFields(t *testing.T) 
 		{
 			name: "couchbase enabled but connection string missing — skipped",
 			s: PluginSettings{
-				CouchbaseDatasource: CouchbaseDatasourceSettings{Enabled: true, Bucket: "showfast"},
+				CouchbaseDatasource: CouchbaseDatasourceSettings{Enabled: true, Bucket: "cbmonitor"},
 			},
 			wantUIDs: []string{},
 		},
