@@ -3,6 +3,7 @@ package plugin
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 )
@@ -35,8 +36,9 @@ type CouchbaseDatasourceSettings struct {
 }
 
 type PrometheusDatasourceSettings struct {
-	Enabled   bool `json:"enabled"`
-	IsDefault bool `json:"isDefault"`
+	Enabled   bool   `json:"enabled"`
+	IsDefault bool   `json:"isDefault"`
+	URL       string `json:"url"`
 }
 
 // secureFieldCouchbasePassword is the secureJsonData key that holds the
@@ -106,6 +108,12 @@ func (s *PluginSettings) validate() error {
 	}
 	if s.CouchbaseDatasource.Enabled && s.CouchbaseDatasource.Bucket == "" {
 		return fmt.Errorf("couchbaseDatasource.bucket is required when couchbase datasource is enabled")
+	}
+	if s.PrometheusDatasource.URL != "" {
+		u, err := url.Parse(s.PrometheusDatasource.URL)
+		if err != nil || u.Scheme == "" || u.Host == "" {
+			return fmt.Errorf("prometheusDatasource.url must be an absolute URL (e.g. http://prometheus:9090)")
+		}
 	}
 	return nil
 }

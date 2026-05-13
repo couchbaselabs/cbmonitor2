@@ -13,6 +13,7 @@ export const testIds = {
     couchbaseDsBucket: 'data-testid ac-cbds-bucket',
     prometheusDsEnabled: 'data-testid ac-prom-enabled',
     prometheusDsDefault: 'data-testid ac-prom-default',
+    prometheusDsUrl: 'data-testid ac-prom-url',
   },
   home: {
     container: 'data-testid home-container',

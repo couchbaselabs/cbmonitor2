@@ -40,6 +40,7 @@ type CouchbaseDatasourceJsonData = {
 type PrometheusDatasourceJsonData = {
   enabled?: boolean;
   isDefault?: boolean;
+  url?: string;
 };
 
 type AppPluginSettings = {
@@ -57,7 +58,7 @@ type State = {
   couchbaseServer: { connectionString: string; username: string };
   snapshots: { enabled: boolean; bucket: string };
   couchbaseDatasource: { enabled: boolean; bucket: string };
-  prometheusDatasource: { enabled: boolean; isDefault: boolean };
+  prometheusDatasource: { enabled: boolean; isDefault: boolean; url: string };
   password: string;
   isPasswordSet: boolean;
 };
@@ -87,6 +88,7 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
     prometheusDatasource: {
       enabled: jsonData?.prometheusDatasource?.enabled ?? true,
       isDefault: jsonData?.prometheusDatasource?.isDefault ?? true,
+      url: jsonData?.prometheusDatasource?.url ?? '',
     },
     password: '',
     isPasswordSet: Boolean(secure.couchbasePassword),
@@ -192,6 +194,9 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
   const togglePromDefault = (e: React.FormEvent<HTMLInputElement>) => {
     setState({ ...state, prometheusDatasource: { ...state.prometheusDatasource, isDefault: e.currentTarget.checked } });
   };
+  const onChangePromUrl = (event: ChangeEvent<HTMLInputElement>) => {
+    setState({ ...state, prometheusDatasource: { ...state.prometheusDatasource, url: event.target.value.trim() } });
+  };
 
   const onSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -215,6 +220,7 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
       prometheusDatasource: {
         enabled: state.prometheusDatasource.enabled,
         isDefault: state.prometheusDatasource.isDefault,
+        url: state.prometheusDatasource.url,
       },
     };
 
@@ -330,13 +336,24 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
           />
         </Field>
         {state.prometheusDatasource.enabled && (
-          <Field label="Use as default" description="When both data sources are enabled, prefer Prometheus.">
-            <Switch
-              value={state.prometheusDatasource.isDefault}
-              onChange={togglePromDefault}
-              data-testid={testIds.appConfig.prometheusDsDefault}
-            />
-          </Field>
+          <>
+            <Field label="URL" description="Base URL of the Prometheus / Mimir endpoint, e.g. http://prometheus:9090">
+              <Input
+                width={60}
+                value={state.prometheusDatasource.url}
+                placeholder="http://prometheus:9090"
+                onChange={onChangePromUrl}
+                data-testid={testIds.appConfig.prometheusDsUrl}
+              />
+            </Field>
+            <Field label="Use as default" description="When both data sources are enabled, prefer Prometheus.">
+              <Switch
+                value={state.prometheusDatasource.isDefault}
+                onChange={togglePromDefault}
+                data-testid={testIds.appConfig.prometheusDsDefault}
+              />
+            </Field>
+          </>
         )}
       </FieldSet>
 
@@ -432,6 +449,16 @@ function validate(state: State): string | null {
   }
   if (state.couchbaseDatasource.enabled && !state.couchbaseDatasource.bucket) {
     return 'Couchbase data source bucket name is required.';
+  }
+  if (state.prometheusDatasource.url) {
+    try {
+      const u = new URL(state.prometheusDatasource.url);
+      if (!u.protocol || !u.host) {
+        return 'Prometheus URL must be absolute (e.g. http://prometheus:9090).';
+      }
+    } catch {
+      return 'Prometheus URL must be a valid URL (e.g. http://prometheus:9090).';
+    }
   }
   return null;
 }

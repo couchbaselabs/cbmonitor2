@@ -18,5 +18,6 @@ apps:
       prometheusDatasource:
         enabled: $CBMONITOR_PROMETHEUS_DS_ENABLED
         isDefault: $CBMONITOR_PROMETHEUS_DS_IS_DEFAULT
+        url: $PROMETHEUS_URL
     secureJsonData:
       couchbasePassword: $COUCHBASE_PASSWORD

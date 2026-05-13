@@ -24,7 +24,7 @@ func TestLoadSettings_HappyPath(t *testing.T) {
 		"couchbaseServer": {"connectionString": "couchbase://cb-1", "username": "admin"},
 		"snapshots": {"enabled": true, "bucket": "metadata"},
 		"couchbaseDatasource": {"enabled": true, "bucket": "showfast"},
-		"prometheusDatasource": {"enabled": true, "isDefault": false}
+		"prometheusDatasource": {"enabled": true, "isDefault": false, "url": "http://prometheus:9090"}
 	}`)
 	s, err := LoadSettings(backend.AppInstanceSettings{
 		JSONData: jsonData,
@@ -46,6 +46,18 @@ func TestLoadSettings_HappyPath(t *testing.T) {
 	}
 	if s.PrometheusDatasource.IsDefault {
 		t.Errorf("isDefault should reflect input (false)")
+	}
+	if s.PrometheusDatasource.URL != "http://prometheus:9090" {
+		t.Errorf("prometheus URL not parsed, got %q", s.PrometheusDatasource.URL)
+	}
+}
+
+func TestLoadSettings_RejectsMalformedPrometheusURL(t *testing.T) {
+	jsonData := []byte(`{
+		"prometheusDatasource": {"enabled": true, "url": "not-a-url"}
+	}`)
+	if _, err := LoadSettings(backend.AppInstanceSettings{JSONData: jsonData}); err == nil {
+		t.Fatalf("expected error for malformed prometheus URL")
 	}
 }
 

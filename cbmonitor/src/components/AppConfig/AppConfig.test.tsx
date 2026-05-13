@@ -54,4 +54,12 @@ describe('Components/AppConfig', () => {
     expect(screen.queryByTestId(testIds.appConfig.couchbaseDsEnabled)).toBeInTheDocument();
     expect(screen.queryByTestId(testIds.appConfig.couchbaseDsBucket)).not.toBeInTheDocument();
   });
+
+  test('prometheus URL field visible when prometheus datasource is enabled (default)', () => {
+    const plugin = { meta: { ...props.plugin.meta, enabled: false } };
+    // @ts-ignore
+    render(<AppConfig plugin={plugin} query={props.query} />);
+
+    expect(screen.queryByTestId(testIds.appConfig.prometheusDsUrl)).toBeInTheDocument();
+  });
 });
