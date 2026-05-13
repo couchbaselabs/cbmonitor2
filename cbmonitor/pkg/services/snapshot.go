@@ -12,12 +12,22 @@ import (
 
 // SnapshotService handles snapshot-related operations
 type SnapshotService struct {
-	cluster *gocb.Cluster
-	bucket  *gocb.Bucket
+	cluster        *gocb.Cluster
+	bucket         *gocb.Bucket
+	scopeName      string
+	collectionName string
 }
 
-// NewSnapshotService creates a new snapshot service instance
-func NewSnapshotService(connectionString, username, password, bucketName string) (*SnapshotService, error) {
+// NewSnapshotService creates a new snapshot service instance.
+// Empty values fall back to "_default" scope and collection.
+func NewSnapshotService(connectionString, username, password, bucketName, scopeName, collectionName string) (*SnapshotService, error) {
+	if scopeName == "" {
+		scopeName = "_default"
+	}
+	if collectionName == "" {
+		collectionName = "_default"
+	}
+
 	// Connect to Couchbase cluster
 	cluster, err := gocb.Connect(connectionString, gocb.ClusterOptions{
 		Authenticator: gocb.PasswordAuthenticator{
@@ -38,17 +48,20 @@ func NewSnapshotService(connectionString, username, password, bucketName string)
 		return nil, fmt.Errorf("bucket not ready: %w", err)
 	}
 
-	log.Printf("Snapshot service connected to Couchbase cluster: %s, bucket: %s", connectionString, bucketName)
+	log.Printf("Snapshot service connected to Couchbase cluster: %s, bucket: %s, scope: %s, collection: %s",
+		connectionString, bucketName, scopeName, collectionName)
 
 	return &SnapshotService{
-		cluster: cluster,
-		bucket:  bucket,
+		cluster:        cluster,
+		bucket:         bucket,
+		scopeName:      scopeName,
+		collectionName: collectionName,
 	}, nil
 }
 
 // GetSnapshotByID fetches a snapshot document by its ID from Couchbase
 func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID string) (*models.SnapshotData, error) {
-	collection := ss.bucket.DefaultCollection()
+	collection := ss.bucket.Scope(ss.scopeName).Collection(ss.collectionName)
 
 	// Fetch the snapshot document
 	result, err := collection.Get(snapshotID, &gocb.GetOptions{

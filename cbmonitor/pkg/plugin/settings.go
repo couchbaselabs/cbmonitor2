@@ -28,11 +28,17 @@ type CouchbaseServerSettings struct {
 type SnapshotsSettings struct {
 	Enabled bool   `json:"enabled"`
 	Bucket  string `json:"bucket"`
+	// Scope and Collection are optional; empty means "_default" applied at
+	// the service layer.
+	Scope      string `json:"scope"`
+	Collection string `json:"collection"`
 }
 
 type CouchbaseDatasourceSettings struct {
 	Enabled bool   `json:"enabled"`
 	Bucket  string `json:"bucket"`
+	Scope      string `json:"scope"`
+	Collection string `json:"collection"`
 }
 
 type PrometheusDatasourceSettings struct {

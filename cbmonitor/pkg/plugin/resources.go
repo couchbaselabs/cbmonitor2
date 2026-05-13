@@ -114,9 +114,9 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 // datasource bucket. Only called when CouchbaseDatasource.Enabled is true.
 func (a *App) setupMetricsRoutes(mux *http.ServeMux) {
 	cb := a.settings.CouchbaseServer
-	bucket := a.settings.CouchbaseDatasource.Bucket
+	ds := a.settings.CouchbaseDatasource
 
-	couchbaseService, err := services.NewCouchbaseService(cb.ConnectionString, cb.Username, cb.Password, bucket)
+	couchbaseService, err := services.NewCouchbaseService(cb.ConnectionString, cb.Username, cb.Password, ds.Bucket, ds.Scope)
 	if err != nil {
 		log.Printf("Warning: Failed to initialize Couchbase service: %v", err)
 		log.Printf("Metrics endpoints will return mock data")
@@ -139,13 +139,15 @@ func (a *App) setupMetricsRoutes(mux *http.ServeMux) {
 // Snapshots (metadata) bucket. Only called when Snapshots.Enabled is true.
 func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
 	cb := a.settings.CouchbaseServer
-	snapshotBucket := a.settings.Snapshots.Bucket
+	snap := a.settings.Snapshots
 
 	sdklog.DefaultLogger.Info("setupSnapshotRoutes: connecting to Couchbase",
 		"connectionString", cb.ConnectionString,
 		"username", cb.Username,
-		"snapshotBucket", snapshotBucket)
-	snapshotService, err := services.NewSnapshotService(cb.ConnectionString, cb.Username, cb.Password, snapshotBucket)
+		"snapshotBucket", snap.Bucket,
+		"snapshotScope", snap.Scope,
+		"snapshotCollection", snap.Collection)
+	snapshotService, err := services.NewSnapshotService(cb.ConnectionString, cb.Username, cb.Password, snap.Bucket, snap.Scope, snap.Collection)
 	if err != nil {
 		sdklog.DefaultLogger.Error("setupSnapshotRoutes: NewSnapshotService failed", "error", err.Error())
 		log.Printf("Warning: Failed to initialize Snapshot service: %v", err)
@@ -160,8 +162,8 @@ func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
 	// and let handlers fall back gracefully.
 	var couchbaseService *services.CouchbaseService
 	if a.settings.CouchbaseDatasource.Enabled {
-		metricBucket := a.settings.CouchbaseDatasource.Bucket
-		couchbaseService, err = services.NewCouchbaseService(cb.ConnectionString, cb.Username, cb.Password, metricBucket)
+		ds := a.settings.CouchbaseDatasource
+		couchbaseService, err = services.NewCouchbaseService(cb.ConnectionString, cb.Username, cb.Password, ds.Bucket, ds.Scope)
 		if err != nil {
 			sdklog.DefaultLogger.Error("setupSnapshotRoutes: NewCouchbaseService failed", "error", err.Error())
 			log.Printf("Warning: Failed to initialize Couchbase service for snapshot metrics: %v", err)
@@ -171,7 +173,7 @@ func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
 		}
 	}
 
-	snapshotHandler := handlers.NewSnapshotHandler(snapshotService, couchbaseService, snapshotBucket)
+	snapshotHandler := handlers.NewSnapshotHandler(snapshotService, couchbaseService, snap.Bucket)
 
 	mux.HandleFunc("/snapshots/", func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/snapshots/")
@@ -210,9 +212,9 @@ func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
 // CouchbaseDatasource.Enabled is true.
 func (a *App) setupPrometheusRoutes(mux *http.ServeMux) {
 	cb := a.settings.CouchbaseServer
-	bucket := a.settings.CouchbaseDatasource.Bucket
+	ds := a.settings.CouchbaseDatasource
 
-	couchbaseService, err := services.NewCouchbaseService(cb.ConnectionString, cb.Username, cb.Password, bucket)
+	couchbaseService, err := services.NewCouchbaseService(cb.ConnectionString, cb.Username, cb.Password, ds.Bucket, ds.Scope)
 	if err != nil {
 		log.Printf("Warning: Failed to initialize Couchbase service for Prometheus API: %v", err)
 		log.Printf("Prometheus Query API endpoints will not be available")

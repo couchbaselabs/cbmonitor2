@@ -30,11 +30,15 @@ type CouchbaseServerJsonData = {
 type SnapshotsJsonData = {
   enabled?: boolean;
   bucket?: string;
+  scope?: string;
+  collection?: string;
 };
 
 type CouchbaseDatasourceJsonData = {
   enabled?: boolean;
   bucket?: string;
+  scope?: string;
+  collection?: string;
 };
 
 type PrometheusDatasourceJsonData = {
@@ -56,8 +60,8 @@ type SecureFields = {
 
 type State = {
   couchbaseServer: { connectionString: string; username: string };
-  snapshots: { enabled: boolean; bucket: string };
-  couchbaseDatasource: { enabled: boolean; bucket: string };
+  snapshots: { enabled: boolean; bucket: string; scope: string; collection: string };
+  couchbaseDatasource: { enabled: boolean; bucket: string; scope: string; collection: string };
   prometheusDatasource: { enabled: boolean; isDefault: boolean; url: string };
   password: string;
   isPasswordSet: boolean;
@@ -80,10 +84,14 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
     snapshots: {
       enabled: jsonData?.snapshots?.enabled ?? false,
       bucket: jsonData?.snapshots?.bucket ?? '',
+      scope: jsonData?.snapshots?.scope ?? '',
+      collection: jsonData?.snapshots?.collection ?? '',
     },
     couchbaseDatasource: {
       enabled: jsonData?.couchbaseDatasource?.enabled ?? false,
       bucket: jsonData?.couchbaseDatasource?.bucket ?? '',
+      scope: jsonData?.couchbaseDatasource?.scope ?? '',
+      collection: jsonData?.couchbaseDatasource?.collection ?? '',
     },
     prometheusDatasource: {
       enabled: jsonData?.prometheusDatasource?.enabled ?? true,
@@ -182,6 +190,20 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
     });
   };
 
+  const onChangeSnapshotsField = (field: 'scope' | 'collection') => (event: ChangeEvent<HTMLInputElement>) => {
+    setState({
+      ...state,
+      snapshots: { ...state.snapshots, [field]: event.target.value.trim() },
+    });
+  };
+
+  const onChangeCouchbaseDsField = (field: 'scope' | 'collection') => (event: ChangeEvent<HTMLInputElement>) => {
+    setState({
+      ...state,
+      couchbaseDatasource: { ...state.couchbaseDatasource, [field]: event.target.value.trim() },
+    });
+  };
+
   const toggleSnapshots = (e: React.FormEvent<HTMLInputElement>) => {
     setState({ ...state, snapshots: { ...state.snapshots, enabled: e.currentTarget.checked } });
   };
@@ -212,10 +234,14 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
       snapshots: {
         enabled: state.snapshots.enabled,
         bucket: state.snapshots.bucket,
+        scope: state.snapshots.scope,
+        collection: state.snapshots.collection,
       },
       couchbaseDatasource: {
         enabled: state.couchbaseDatasource.enabled,
         bucket: state.couchbaseDatasource.bucket,
+        scope: state.couchbaseDatasource.scope,
+        collection: state.couchbaseDatasource.collection,
       },
       prometheusDatasource: {
         enabled: state.prometheusDatasource.enabled,
@@ -249,15 +275,35 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
           />
         </Field>
         {state.snapshots.enabled && (
-          <Field label="Metadata bucket name">
-            <Input
-              width={60}
-              value={state.snapshots.bucket}
-              placeholder="cbmonitor"
-              onChange={onChangeBucket('snapshots')}
-              data-testid={testIds.appConfig.snapshotsBucket}
-            />
-          </Field>
+          <>
+            <Field label="Metadata bucket name">
+              <Input
+                width={60}
+                value={state.snapshots.bucket}
+                placeholder="cbmonitor"
+                onChange={onChangeBucket('snapshots')}
+                data-testid={testIds.appConfig.snapshotsBucket}
+              />
+            </Field>
+            <Field label="Scope" description="Leave blank to use the default scope.">
+              <Input
+                width={60}
+                value={state.snapshots.scope}
+                placeholder="_default"
+                onChange={onChangeSnapshotsField('scope')}
+                data-testid={testIds.appConfig.snapshotsScope}
+              />
+            </Field>
+            <Field label="Collection" description="Leave blank to use the default collection.">
+              <Input
+                width={60}
+                value={state.snapshots.collection}
+                placeholder="_default"
+                onChange={onChangeSnapshotsField('collection')}
+                data-testid={testIds.appConfig.snapshotsCollection}
+              />
+            </Field>
+          </>
         )}
       </FieldSet>
 
@@ -273,15 +319,35 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
           />
         </Field>
         {state.couchbaseDatasource.enabled && (
-          <Field label="Metrics bucket name">
-            <Input
-              width={60}
-              value={state.couchbaseDatasource.bucket}
-              placeholder="cbmonitor"
-              onChange={onChangeBucket('couchbaseDatasource')}
-              data-testid={testIds.appConfig.couchbaseDsBucket}
-            />
-          </Field>
+          <>
+            <Field label="Metrics bucket name">
+              <Input
+                width={60}
+                value={state.couchbaseDatasource.bucket}
+                placeholder="cbmonitor"
+                onChange={onChangeBucket('couchbaseDatasource')}
+                data-testid={testIds.appConfig.couchbaseDsBucket}
+              />
+            </Field>
+            <Field label="Scope" description="Leave blank to use the default scope.">
+              <Input
+                width={60}
+                value={state.couchbaseDatasource.scope}
+                placeholder="_default"
+                onChange={onChangeCouchbaseDsField('scope')}
+                data-testid={testIds.appConfig.couchbaseDsScope}
+              />
+            </Field>
+            <Field label="Collection" description="Leave blank to use the default collection.">
+              <Input
+                width={60}
+                value={state.couchbaseDatasource.collection}
+                placeholder="_default"
+                onChange={onChangeCouchbaseDsField('collection')}
+                data-testid={testIds.appConfig.couchbaseDsCollection}
+              />
+            </Field>
+          </>
         )}
       </FieldSet>
 

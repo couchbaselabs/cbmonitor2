@@ -22,8 +22,8 @@ func TestLoadSettings_AllDisabledDefault(t *testing.T) {
 func TestLoadSettings_HappyPath(t *testing.T) {
 	jsonData := []byte(`{
 		"couchbaseServer": {"connectionString": "couchbase://cb-1", "username": "admin"},
-		"snapshots": {"enabled": true, "bucket": "metadata"},
-		"couchbaseDatasource": {"enabled": true, "bucket": "showfast"},
+		"snapshots": {"enabled": true, "bucket": "cbmonitor", "scope": "metadata", "collection": "runs"},
+		"couchbaseDatasource": {"enabled": true, "bucket": "cbmonitor", "scope": "metrics_scope", "collection": "timeseries"},
 		"prometheusDatasource": {"enabled": true, "isDefault": false, "url": "http://prometheus:9090"}
 	}`)
 	s, err := LoadSettings(backend.AppInstanceSettings{
@@ -41,7 +41,7 @@ func TestLoadSettings_HappyPath(t *testing.T) {
 	if s.CouchbaseServer.Password != "s3cret" {
 		t.Errorf("password not loaded from secureJsonData, got %q", s.CouchbaseServer.Password)
 	}
-	if s.Snapshots.Bucket != "metadata" {
+	if s.Snapshots.Bucket != "cbmonitor" {
 		t.Errorf("snapshots.bucket parsing wrong, got %q", s.Snapshots.Bucket)
 	}
 	if s.PrometheusDatasource.IsDefault {
@@ -49,6 +49,33 @@ func TestLoadSettings_HappyPath(t *testing.T) {
 	}
 	if s.PrometheusDatasource.URL != "http://prometheus:9090" {
 		t.Errorf("prometheus URL not parsed, got %q", s.PrometheusDatasource.URL)
+	}
+	if s.Snapshots.Scope != "metadata" || s.Snapshots.Collection != "runs" {
+		t.Errorf("snapshots scope/collection parsing wrong, got scope=%q collection=%q", s.Snapshots.Scope, s.Snapshots.Collection)
+	}
+	if s.CouchbaseDatasource.Scope != "metrics_scope" || s.CouchbaseDatasource.Collection != "timeseries" {
+		t.Errorf("couchbaseDatasource scope/collection parsing wrong, got scope=%q collection=%q", s.CouchbaseDatasource.Scope, s.CouchbaseDatasource.Collection)
+	}
+}
+
+func TestLoadSettings_ScopeCollectionDefaultToEmpty(t *testing.T) {
+	// When scope/collection are not provided, the settings layer keeps them
+	// as empty strings — the service layer is responsible for translating to "_default".
+	// This separation lets the UI show placeholders without forcing a value into storage.
+	jsonData := []byte(`{
+		"couchbaseServer": {"connectionString": "couchbase://cb-1", "username": "admin"},
+		"snapshots": {"enabled": true, "bucket": "metadata"},
+		"couchbaseDatasource": {"enabled": true, "bucket": "showfast"}
+	}`)
+	s, err := LoadSettings(backend.AppInstanceSettings{JSONData: jsonData})
+	if err != nil {
+		t.Fatalf("LoadSettings: %v", err)
+	}
+	if s.Snapshots.Scope != "" || s.Snapshots.Collection != "" {
+		t.Errorf("expected empty scope/collection from omitted fields, got scope=%q collection=%q", s.Snapshots.Scope, s.Snapshots.Collection)
+	}
+	if s.CouchbaseDatasource.Scope != "" || s.CouchbaseDatasource.Collection != "" {
+		t.Errorf("expected empty couchbaseDatasource scope/collection from omitted fields, got scope=%q collection=%q", s.CouchbaseDatasource.Scope, s.CouchbaseDatasource.Collection)
 	}
 }
 

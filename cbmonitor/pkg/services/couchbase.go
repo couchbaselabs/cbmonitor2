@@ -14,10 +14,15 @@ import (
 type CouchbaseService struct {
 	cluster *gocb.Cluster
 	bucket  *gocb.Bucket
+	scope *gocb.Scope
 }
 
-// NewCouchbaseService creates a new Couchbase service instance
-func NewCouchbaseService(connectionString, username, password, bucketName string) (*CouchbaseService, error) {
+// NewCouchbaseService creates a new Couchbase service instance. An empty scopeName falls back to "_default".
+func NewCouchbaseService(connectionString, username, password, bucketName, scopeName string) (*CouchbaseService, error) {
+	if scopeName == "" {
+		scopeName = "_default"
+	}
+
 	// Connect to Couchbase cluster
 	cluster, err := gocb.Connect(connectionString, gocb.ClusterOptions{
 		Authenticator: gocb.PasswordAuthenticator{
@@ -38,25 +43,26 @@ func NewCouchbaseService(connectionString, username, password, bucketName string
 		return nil, fmt.Errorf("bucket not ready: %w", err)
 	}
 
-	log.Printf("Connected to Couchbase cluster: %s, bucket: %s", connectionString, bucketName)
+	log.Printf("Connected to Couchbase cluster: %s, bucket: %s, scope: %s", connectionString, bucketName, scopeName)
 
 	return &CouchbaseService{
 		cluster: cluster,
 		bucket:  bucket,
+		scope:   bucket.Scope(scopeName),
 	}, nil
 }
 
 // GetMetricsByComponent fetches metrics for a specific component using your N1QL query
 func (cs *CouchbaseService) GetMetricsByComponent(ctx context.Context, component, category, subCategory string) ([]models.MetricDocument, error) {
 	// Your original query
-	query := `SELECT m.id, m.title, m.component, m.category, m.orderBy, m.subCategory, 
-              m.memquota, m.provider, c AS cluster 
-              FROM metrics m JOIN clusters c ON KEYS m.cluster 
-              WHERE m.component = $1 AND m.category = $2 AND m.subCategory = $3 
+	query := `SELECT m.id, m.title, m.component, m.category, m.orderBy, m.subCategory,
+              m.memquota, m.provider, c AS cluster
+              FROM metrics m JOIN clusters c ON KEYS m.cluster
+              WHERE m.component = $1 AND m.category = $2 AND m.subCategory = $3
               ORDER BY m.category`
 
 	// Execute the query
-	results, err := cs.cluster.Query(query, &gocb.QueryOptions{
+	results, err := cs.scope.Query(query, &gocb.QueryOptions{
 		PositionalParameters: []interface{}{component, category, subCategory},
 		Timeout:              30 * time.Second,
 	})
@@ -80,7 +86,7 @@ func (cs *CouchbaseService) GetMetricsByComponent(ctx context.Context, component
 		return nil, fmt.Errorf("query execution error: %w", err)
 	}
 
-	log.Printf("Found %d metrics for component: %s, category: %s, subCategory: %s", 
+	log.Printf("Found %d metrics for component: %s, category: %s, subCategory: %s",
 		len(metrics), component, category, subCategory)
 
 	return metrics, nil
@@ -88,13 +94,13 @@ func (cs *CouchbaseService) GetMetricsByComponent(ctx context.Context, component
 
 // GetAllMetricsForComponent fetches all metrics for a component across all categories
 func (cs *CouchbaseService) GetAllMetricsForComponent(ctx context.Context, component string) ([]models.MetricDocument, error) {
-	query := `SELECT m.id, m.title, m.component, m.category, m.orderBy, m.subCategory, 
-              m.memquota, m.provider, c AS cluster 
-              FROM metrics m JOIN clusters c ON KEYS m.cluster 
-              WHERE m.component = $1 
+	query := `SELECT m.id, m.title, m.component, m.category, m.orderBy, m.subCategory,
+              m.memquota, m.provider, c AS cluster
+              FROM metrics m JOIN clusters c ON KEYS m.cluster
+              WHERE m.component = $1
               ORDER BY m.category, m.orderBy`
 
-	results, err := cs.cluster.Query(query, &gocb.QueryOptions{
+	results, err := cs.scope.Query(query, &gocb.QueryOptions{
 		PositionalParameters: []interface{}{component},
 		Timeout:              30 * time.Second,
 	})
@@ -128,13 +134,13 @@ func (cs *CouchbaseService) GetAllMetricsForComponent(ctx context.Context, compo
 func (cs *CouchbaseService) GetMetricValues(ctx context.Context, metricID string, limit int) ([]models.MetricValue, error) {
 	// This query would depend on how you store metric values
 	// For now, this is a placeholder that you can customize based on your schema
-	query := `SELECT version, value, timestamp, buildNumber 
-              FROM metric_values 
-              WHERE metricId = $1 
-              ORDER BY timestamp DESC 
+	query := `SELECT version, value, timestamp, buildNumber
+              FROM metric_values
+              WHERE metricId = $1
+              ORDER BY timestamp DESC
               LIMIT $2`
 
-	results, err := cs.cluster.Query(query, &gocb.QueryOptions{
+	results, err := cs.scope.Query(query, &gocb.QueryOptions{
 		PositionalParameters: []interface{}{metricID, limit},
 		Timeout:              30 * time.Second,
 	})
@@ -214,7 +220,7 @@ func (cs *CouchbaseService) ConvertToComponentMetrics(ctx context.Context, compo
 // determineUnit tries to determine the appropriate unit based on metric title
 func (cs *CouchbaseService) determineUnit(title string) string {
 	titleLower := fmt.Sprintf("%s", title) // Convert to lowercase for matching
-	
+
 	if contains(titleLower, []string{"latency", "time", "duration"}) {
 		return "ms"
 	}
@@ -275,7 +281,7 @@ func contains(text string, keywords []string) bool {
 
 // ExecuteQuery executes a raw SQL++ query and returns results as map[string]interface{}
 func (cs *CouchbaseService) ExecuteQuery(ctx context.Context, query string) ([]map[string]interface{}, error) {
-	results, err := cs.cluster.Query(query, &gocb.QueryOptions{
+	results, err := cs.scope.Query(query, &gocb.QueryOptions{
 		Timeout: 30 * time.Second,
 	})
 	if err != nil {
