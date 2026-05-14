@@ -292,7 +292,7 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
         createOverlapMetricPanel('sgw_database_dcp_received_time', `Database DCP Received Time${titleSuffix}`, {
             expr: `sum by (job, database) (sgw_database_dcp_received_time{job=~"${snapshotIds}"${instanceFilter}})`,
             legendFormat: '{{instance}} , {{database}}',
-            unit: 'ms'
+            unit: 'ns'
         }),
         createOverlapMetricPanel('sgw_database_dcp_caching_count', `Database DCP Caching Count${titleSuffix}`, {
             expr: `sum by (job, database) (sgw_database_dcp_caching_count{job=~"${snapshotIds}"${instanceFilter}})`,
@@ -302,7 +302,7 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
         createOverlapMetricPanel('sgw_database_dcp_caching_time', `Database DCP Caching Time${titleSuffix}`, {
             expr: `sum by (job, database) (sgw_database_dcp_caching_time{job=~"${snapshotIds}"${instanceFilter}})`,
             legendFormat: '{{instance}} , {{database}}',
-            unit: 'ms'
+            unit: 'ns'
         }),
         createOverlapMetricPanel('sgw_database_sync_function_time', `Database Sync Function Time Rate (ns/sec)${titleSuffix}`, {
             expr: `sum by (job, database) (rate(sgw_database_sync_function_time{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
@@ -448,7 +448,7 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
         createOverlapMetricPanel('sgw_security_total_auth_time', `Security Total Authentication Time${titleSuffix}`, {
             expr: `sum by (job, database) (sgw_security_total_auth_time{job=~"${snapshotIds}"${instanceFilter}})`,
             legendFormat: '{{instance}} , {{database}}',
-            unit: 'ms'
+            unit: 'ns'
         }),
     ],
         { instanceMetric: 'sgw_resource_utilization_system_memory_total', overlapEndTimeSeconds }

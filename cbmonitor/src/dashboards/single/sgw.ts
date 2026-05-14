@@ -431,7 +431,7 @@ export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
-                    unit: 'ms'
+                    unit: 'ns'
                 }),
                 createMetricPanel('sgw_database_dcp_caching_count', 'Database DCP Caching Count', {
                     expr: `sum by (instance, database) (sgw_database_dcp_caching_count{job="${snapshotId}"})`,
@@ -445,7 +445,7 @@ export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
-                    unit: 'ms'
+                    unit: 'ns'
                 }),
                 createMetricPanel('sgw_database_sync_function_time', 'Database Sync Function Time Rate (ns/sec)', {
                     expr: `sum by (instance, database) (rate(sgw_database_sync_function_time{job="${snapshotId}"}[$__rate_interval]))`,
@@ -665,7 +665,7 @@ export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
-                    unit: 'ms'
+                    unit: 'ns'
                 }),
             ],
         })
