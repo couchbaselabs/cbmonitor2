@@ -80,6 +80,15 @@ func (f *fakeGrafana) handler(t *testing.T) http.Handler {
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(existing)
 
+		case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/api/datasources/uid/"):
+			uid := strings.TrimPrefix(r.URL.Path, "/api/datasources/uid/")
+			if _, ok := f.store[uid]; !ok {
+				http.Error(w, "not found", http.StatusNotFound)
+				return
+			}
+			delete(f.store, uid)
+			w.WriteHeader(http.StatusOK)
+
 		default:
 			http.Error(w, "unhandled "+r.Method+" "+r.URL.Path, http.StatusBadRequest)
 		}
@@ -259,8 +268,14 @@ func TestReconcile_SkipsDesiredWithEmptyURL(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "empty URL") {
 		t.Fatalf("expected empty-URL error, got %v", err)
 	}
-	if len(fake.requests) != 0 {
-		t.Errorf("expected no API calls for empty-URL desired, got %#v", fake.requests)
+	// No mutating calls should have been made for prometheus. The delete
+	// phase may issue a GET on cbdatasource (it's app-managed and not in
+	// `desired`), and that's expected/fine — assert specifically that no
+	// POST/PUT happened.
+	for _, req := range fake.requests {
+		if req.method == http.MethodPost || req.method == http.MethodPut {
+			t.Errorf("empty-URL desired should not trigger POST/PUT, got %s %s", req.method, req.path)
+		}
 	}
 }
 
@@ -308,6 +323,117 @@ func TestReconcile_ContextCancelled(t *testing.T) {
 	}})
 	if err == nil {
 		t.Fatalf("expected an error from cancelled context")
+	}
+}
+
+func TestReconcile_DeletesOrphanedAppManagedDatasource(t *testing.T) {
+	// Pre-existing app-managed datasource (e.g. user toggled prometheus
+	// on previously) should be DELETEd when the current `desired` list
+	// no longer includes it (toggled off).
+	fake := newFakeGrafana()
+	fake.store["prometheus"] = map[string]any{
+		"uid": "prometheus", "name": "Prometheus", "type": "prometheus",
+		"access": "proxy", "url": "http://prom:9090", "readOnly": false,
+	}
+	srv := httptest.NewServer(fake.handler(t))
+	defer srv.Close()
+
+	r := newTestReconciler(srv)
+	// desired is empty — the user disabled prometheus.
+	if err := r.Reconcile(context.Background(), []DesiredDatasource{}); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	if _, present := fake.store["prometheus"]; present {
+		t.Errorf("expected prometheus to be deleted from store, still present")
+	}
+	sawDelete := false
+	for _, req := range fake.requests {
+		if req.method == http.MethodDelete && req.path == "/api/datasources/uid/prometheus" {
+			sawDelete = true
+			if req.auth != "Bearer test-token" {
+				t.Errorf("delete missing/wrong Authorization header: %q", req.auth)
+			}
+		}
+	}
+	if !sawDelete {
+		t.Errorf("expected a DELETE /api/datasources/uid/prometheus call, got %#v", fake.requests)
+	}
+}
+
+func TestReconcile_DeleteAbsentUIDIsNoOp(t *testing.T) {
+	// When an app-managed UID doesn't exist in Grafana (e.g. fresh
+	// install where the user never enabled that feature), the reconciler
+	// should silently skip the delete — a 404 on GET is success.
+	fake := newFakeGrafana()
+	srv := httptest.NewServer(fake.handler(t))
+	defer srv.Close()
+
+	r := newTestReconciler(srv)
+	if err := r.Reconcile(context.Background(), []DesiredDatasource{}); err != nil {
+		t.Fatalf("Reconcile should tolerate absent UIDs: %v", err)
+	}
+	// Only GETs (one per appManagedUID) — no DELETE attempted.
+	for _, req := range fake.requests {
+		if req.method == http.MethodDelete {
+			t.Errorf("unexpected DELETE on absent UID: %s", req.path)
+		}
+	}
+}
+
+func TestReconcile_RefusesToDeleteReadOnlyDatasource(t *testing.T) {
+	// A YAML-provisioned (readOnly) datasource that happens to share a
+	// UID with an app-managed one must NOT be deleted — that would fight
+	// provisioning. Surface as error instead.
+	fake := newFakeGrafana()
+	fake.store["prometheus"] = map[string]any{
+		"uid": "prometheus", "name": "Prometheus", "type": "prometheus",
+		"access": "proxy", "url": "http://yaml:9090", "readOnly": true,
+	}
+	srv := httptest.NewServer(fake.handler(t))
+	defer srv.Close()
+
+	r := newTestReconciler(srv)
+	err := r.Reconcile(context.Background(), []DesiredDatasource{})
+	if err == nil || !strings.Contains(err.Error(), "read-only") {
+		t.Fatalf("expected read-only refusal error, got %v", err)
+	}
+	if _, present := fake.store["prometheus"]; !present {
+		t.Errorf("read-only datasource was deleted; must be preserved")
+	}
+	for _, req := range fake.requests {
+		if req.method == http.MethodDelete {
+			t.Errorf("DELETE should not be attempted on read-only datasource: %s", req.path)
+		}
+	}
+}
+
+func TestReconcile_CreatesOneDeletesAnotherInSinglePass(t *testing.T) {
+	// User toggled couchbase OFF and prometheus ON at the same time:
+	// reconciler should DELETE cbdatasource and CREATE prometheus in
+	// the same pass. Verifies both phases coexist.
+	fake := newFakeGrafana()
+	fake.store["cbdatasource"] = map[string]any{
+		"uid": "cbdatasource", "name": "cbdatasource", "type": "couchbase-datasource",
+		"access": "proxy", "url": "couchbase://old", "readOnly": false,
+	}
+	srv := httptest.NewServer(fake.handler(t))
+	defer srv.Close()
+
+	r := newTestReconciler(srv)
+	desired := []DesiredDatasource{{
+		UID: "prometheus", Name: "Prometheus", Type: "prometheus", Access: "proxy",
+		URL: "http://prom:9090", IsDefault: true,
+		JSONData: map[string]any{"httpMethod": "POST"},
+	}}
+	if err := r.Reconcile(context.Background(), desired); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+	if _, present := fake.store["cbdatasource"]; present {
+		t.Errorf("cbdatasource should be deleted")
+	}
+	if _, present := fake.store["prometheus"]; !present {
+		t.Errorf("prometheus should be created")
 	}
 }
 
@@ -359,6 +485,63 @@ func TestDesiredDatasources_OnlyIncludesEnabledWithRequiredFields(t *testing.T) 
 				t.Errorf("got UIDs %v, want %v", gotUIDs, tc.wantUIDs)
 			}
 		})
+	}
+}
+
+func TestDesiredDatasources_PropagatesBucketScopeCollectionToCbdatasource(t *testing.T) {
+	// The whole point of these settings is for panel queries (and any
+	// UDFs) to know where the timeseries data lives. Verify they actually
+	// land in the cbdatasource JSONData the reconciler sends to Grafana.
+	s := PluginSettings{
+		CouchbaseDatasource: CouchbaseDatasourceSettings{
+			Enabled:    true,
+			Bucket:     "metrics-bucket",
+			Scope:      "metrics-scope",
+			Collection: "timeseries",
+		},
+		CouchbaseServer: CouchbaseServerSettings{
+			ConnectionString: "couchbase://cb",
+			Username:         "u",
+		},
+	}
+	got := s.desiredDatasources()
+	if len(got) != 1 || got[0].UID != "cbdatasource" {
+		t.Fatalf("expected exactly one cbdatasource desired entry, got %#v", got)
+	}
+	jd := got[0].JSONData
+	if jd["bucket"] != "metrics-bucket" {
+		t.Errorf("bucket not propagated, got %v", jd["bucket"])
+	}
+	if jd["scope"] != "metrics-scope" {
+		t.Errorf("scope not propagated, got %v", jd["scope"])
+	}
+	if jd["collection"] != "timeseries" {
+		t.Errorf("collection not propagated, got %v", jd["collection"])
+	}
+}
+
+func TestDesiredDatasources_OmitsEmptyScopeCollection(t *testing.T) {
+	// When scope/collection are blank (user wants defaults), the
+	// JSONData shouldn't carry empty strings — the couchbase-datasource
+	// plugin / UDFs should see them as absent, not as "" (which can
+	// trigger different code paths).
+	s := PluginSettings{
+		CouchbaseDatasource: CouchbaseDatasourceSettings{
+			Enabled: true,
+			Bucket:  "metrics-bucket",
+		},
+		CouchbaseServer: CouchbaseServerSettings{
+			ConnectionString: "couchbase://cb",
+			Username:         "u",
+		},
+	}
+	got := s.desiredDatasources()
+	jd := got[0].JSONData
+	if _, ok := jd["scope"]; ok {
+		t.Errorf("scope should be omitted when blank, got %v", jd["scope"])
+	}
+	if _, ok := jd["collection"]; ok {
+		t.Errorf("collection should be omitted when blank, got %v", jd["collection"])
 	}
 }
 

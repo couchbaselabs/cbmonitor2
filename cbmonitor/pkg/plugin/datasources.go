@@ -23,6 +23,12 @@ const (
 	dsUIDCouchbase  = "cbdatasource"
 )
 
+// appManagedUIDs is the full set of datasource UIDs this reconciler owns.
+// Any UID in this set that isn't in the current `desired` list during a
+// reconcile pass gets DELETEd from Grafana — that's how toggling a
+// feature off in app settings cleans up its datasource.
+var appManagedUIDs = []string{dsUIDPrometheus, dsUIDCouchbase}
+
 // reconcileTimeout caps a single reconciliation pass. Long enough to handle
 // a few HTTP retries against a slow Grafana, short enough that a wedged
 // Grafana doesn't stall the plugin's first request indefinitely.
@@ -87,19 +93,41 @@ func NewReconciler(ctx context.Context) (*Reconciler, error) {
 }
 
 // Reconcile drives each desired datasource toward the live state in
-// Grafana. Errors on individual datasources are logged and accumulated;
-// reconciliation never aborts on the first failure.
+// Grafana, then deletes any app-managed UID the user no longer wants
+// (feature toggled off). Errors on individual datasources are logged and
+// accumulated; reconciliation never aborts on the first failure.
 func (r *Reconciler) Reconcile(ctx context.Context, desired []DesiredDatasource) error {
 	ctx, cancel := context.WithTimeout(ctx, reconcileTimeout)
 	defer cancel()
 
+	wanted := make(map[string]bool, len(desired))
+	for _, d := range desired {
+		wanted[d.UID] = true
+	}
+
 	var errs []string
+
+	// Phase 1: create/update each datasource the user currently wants.
 	for _, d := range desired {
 		if err := r.reconcileOne(ctx, d); err != nil {
 			errs = append(errs, fmt.Sprintf("%s: %v", d.UID, err))
 			sdklog.DefaultLogger.Error("cbmonitor datasource reconcile failed", "uid", d.UID, "error", err.Error())
 		}
 	}
+
+	// Phase 2: delete any app-managed UID the user no longer wants. A 404
+	// on the GET is fine (nothing to delete); a read-only finding refuses
+	// to delete and surfaces the conflict.
+	for _, uid := range appManagedUIDs {
+		if wanted[uid] {
+			continue
+		}
+		if err := r.deleteIfPresent(ctx, uid); err != nil {
+			errs = append(errs, fmt.Sprintf("delete %s: %v", uid, err))
+			sdklog.DefaultLogger.Error("cbmonitor datasource delete failed", "uid", uid, "error", err.Error())
+		}
+	}
+
 	if len(errs) > 0 {
 		return errors.New(strings.Join(errs, "; "))
 	}
@@ -213,6 +241,40 @@ func (r *Reconciler) createDatasource(ctx context.Context, d DesiredDatasource) 
 	return r.doMutation(ctx, http.MethodPost, r.appURL+"/api/datasources", body)
 }
 
+// deleteIfPresent removes a datasource by UID, treating 404 as success
+// (nothing to clean up). YAML-provisioned (readOnly) datasources are
+// refused so we don't fight provisioning.
+func (r *Reconciler) deleteIfPresent(ctx context.Context, uid string) error {
+	live, err := r.getDatasource(ctx, uid)
+	if err != nil {
+		return fmt.Errorf("get: %w", err)
+	}
+	if live == nil {
+		return nil // already gone — nothing to do
+	}
+	if live.ReadOnly {
+		return fmt.Errorf("datasource %s is read-only (likely YAML-provisioned); refusing to delete", uid)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, r.appURL+"/api/datasources/uid/"+uid, nil)
+	if err != nil {
+		return err
+	}
+	r.authorize(req)
+	resp, err := r.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		sdklog.DefaultLogger.Info("cbmonitor deleted orphan datasource", "uid", uid)
+		return nil
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		return fmt.Errorf("forbidden (403) — check the plugin's iam.permissions block: %s", readBodySnippet(resp.Body))
+	}
+	return fmt.Errorf("status %d: %s", resp.StatusCode, readBodySnippet(resp.Body))
+}
+
 func (r *Reconciler) updateDatasource(ctx context.Context, d DesiredDatasource) error {
 	body := datasourceWireBody(d)
 	// UID is immutable, omit from PUT body (it goes in the path).
@@ -305,6 +367,22 @@ func (s *PluginSettings) desiredDatasources() []DesiredDatasource {
 		})
 	}
 	if s.CouchbaseDatasource.Enabled && s.CouchbaseServer.ConnectionString != "" {
+		ds := s.CouchbaseDatasource
+		// The couchbase-datasource plugin (and any UDFs the panels call
+		// through) read bucket/scope/collection from jsonData. Forward
+		// every field the app captures so panel queries don't need to
+		// hardcode location info.
+		jsonData := map[string]any{
+			"host":     s.CouchbaseServer.ConnectionString,
+			"username": s.CouchbaseServer.Username,
+			"bucket":   ds.Bucket,
+		}
+		if ds.Scope != "" {
+			jsonData["scope"] = ds.Scope
+		}
+		if ds.Collection != "" {
+			jsonData["collection"] = ds.Collection
+		}
 		out = append(out, DesiredDatasource{
 			UID:    dsUIDCouchbase,
 			Name:   "cbdatasource",
@@ -314,11 +392,8 @@ func (s *PluginSettings) desiredDatasources() []DesiredDatasource {
 			// not the top-level `url` — but Grafana's API requires `url`
 			// to be set on all datasources. Send the connection string in
 			// both so the wire object is well-formed.
-			URL: s.CouchbaseServer.ConnectionString,
-			JSONData: map[string]any{
-				"host":     s.CouchbaseServer.ConnectionString,
-				"username": s.CouchbaseServer.Username,
-			},
+			URL:      s.CouchbaseServer.ConnectionString,
+			JSONData: jsonData,
 			SecureJSONData: map[string]string{
 				"password": s.CouchbaseServer.Password,
 			},

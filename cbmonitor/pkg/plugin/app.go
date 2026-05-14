@@ -138,18 +138,12 @@ func (a *App) CallResource(ctx context.Context, req *backend.CallResourceRequest
 
 // reconcileNow runs the reconciler synchronously and records the outcome.
 // Safe to call multiple times; the lazy sync.Once gate above is the
-// per-App-instance one-shot, while explicit admin invocations re-run via this path.
+// per-App-instance one-shot, while explicit admin invocations re-run via
+// this path. Always invokes Reconcile, even when desired is empty — the
+// reconciler's delete phase needs to run so toggling a feature off
+// cleans up the orphaned datasource.
 func (a *App) reconcileNow(ctx context.Context) {
 	desired := a.settings.desiredDatasources()
-	if len(desired) == 0 {
-		a.setReconcileState(ReconcileStatus{
-			Status:         "skipped",
-			LastError:      "no app-managed datasources currently require reconciliation",
-			LastRunAt:      time.Now(),
-			AppManagedUIDs: []string{dsUIDPrometheus, dsUIDCouchbase},
-		})
-		return
-	}
 
 	r, err := NewReconciler(ctx)
 	if err != nil {
