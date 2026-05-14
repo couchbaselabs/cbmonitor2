@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { css } from '@emotion/css';
 import { SceneObjectBase, SceneComponentProps, SceneObjectState } from '@grafana/scenes';
-import { SelectableValue } from '@grafana/data';
-import { Icon, RadioButtonGroup, Select, Switch } from '@grafana/ui';
+import { GrafanaTheme2, SelectableValue } from '@grafana/data';
+import { RadioButtonGroup, Select, Switch, ToolbarButton, useStyles2 } from '@grafana/ui';
 import { Cluster } from 'types/snapshot';
 import { layoutService, LayoutMode } from '../../services/layoutService';
 import { dataSourceService } from '../../services/datasourceService';
@@ -43,26 +44,24 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
         showClusterSection = true,
         showHideEmptySection = true,
     } = model.useState();
-    
+
+    const styles = useStyles2(getStyles);
     const [isOpen, setIsOpen] = useState(false);
     const [layout, setLayout] = useState<LayoutMode>(layoutService.getLayout());
     const [dataSource, setDataSource] = useState<DataSourceType>(dataSourceService.getCurrentDataSource());
     const [selectedCluster, setSelectedCluster] = useState<string>(clusterFilterService.getCurrentCluster() ?? ALL_CLUSTERS);
     const [hideEmpty, setHideEmpty] = useState(layoutService.getHideEmptyPanels());
-    
+
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // Close dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             const target = event.target as Node;
-            
-            // Don't close if clicking inside our dropdown
+
             if (dropdownRef.current && dropdownRef.current.contains(target)) {
                 return;
             }
-            
-            // Don't close if clicking on Grafana UI portals (Combobox dropdowns, etc.)
+
             const targetElement = event.target as HTMLElement;
             const isGrafanaPortal = targetElement.closest('[data-portal="true"]') ||
                                    targetElement.closest('.grafana-portal') ||
@@ -74,20 +73,19 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
                                    targetElement.closest('[class*="Options"]') ||
                                    targetElement.closest('[role="listbox"]') ||
                                    targetElement.closest('[role="option"]');
-            
+
             if (isGrafanaPortal) {
                 return;
             }
-            
+
             setIsOpen(false);
         };
 
         if (isOpen) {
-            // Use setTimeout to avoid immediate trigger on same click that opened the dropdown
             const timeoutId = setTimeout(() => {
                 document.addEventListener('mousedown', handleClickOutside);
             }, 0);
-            
+
             return () => {
                 clearTimeout(timeoutId);
                 document.removeEventListener('mousedown', handleClickOutside);
@@ -99,7 +97,6 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
         };
     }, [isOpen]);
 
-    // Subscribe to layout changes
     useEffect(() => {
         const unsubscribe = layoutService.subscribe((newLayout) => {
             setLayout(newLayout);
@@ -107,7 +104,6 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
         return unsubscribe;
     }, []);
 
-    // Subscribe to datasource changes
     useEffect(() => {
         const unsubscribe = dataSourceService.subscribe((newDs) => {
             setDataSource(newDs);
@@ -115,7 +111,6 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
         return unsubscribe;
     }, []);
 
-    // Subscribe to cluster filter changes
     useEffect(() => {
         const unsubscribe = clusterFilterService.subscribe((clusterId) => {
             setSelectedCluster(clusterId ?? ALL_CLUSTERS);
@@ -123,7 +118,6 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
         return unsubscribe;
     }, []);
 
-    // Subscribe to hideEmpty changes
     useEffect(() => {
         const unsubscribe = layoutService.subscribeHideEmpty((newHideEmpty) => {
             setHideEmpty(newHideEmpty);
@@ -173,48 +167,22 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
     ];
 
     return (
-        <div ref={dropdownRef} style={{ position: 'relative' }}>
-            <button
+        <div ref={dropdownRef} className={styles.wrapper}>
+            <ToolbarButton
+                icon="cog"
+                tooltip="Settings"
+                aria-label="Open settings"
                 onClick={() => setIsOpen(!isOpen)}
-                style={{
-                    background: 'transparent',
-                    border: '1px solid #374151',
-                    borderRadius: 4,
-                    padding: '4px 8px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#E5E7EB',
-                }}
-                title="Settings"
-            >
-                <Icon name="ellipsis-v" size="lg" />
-            </button>
+                variant={isOpen ? 'active' : 'default'}
+            />
 
             {isOpen && (
-                <div
-                    style={{
-                        position: 'absolute',
-                        top: '100%',
-                        right: 0,
-                        marginTop: 4,
-                        background: '#111827',
-                        border: '1px solid #374151',
-                        borderRadius: 8,
-                        padding: 16,
-                        minWidth: showDataSourceSection || showClusterSection || showHideEmptySection ? 280 : 240,
-                        zIndex: 1000,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                    }}
-                >
-                    <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: '#E5E7EB' }}>
-                        Settings
-                    </div>
+                <div className={styles.panel}>
+                    <div className={styles.panelTitle}>Settings</div>
 
                     {showLayoutSection && (
-                        <div style={{ marginBottom: 16 }}>
-                            <div style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 6 }}>Layout</div>
+                        <div className={styles.section}>
+                            <div className={styles.sectionLabel}>Layout</div>
                             <RadioButtonGroup
                                 options={layoutOptions}
                                 value={layout}
@@ -226,8 +194,8 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
                     )}
 
                     {showDataSourceSection && (
-                        <div style={{ marginBottom: 16 }}>
-                            <div style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 6 }}>Data Source</div>
+                        <div className={styles.section}>
+                            <div className={styles.sectionLabel}>Data Source</div>
                             <Select
                                 options={dataSourceOptions}
                                 value={dataSource}
@@ -238,8 +206,8 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
                     )}
 
                     {showClusterSection && clusters.length > 0 && (
-                        <div style={{ marginBottom: 16 }}>
-                            <div style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 6 }}>Cluster Filter</div>
+                        <div className={styles.section}>
+                            <div className={styles.sectionLabel}>Cluster Filter</div>
                             <Select
                                 options={clusterOptions}
                                 value={selectedCluster}
@@ -251,8 +219,8 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
                     )}
 
                     {showHideEmptySection && (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div style={{ fontSize: 12, color: '#9CA3AF' }}>Hide Empty Panels</div>
+                        <div className={styles.toggleRow}>
+                            <div className={styles.sectionLabel}>Hide Empty Panels</div>
                             <Switch
                                 value={hideEmpty}
                                 onChange={(e) => handleHideEmptyChange(e.currentTarget.checked)}
@@ -264,3 +232,47 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
         </div>
     );
 }
+
+const getStyles = (theme: GrafanaTheme2) => ({
+    wrapper: css`
+        position: relative;
+        display: inline-flex;
+    `,
+    panel: css`
+        position: absolute;
+        top: 100%;
+        right: 0;
+        margin-top: ${theme.spacing(0.5)};
+        background: ${theme.colors.background.primary};
+        border: 1px solid ${theme.colors.border.weak};
+        border-radius: ${theme.shape.radius.default};
+        padding: ${theme.spacing(2)};
+        min-width: 280px;
+        z-index: ${theme.zIndex.dropdown};
+        box-shadow: ${theme.shadows.z3};
+        color: ${theme.colors.text.primary};
+        display: flex;
+        flex-direction: column;
+        gap: ${theme.spacing(2)};
+    `,
+    panelTitle: css`
+        font-size: ${theme.typography.h6.fontSize};
+        font-weight: ${theme.typography.fontWeightMedium};
+        color: ${theme.colors.text.primary};
+    `,
+    section: css`
+        display: flex;
+        flex-direction: column;
+        gap: ${theme.spacing(0.75)};
+    `,
+    sectionLabel: css`
+        font-size: ${theme.typography.bodySmall.fontSize};
+        color: ${theme.colors.text.secondary};
+    `,
+    toggleRow: css`
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: ${theme.spacing(1)};
+    `,
+});

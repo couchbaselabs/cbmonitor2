@@ -5,10 +5,13 @@ import { ROUTES, prefixRoute } from '../utils/utils.routing';
 import { getDashboardsForServices } from '../pages';
 import { locationService } from '@grafana/runtime';
 import { SnapshotSearchScene } from './SnapshotSearch';
-import { FormatMetadataSummary } from '../components/SnapshotDisplay/metadataSummary';
 import { Phase } from '../types/snapshot';
 import { SettingsDropdown } from '../components/SettingsDropdown/SettingsDropdown';
 import { ClusterToggle } from '../components/ClusterSelector/ClusterToggle';
+import { DashboardHeader } from '../components/DashboardHeader/DashboardHeader';
+import { PinPanelToggle } from '../components/DashboardHeader/actions/PinPanelToggle';
+import { EditModeToggle } from '../components/DashboardHeader/actions/EditModeToggle';
+import { ExploreButton } from '../components/DashboardHeader/actions/ExploreButton';
 import { createNoUrlSyncTimeRange, initializeTimeRange } from '../utils/timeRange';
 import { loadSnapshot } from '../services/snapshotLoader';
 import { sceneCacheService } from '../services/sceneCache';
@@ -209,7 +212,9 @@ snapshotViewPage.addActivationHandler(() => {
           });
         };
 
-        // Create controls array with time picker (with quick ranges) and layout toggle
+        // Create controls array — only the refresh picker stays in the SceneAppPage
+        // controls slot. All other settings/actions live inside the DashboardHeader
+        // rendered via renderTitle below.
         const controls: any[] = [];
 
         const clusterToggle = new ClusterToggle({
@@ -217,7 +222,7 @@ snapshotViewPage.addActivationHandler(() => {
           onClusterChange: handleClusterChange,
         });
 
-        // If we have active snapshot, display the refresh picker before the settings dropdown
+        // If we have active snapshot, display the refresh picker
         if (metadata.ts_end && metadata.ts_end.startsWith("now")) {
           controls.push(new SceneRefreshPicker({
             intervals: ['5s', '10s', '30s', '1m', '2m', '5m', '10m'],
@@ -225,15 +230,17 @@ snapshotViewPage.addActivationHandler(() => {
           }));
         }
 
-        // Add settings dropdown (combines layout, datasource, cluster, and hide empty toggles)
-        controls.push(new SettingsDropdown({
+        // Settings dropdown is rendered inside the DashboardHeader action row.
+        // Cluster filter is shown in the header context row, so hide it here to
+        // avoid duplication.
+        const settingsDropdown = new SettingsDropdown({
           snapshotId,
           clusters: metadata.clusters || [],
           onLayoutChange: handleLayoutChange,
           onDataSourceChange: handleDataSourceChange,
           onHideEmptyChange: handleHideEmptyChange,
           showClusterSection: false,
-        }));
+        });
 
         // Update page with snapshot data
         snapshotViewPage.setState({
@@ -242,40 +249,19 @@ snapshotViewPage.addActivationHandler(() => {
           $timeRange: timeRange,
           controls: controls,
           renderTitle: () => {
-            return React.createElement('div', {
-              style: {
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 12,
-                flexWrap: 'nowrap',
-                width: '100%',
-              }
-            },
-              React.createElement('div', { style: { flex: '1 1 auto', minWidth: 0, maxWidth: 600 } },
-                FormatMetadataSummary({
-                  metadata,
-                  onSelectPhase,
-                  onSelectFullRange,
-                  initialActivePhase: urlPhase || null,
-                })
-              ),
-              React.createElement('div', {
-                style: {
-                  marginLeft: 'auto',
-                  flex: '0 0 280px',
-                  background: '#111827',
-                  border: '1px solid #374151',
-                  borderRadius: 8,
-                  padding: '10px 12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 8,
-                }
-              },
-                React.createElement('div', { style: { fontSize: 12, color: '#9CA3AF' } }, 'Cluster Filter'),
-                React.createElement((clusterToggle as any).Component, { model: clusterToggle })
-              )
-            );
+            return React.createElement(DashboardHeader, {
+              metadata,
+              initialActivePhase: urlPhase || null,
+              onSelectPhase,
+              onSelectFullRange,
+              clusterToggle,
+              settingsDropdown,
+              actions: [
+                { key: 'pin', render: () => React.createElement(PinPanelToggle, {}) },
+                { key: 'edit', render: () => React.createElement(EditModeToggle, {}) },
+                { key: 'explore', render: () => React.createElement(ExploreButton, {}) },
+              ],
+            });
           },
           getScene: undefined, // Remove getScene when using tabs
         });

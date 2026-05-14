@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
-import { Icon } from '@grafana/ui';
+import { css, cx } from '@emotion/css';
+import { GrafanaTheme2 } from '@grafana/data';
+import { IconButton, useStyles2 } from '@grafana/ui';
 import { SnapshotMetadata } from 'types/snapshot';
 
 export interface CompareHeaderItem {
@@ -16,19 +18,6 @@ export interface CompareHeaderProps {
   overlapEnabled?: boolean;
 }
 
-const inactivePhasePillStyle = {
-  background: '#334155',
-  border: '1px solid #64748b',
-  color: '#e2e8f0',
-};
-
-const inactiveCommonPhasePillStyle = {
-  background: '#92400e',
-  border: '1px solid #b45309',
-  color: '#ffedd5',
-};
-
-// Helper: detect if a string is a valid http(s) URL
 function isValidURL(str?: string): boolean {
   if (!str) {return false;}
   try {
@@ -39,8 +28,7 @@ function isValidURL(str?: string): boolean {
   }
 }
 
-// Helper: render label as clickable link if URL, otherwise plain text
-function renderLabel(label?: string): React.ReactNode {
+function renderLabel(label: string | undefined, linkClass: string): React.ReactNode {
   if (!label) {return null;}
   if (isValidURL(label)) {
     return (
@@ -48,7 +36,7 @@ function renderLabel(label?: string): React.ReactNode {
         href={label}
         target="_blank"
         rel="noopener noreferrer"
-        style={{ color: '#5794F2', textDecoration: 'none', wordBreak: 'break-word' }}
+        className={linkClass}
       >
         {label}
       </a>
@@ -70,14 +58,14 @@ function PhasesRow({
   onPillClick: (phaseLabel: string) => void;
   overlapEnabled: boolean;
 }) {
-  // Normalize labels for consistent case-insensitive comparison
+  const styles = useStyles2(getStyles);
   const normalizeLabel = (label: string) => label.trim().toLowerCase();
 
   if (!meta.phases || meta.phases.length === 0) {
-    return <span style={{ color: '#888' }}>No phases</span>;
+    return <span className={styles.empty}>No phases</span>;
   }
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+    <div className={styles.pills}>
       {meta.phases.map((p) => {
         const normalizedLabel = normalizeLabel(p.label);
         const isCommon = commonPhaseSet.has(normalizedLabel);
@@ -90,16 +78,12 @@ function PhasesRow({
               onClick={() => onPillClick(normalizedLabel)}
               title={overlapEnabled ? 'Phase selection disabled in overlap mode' : 'Common phase'}
               disabled={overlapEnabled}
-              style={{
-                fontSize: 12,
-                padding: '2px 6px',
-                borderRadius: 4,
-                background: isActive ? '#065f46' : inactiveCommonPhasePillStyle.background,
-                border: isActive ? '1px solid #10b981' : inactiveCommonPhasePillStyle.border,
-                color: isActive ? '#ecfdf5' : inactiveCommonPhasePillStyle.color,
-                cursor: overlapEnabled ? 'not-allowed' : 'pointer',
-                opacity: overlapEnabled ? 0.7 : 1,
-              }}
+              className={cx(
+                styles.pill,
+                styles.pillCommon,
+                isActive && styles.pillActive,
+                overlapEnabled && styles.pillDisabled,
+              )}
             >
               {p.label}
             </button>
@@ -107,14 +91,7 @@ function PhasesRow({
         }
 
         return (
-          <span key={p.label} style={{
-            fontSize: 12,
-            padding: '2px 6px',
-            borderRadius: 4,
-            background: inactivePhasePillStyle.background,
-            border: inactivePhasePillStyle.border,
-            color: inactivePhasePillStyle.color,
-          }}>
+          <span key={p.label} className={cx(styles.pill, styles.pillNeutral)}>
             {p.label}
           </span>
         );
@@ -124,9 +101,9 @@ function PhasesRow({
 }
 
 export function CompareHeader({ items, commonPhases = [], onSelectCommonPhase, onSelectFullRange, overlapEnabled = false }: CompareHeaderProps) {
+  const styles = useStyles2(getStyles);
   const [activeCommonPhase, setActiveCommonPhase] = React.useState<string | null>(null);
 
-  // Normalize labels for consistent case-insensitive comparison
   const normalizeLabel = (label: string) => label.trim().toLowerCase();
 
   React.useEffect(() => {
@@ -144,44 +121,34 @@ export function CompareHeader({ items, commonPhases = [], onSelectCommonPhase, o
   const cols = Math.min(Math.max(items.length, 1), 6);
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 16,
-      padding: '12px 0'
-    }}>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 16, overflowX: 'auto', overflowY: 'visible' }}>
+    <div className={styles.root}>
+      <div
+        className={styles.grid}
+        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+      >
         {items.map((item, idx) => {
           const label = item.meta.label;
           const letter = String.fromCharCode(65 + idx);
           const title = item.title ?? `Snapshot ${letter}`;
           return (
-            <div key={item.id} style={{
-              background: '#111827',
-              border: '1px solid #374151',
-              borderRadius: 8,
-              padding: '10px 12px',
-              display: 'flex',
-              flexDirection: 'column',
-              minWidth: 0
-            }}>
-              <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 14 }}>{title}</div>
-              <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div key={item.id} className={styles.card}>
+              <div className={styles.title}>{title}</div>
+              <div className={styles.idRow}>
                 <b>ID:</b>
-                <span style={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>{item.id}</span>
+                <span className={styles.idText}>{item.id}</span>
                 <CopyButton text={item.id} />
               </div>
-              <div style={{ fontSize: 12 }}>
+              <div className={styles.metaRow}>
                 <b>Server Version:</b> {item.meta.version}
               </div>
               {label && (
-                <div style={{ fontSize: 12 }}>
-                  <b>Label:</b> {renderLabel(label)}
+                <div className={styles.metaRow}>
+                  <b>Label:</b> {renderLabel(label, styles.labelLink)}
                 </div>
               )}
-              <div style={{ marginTop: 4 }}>
-                <b style={{ fontSize: 12 }}>Phases:</b>
-                <div style={{ marginTop: 4 }}>
+              <div className={styles.phasesWrap}>
+                <b className={styles.phasesHeading}>Phases:</b>
+                <div className={styles.phasesInner}>
                   <PhasesRow
                     meta={item.meta}
                     commonPhaseSet={commonPhaseSet}
@@ -215,7 +182,6 @@ export function CompareHeader({ items, commonPhases = [], onSelectCommonPhase, o
 
 export default CompareHeader;
 
-// Small copy-to-clipboard button used near the ID
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = React.useState(false);
 
@@ -230,22 +196,121 @@ function CopyButton({ text }: { text: string }) {
   };
 
   return (
-    <button
+    <IconButton
+      name={copied ? 'check' : 'copy'}
+      tooltip={copied ? 'Copied' : 'Copy ID'}
+      aria-label="Copy snapshot ID"
       onClick={onCopy}
-      title={copied ? 'Copied' : 'Copy ID'}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        border: '1px solid #374151',
-        background: copied ? '#064e3b' : '#1f2937',
-        color: '#E5E7EB',
-        borderRadius: 4,
-        padding: '4px 6px',
-        cursor: 'pointer'
-      }}
-    >
-      <Icon name={copied ? 'check' : 'copy'} size={'md'} />
-    </button>
+      size="md"
+    />
   );
 }
+
+const getStyles = (theme: GrafanaTheme2) => ({
+  root: css`
+    display: flex;
+    flex-direction: column;
+    gap: ${theme.spacing(2)};
+    padding: ${theme.spacing(1.5, 0)};
+  `,
+  grid: css`
+    display: grid;
+    gap: ${theme.spacing(2)};
+    overflow-x: auto;
+    overflow-y: visible;
+  `,
+  card: css`
+    background: ${theme.colors.background.secondary};
+    border: 1px solid ${theme.colors.border.weak};
+    border-radius: ${theme.shape.radius.default};
+    padding: ${theme.spacing(1.25, 1.5)};
+    display: flex;
+    flex-direction: column;
+    gap: ${theme.spacing(0.5)};
+    min-width: 0;
+    color: ${theme.colors.text.primary};
+  `,
+  title: css`
+    font-weight: ${theme.typography.fontWeightMedium};
+    font-size: ${theme.typography.body.fontSize};
+    margin-bottom: ${theme.spacing(0.5)};
+  `,
+  idRow: css`
+    display: flex;
+    align-items: center;
+    gap: ${theme.spacing(0.75)};
+    font-size: ${theme.typography.bodySmall.fontSize};
+  `,
+  idText: css`
+    font-family: ${theme.typography.fontFamilyMonospace};
+    word-break: break-all;
+  `,
+  metaRow: css`
+    font-size: ${theme.typography.bodySmall.fontSize};
+    color: ${theme.colors.text.primary};
+  `,
+  labelLink: css`
+    color: ${theme.colors.text.link};
+    text-decoration: none;
+    word-break: break-word;
+    &:hover {
+      text-decoration: underline;
+    }
+  `,
+  phasesWrap: css`
+    margin-top: ${theme.spacing(0.5)};
+    display: flex;
+    flex-direction: column;
+    gap: ${theme.spacing(0.5)};
+  `,
+  phasesHeading: css`
+    font-size: ${theme.typography.bodySmall.fontSize};
+  `,
+  phasesInner: css`
+    display: flex;
+    flex-wrap: wrap;
+    gap: ${theme.spacing(0.5)};
+  `,
+  pills: css`
+    display: flex;
+    flex-wrap: wrap;
+    gap: ${theme.spacing(0.5)};
+  `,
+  pill: css`
+    font-size: ${theme.typography.bodySmall.fontSize};
+    padding: ${theme.spacing(0.25, 1)};
+    border-radius: ${theme.shape.radius.pill};
+    line-height: 1.4;
+  `,
+  pillNeutral: css`
+    background: ${theme.colors.background.canvas};
+    border: 1px solid ${theme.colors.border.weak};
+    color: ${theme.colors.text.secondary};
+  `,
+  pillCommon: css`
+    background: ${theme.colors.background.secondary};
+    border: 1px solid ${theme.colors.border.medium};
+    color: ${theme.colors.text.primary};
+    cursor: pointer;
+    &:hover {
+      background: ${theme.colors.action.hover};
+    }
+  `,
+  pillActive: css`
+    background: ${theme.colors.primary.main};
+    border-color: ${theme.colors.primary.border};
+    color: ${theme.colors.primary.contrastText};
+    &:hover {
+      background: ${theme.colors.primary.shade};
+    }
+  `,
+  pillDisabled: css`
+    cursor: not-allowed;
+    opacity: 0.7;
+  `,
+  empty: css`
+    font-size: ${theme.typography.bodySmall.fontSize};
+    color: ${theme.colors.text.secondary};
+    font-style: italic;
+  `,
+});
