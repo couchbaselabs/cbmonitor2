@@ -51,6 +51,7 @@ func NewCouchbaseService(connectionString, username, password, bucketName, scope
 // pkg/promql is the sole caller.
 func (cs *CouchbaseService) ExecuteQuery(ctx context.Context, query string) ([]map[string]interface{}, error) {
 	results, err := cs.scope.Query(query, &gocb.QueryOptions{
+		Context: ctx,
 		Timeout: 30 * time.Second,
 	})
 	if err != nil {

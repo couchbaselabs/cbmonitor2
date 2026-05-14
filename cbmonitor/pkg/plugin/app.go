@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/couchbase/cbmonitor/pkg/services"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	sdklog "github.com/grafana/grafana-plugin-sdk-go/backend/log"
@@ -27,34 +28,95 @@ type App struct {
 	inner    backend.CallResourceHandler
 	settings *PluginSettings
 
+	// settingsError captures any error LoadSettings returned during NewApp.
+	// When non-empty the App is running on defaultSettings() — surface this
+	// via /config/datasources so the UI can banner that user input was
+	// rejected.
+	settingsError string
+
+	// Long-lived services owned by this App instance. nil when the
+	// corresponding feature toggle is off or initialization failed. Closed
+	// in Dispose().
+	snapshotService  *services.SnapshotService
+	couchbaseService *services.CouchbaseService
+
 	reconcileOnce  sync.Once
 	reconcileMu    sync.RWMutex
 	reconcileState ReconcileStatus
+
+	// reconcileCtx is the cancellation root for any goroutines App owns
+	// (currently the lazy datasource reconcile pass). Dispose() calls
+	// reconcileCancel before closing services, so background work observes
+	// the shutdown rather than racing against torn-down state.
+	reconcileCtx    context.Context
+	reconcileCancel context.CancelFunc
 }
 
 // NewApp creates a new App instance, parsing the Grafana-managed plugin
-// settings up front. Grafana disposes and re-creates the instance whenever
+// settings up front and opening any Couchbase connections required by the
+// enabled features. Grafana disposes and re-creates the instance whenever
 // settings change, so registered routes always reflect the latest config.
 func NewApp(_ context.Context, instSettings backend.AppInstanceSettings) (instancemgmt.Instance, error) {
+	var settingsErr string
 	settings, err := LoadSettings(instSettings)
 	if err != nil {
 		sdklog.DefaultLogger.Warn("cbmonitor plugin settings invalid; using disabled-everything fallback", "error", err.Error())
+		settingsErr = err.Error()
 		settings = defaultSettings()
 	}
 
+	reconcileCtx, reconcileCancel := context.WithCancel(context.Background())
+
 	app := &App{
-		settings: settings,
+		settings:        settings,
+		settingsError:   settingsErr,
+		reconcileCtx:    reconcileCtx,
+		reconcileCancel: reconcileCancel,
 		reconcileState: ReconcileStatus{
 			Status:         "pending",
 			AppManagedUIDs: []string{dsUIDPrometheus, dsUIDCouchbase},
 		},
 	}
 
+	app.initServices()
+
 	mux := http.NewServeMux()
 	app.registerRoutes(mux)
 	app.inner = httpadapter.New(mux)
 
 	return app, nil
+}
+
+// initServices opens long-lived Couchbase connections for the enabled
+// features. A service init failure leaves the corresponding field nil; the
+// HTTP handlers are written to degrade gracefully in that case (return
+// errors / mock data rather than crashing).
+func (a *App) initServices() {
+	cb := a.settings.CouchbaseServer
+
+	if a.settings.Snapshots.Enabled {
+		snap := a.settings.Snapshots
+		sdklog.DefaultLogger.Info("initServices: opening Snapshot service",
+			"bucket", snap.Bucket, "scope", snap.Scope, "collection", snap.Collection)
+		s, err := services.NewSnapshotService(cb.ConnectionString, cb.Username, cb.Password, snap.Bucket, snap.Scope, snap.Collection)
+		if err != nil {
+			sdklog.DefaultLogger.Error("initServices: SnapshotService init failed", "error", err.Error())
+		} else {
+			a.snapshotService = s
+		}
+	}
+
+	if a.settings.CouchbaseDatasource.Enabled {
+		ds := a.settings.CouchbaseDatasource
+		sdklog.DefaultLogger.Info("initServices: opening Couchbase metrics service",
+			"bucket", ds.Bucket, "scope", ds.Scope)
+		c, err := services.NewCouchbaseService(cb.ConnectionString, cb.Username, cb.Password, ds.Bucket, ds.Scope)
+		if err != nil {
+			sdklog.DefaultLogger.Error("initServices: CouchbaseService init failed", "error", err.Error())
+		} else {
+			a.couchbaseService = c
+		}
+	}
 }
 
 // CallResource fans requests out to the inner mux, with one important
@@ -67,7 +129,8 @@ func (a *App) CallResource(ctx context.Context, req *backend.CallResourceRequest
 	a.reconcileOnce.Do(func() {
 		// Detach from the request context (which is cancelled when the request returns),
 		// but keep the Grafana config so the reconciler can read the SA token and app URL.
-		bg := backend.WithGrafanaConfig(context.Background(), backend.GrafanaConfigFromContext(ctx))
+		// Parent on app.reconcileCtx so Dispose() can cancel the goroutine cleanly.
+		bg := backend.WithGrafanaConfig(a.reconcileCtx, backend.GrafanaConfigFromContext(ctx))
 		go a.reconcileNow(bg)
 	})
 	return a.inner.CallResource(ctx, req, sender)
@@ -129,9 +192,25 @@ func (a *App) getReconcileState() ReconcileStatus {
 	return a.reconcileState
 }
 
-// Dispose here tells plugin SDK that plugin wants to clean up resources when a new instance created.
+// Dispose tears down resources owned by this App instance. Grafana calls
+// this when settings change (the new App is created via NewApp). Order
+// matters: cancel background work first, then close I/O.
 func (a *App) Dispose() {
-	// cleanup
+	if a.reconcileCancel != nil {
+		a.reconcileCancel()
+	}
+	if a.snapshotService != nil {
+		if err := a.snapshotService.Close(); err != nil {
+			sdklog.DefaultLogger.Warn("Dispose: SnapshotService.Close error", "error", err.Error())
+		}
+		a.snapshotService = nil
+	}
+	if a.couchbaseService != nil {
+		if err := a.couchbaseService.Close(); err != nil {
+			sdklog.DefaultLogger.Warn("Dispose: CouchbaseService.Close error", "error", err.Error())
+		}
+		a.couchbaseService = nil
+	}
 }
 
 // CheckHealth handles health checks sent from Grafana to the plugin.

@@ -141,6 +141,66 @@ func TestCallResource_DatasourceRoutesGatedByToggle(t *testing.T) {
 	}
 }
 
+func TestCallResource_SettingsErrorSurfacedInConfig(t *testing.T) {
+	// Malformed jsonData (prometheus URL fails validation) → NewApp catches
+	// the error, runs on defaultSettings(), and /config/datasources must
+	// expose settings.valid=false with the error message so the UI can
+	// banner that user input was rejected.
+	inst, err := NewApp(context.Background(), backend.AppInstanceSettings{
+		JSONData: []byte(`{"prometheusDatasource":{"enabled":true,"url":"not-a-url"}}`),
+	})
+	if err != nil {
+		t.Fatalf("NewApp should tolerate invalid settings, got: %v", err)
+	}
+	app := inst.(*App)
+
+	resp := call(t, app, http.MethodGet, "config/datasources", nil)
+	if resp.Status != http.StatusOK {
+		t.Fatalf("config/datasources status = %d", resp.Status)
+	}
+
+	var got struct {
+		Settings struct {
+			Valid bool   `json:"valid"`
+			Error string `json:"error"`
+		} `json:"settings"`
+	}
+	if err := json.Unmarshal(resp.Body, &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got.Settings.Valid {
+		t.Errorf("expected settings.valid = false, got true")
+	}
+	if got.Settings.Error == "" {
+		t.Errorf("expected non-empty settings.error explaining the rejection")
+	}
+}
+
+func TestCallResource_SettingsValidWhenAccepted(t *testing.T) {
+	// Clean default settings (no user-supplied JSONData) → LoadSettings
+	// succeeds → settings.valid = true, no error string.
+	app := newAppWithSettings(t, defaultSettings())
+	resp := call(t, app, http.MethodGet, "config/datasources", nil)
+	if resp.Status != http.StatusOK {
+		t.Fatalf("config/datasources status = %d", resp.Status)
+	}
+	var got struct {
+		Settings struct {
+			Valid bool   `json:"valid"`
+			Error string `json:"error"`
+		} `json:"settings"`
+	}
+	if err := json.Unmarshal(resp.Body, &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !got.Settings.Valid {
+		t.Errorf("expected settings.valid = true for a clean default app")
+	}
+	if got.Settings.Error != "" {
+		t.Errorf("expected empty settings.error, got %q", got.Settings.Error)
+	}
+}
+
 func TestCallResource_SnapshotRoutesGatedByToggle(t *testing.T) {
 	// Snapshots OFF → /snapshots/foo should 404.
 	app := newAppWithSettings(t, defaultSettings())

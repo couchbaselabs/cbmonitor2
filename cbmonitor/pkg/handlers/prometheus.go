@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,17 +12,28 @@ import (
 	"github.com/couchbase/cbmonitor/pkg/services"
 )
 
+// couchbaseQuerier captures just the bit of services.CouchbaseService the
+// PromQL handler needs. Behind an interface so tests can inject failing
+// stubs without standing up a real gocb cluster.
+type couchbaseQuerier interface {
+	ExecuteQuery(ctx context.Context, query string) ([]map[string]interface{}, error)
+}
+
 // PromQLHandler handles Prometheus Query API requests
 // https://prometheus.io/docs/prometheus/latest/querying/api/
 type PromQLHandler struct {
-	couchbaseService *services.CouchbaseService
+	couchbaseService couchbaseQuerier
 }
 
-// NewPromQLHandler creates a new PromQL handler
-func NewPromQLHandler(couchbaseService *services.CouchbaseService) *PromQLHandler {
-	return &PromQLHandler{
-		couchbaseService: couchbaseService,
+// NewPromQLHandler creates a new PromQL handler. A nil svc is permitted —
+// requests will return a clean error rather than panic — so the plugin
+// can boot even when the underlying Couchbase service failed to init.
+func NewPromQLHandler(svc *services.CouchbaseService) *PromQLHandler {
+	h := &PromQLHandler{}
+	if svc != nil {
+		h.couchbaseService = svc
 	}
+	return h
 }
 
 // HandleQuery handles GET /query (instant query)
@@ -142,6 +154,10 @@ func (h *PromQLHandler) HandleSeries(w http.ResponseWriter, req *http.Request) {
 
 // executeQuery executes a PromQL query and returns Prometheus-formatted results
 func (h *PromQLHandler) executeQuery(queryCtx *promql.QueryContext) (*promql.PrometheusResult, error) {
+	if h.couchbaseService == nil {
+		return nil, fmt.Errorf("couchbase metrics service is unavailable (initialization may have failed; check plugin settings and Couchbase connectivity)")
+	}
+
 	// Parse PromQL query
 	expr, err := promql.ParseQuery(queryCtx.Query)
 	if err != nil {
@@ -165,15 +181,21 @@ func (h *PromQLHandler) executeQuery(queryCtx *promql.QueryContext) (*promql.Pro
 
 	log.Printf("Generated %d SQL++ queries", len(sqlQueries))
 
-	// Execute queries against Couchbase
-	var allResults []promql.QueryResult
+	// Execute queries against Couchbase, tracking which sub-queries fail.
+	// Partial failure produces warnings on the response so the client knows
+	// the data is incomplete; total failure surfaces as an error.
+	var (
+		allResults []promql.QueryResult
+		failures   []error
+	)
 	for i, sqlQuery := range sqlQueries {
 		log.Printf("Executing query %d: %s", i+1, sqlQuery)
 
 		results, err := h.couchbaseService.ExecuteQuery(queryCtx.Context, sqlQuery)
 		if err != nil {
 			log.Printf("Query execution error: %v", err)
-			continue // Continue with other queries
+			failures = append(failures, fmt.Errorf("sub-query %d: %w", i+1, err))
+			continue
 		}
 
 		// Convert results to QueryResult format
@@ -192,10 +214,22 @@ func (h *PromQLHandler) executeQuery(queryCtx *promql.QueryContext) (*promql.Pro
 		}
 	}
 
+	// All sub-queries failed → surface a real error instead of returning
+	// a misleading empty success that renders as "no data" in panels.
+	if len(failures) > 0 && len(failures) == len(sqlQueries) {
+		return nil, fmt.Errorf("all %d sub-queries failed; first error: %w", len(failures), failures[0])
+	}
+
 	// Transform results to Prometheus format
 	result, err := promql.TransformResults(allResults, plan, queryCtx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to transform results: %w", err)
+	}
+
+	// Partial failure → return data but warn the client some sub-queries
+	// failed, per Prometheus HTTP API conventions.
+	for _, f := range failures {
+		result.Warnings = append(result.Warnings, f.Error())
 	}
 
 	return result, nil

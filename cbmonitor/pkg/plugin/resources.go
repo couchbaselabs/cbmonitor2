@@ -10,7 +10,6 @@ import (
 
 	"github.com/couchbase/cbmonitor/pkg/handlers"
 	"github.com/couchbase/cbmonitor/pkg/services"
-	sdklog "github.com/grafana/grafana-plugin-sdk-go/backend/log"
 )
 
 // handlePing is an example HTTP GET resource that returns a {"message": "ok"} JSON response.
@@ -53,11 +52,19 @@ func (a *App) handleGetDatasourceConfig(w http.ResponseWriter, req *http.Request
 		return
 	}
 
+	settingsBlock := map[string]any{
+		"valid": a.settingsError == "",
+	}
+	if a.settingsError != "" {
+		settingsBlock["error"] = a.settingsError
+	}
+
 	config := map[string]interface{}{
 		"defaultDataSource":   a.settings.DefaultDataSource(),
 		"prometheusAvailable": a.settings.PrometheusDatasource.Enabled,
 		"couchbaseAvailable":  a.settings.CouchbaseDatasource.Enabled,
 		"reconciliation":      a.getReconcileState(),
+		"settings":            settingsBlock,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -111,43 +118,9 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 
 // setupSnapshotRoutes registers the snapshot API routes against the
 // Snapshots (metadata) bucket. Only called when Snapshots.Enabled is true.
+// Services are owned by App.initServices / App.Dispose.
 func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
-	cb := a.settings.CouchbaseServer
-	snap := a.settings.Snapshots
-
-	sdklog.DefaultLogger.Info("setupSnapshotRoutes: connecting to Couchbase",
-		"connectionString", cb.ConnectionString,
-		"username", cb.Username,
-		"snapshotBucket", snap.Bucket,
-		"snapshotScope", snap.Scope,
-		"snapshotCollection", snap.Collection)
-	snapshotService, err := services.NewSnapshotService(cb.ConnectionString, cb.Username, cb.Password, snap.Bucket, snap.Scope, snap.Collection)
-	if err != nil {
-		sdklog.DefaultLogger.Error("setupSnapshotRoutes: NewSnapshotService failed", "error", err.Error())
-		log.Printf("Warning: Failed to initialize Snapshot service: %v", err)
-		log.Printf("Snapshot endpoints will not be available")
-		snapshotService = nil
-	} else {
-		sdklog.DefaultLogger.Info("setupSnapshotRoutes: NewSnapshotService ok")
-	}
-
-	// If the Couchbase datasource is also enabled, snapshot metric queries
-	// can reach the metrics bucket; otherwise leave the metric service nil
-	// and let handlers fall back gracefully.
-	var couchbaseService *services.CouchbaseService
-	if a.settings.CouchbaseDatasource.Enabled {
-		ds := a.settings.CouchbaseDatasource
-		couchbaseService, err = services.NewCouchbaseService(cb.ConnectionString, cb.Username, cb.Password, ds.Bucket, ds.Scope)
-		if err != nil {
-			sdklog.DefaultLogger.Error("setupSnapshotRoutes: NewCouchbaseService failed", "error", err.Error())
-			log.Printf("Warning: Failed to initialize Couchbase service for snapshot metrics: %v", err)
-			couchbaseService = nil
-		} else {
-			sdklog.DefaultLogger.Info("setupSnapshotRoutes: NewCouchbaseService ok")
-		}
-	}
-
-	snapshotHandler := handlers.NewSnapshotHandler(snapshotService, couchbaseService, snap.Bucket)
+	snapshotHandler := handlers.NewSnapshotHandler(a.snapshotService, a.couchbaseService, a.settings.Snapshots.Bucket)
 
 	mux.HandleFunc("/snapshots/", func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/snapshots/")
@@ -183,19 +156,9 @@ func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
 
 // setupPrometheusRoutes registers the Prometheus Query API routes backed
 // by the Couchbase datasource bucket. Only called when
-// CouchbaseDatasource.Enabled is true.
+// CouchbaseDatasource.Enabled is true. Service is owned by App.initServices.
 func (a *App) setupPrometheusRoutes(mux *http.ServeMux) {
-	cb := a.settings.CouchbaseServer
-	ds := a.settings.CouchbaseDatasource
-
-	couchbaseService, err := services.NewCouchbaseService(cb.ConnectionString, cb.Username, cb.Password, ds.Bucket, ds.Scope)
-	if err != nil {
-		log.Printf("Warning: Failed to initialize Couchbase service for Prometheus API: %v", err)
-		log.Printf("Prometheus Query API endpoints will not be available")
-		couchbaseService = nil
-	}
-
-	promQLHandler := handlers.NewPromQLHandler(couchbaseService)
+	promQLHandler := handlers.NewPromQLHandler(a.couchbaseService)
 
 	mux.HandleFunc("/query", promQLHandler.HandleQuery)
 	mux.HandleFunc("/query_range", promQLHandler.HandleQueryRange)

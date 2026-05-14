@@ -11,10 +11,14 @@ import (
 
 // PrometheusResult represents a Prometheus API result
 type PrometheusResult struct {
-	Status string      `json:"status"`
-	Data   ResultData  `json:"data"`
-	Error  string      `json:"error,omitempty"`
-	ErrorType string   `json:"errorType,omitempty"`
+	Status    string     `json:"status"`
+	Data      ResultData `json:"data"`
+	Error     string     `json:"error,omitempty"`
+	ErrorType string     `json:"errorType,omitempty"`
+	// Warnings carries non-fatal issues encountered while serving the query
+	// (e.g. some sub-queries failed but enough succeeded to return data).
+	// Matches the Prometheus HTTP API spec.
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // ResultData represents the data portion of Prometheus response
