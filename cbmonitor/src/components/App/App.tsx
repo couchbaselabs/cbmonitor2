@@ -5,7 +5,7 @@ import { CB_DATASOURCE_REF, PROM_DATASOURCE_REF } from '../../constants';
 import { SceneApp, useSceneApp } from '@grafana/scenes';
 import { Alert } from '@grafana/ui';
 import { PluginPropsContext } from 'utils/utils.plugin';
-import { snapshotViewPage } from '../../pages/snapshotViewPage';
+import { snapshotSearchPage, snapshotViewPage } from '../../pages/snapshotViewPage';
 import { preferencesPage } from '../../pages/preferencesPage';
 import { comparisonPage } from '../../components/SnapshotDisplay/comparisonInstance';
 import { dataSourceService } from '../../services/datasourceService';
@@ -14,9 +14,10 @@ import { dataSourceService } from '../../services/datasourceService';
 function getCBMonitorApp(){
   return new SceneApp({
     pages: [
-      snapshotViewPage, // Main page: /cbmonitor (search + snapshot viewer)
-      comparisonPage,   // Comparison page: /cbmonitor/compare
-      preferencesPage,  // Preferences page: /cbmonitor/preferences
+      snapshotSearchPage, // /snapshots (search landing)
+      snapshotViewPage,   // /snapshots/:snapshotId/* (viewer + future drilldowns)
+      comparisonPage,     // /compare
+      preferencesPage,    // /preferences
     ],
     urlSyncOptions: {
       updateUrlOnInit: false,

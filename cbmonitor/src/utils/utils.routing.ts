@@ -17,8 +17,8 @@ export const ROUTE_PATHS = {
   compare: () => `/${ROUTES.Compare}`,
   preferences: () => `/${ROUTES.Preferences}`,
 
-  // Snapshot viewing with query parameter (for backward compatibility)
-  snapshotView: (snapshotId: string) => `/${ROUTES.CBMonitor}?snapshotId=${encodeURIComponent(snapshotId)}`,
+  // Path-based snapshot viewer: /snapshots/<id>
+  snapshotView: (snapshotId: string) => `/${ROUTES.CBMonitor}/${encodeURIComponent(snapshotId)}`,
 
   // Comparison with multiple snapshots
   compareSnapshots: (snapshotIds: string[]) => {
@@ -39,4 +39,22 @@ export function prefixRoute(route: string): string {
     return `${PLUGIN_BASE_URL}${route}`;
   }
   return `${PLUGIN_BASE_URL}/${route}`;
+}
+
+/**
+ * Extracts the snapshotId from a pathname like `/a/cbmonitor/snapshots/<id>[/...]`.
+ * Returns undefined when on the search landing (`/a/cbmonitor/snapshots`) or any
+ * non-snapshots route. The returned id is URL-decoded.
+ */
+export function parseSnapshotIdFromPath(pathname: string): string | undefined {
+  const prefix = `${PLUGIN_BASE_URL}/${ROUTES.CBMonitor}`;
+  if (!pathname.startsWith(prefix)) {
+    return undefined;
+  }
+  const rest = pathname.slice(prefix.length);
+  const segments = rest.split('/').filter(Boolean);
+  if (segments.length === 0) {
+    return undefined;
+  }
+  return decodeURIComponent(segments[0]);
 }

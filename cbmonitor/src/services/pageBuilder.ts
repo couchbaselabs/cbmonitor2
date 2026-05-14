@@ -91,9 +91,13 @@ function buildSingleSnapshotPage(
         throw new Error(`Unknown service: ${serviceKey}`);
     }
 
+    // Single-snapshot tabs live under the path-based parent route
+    // `/snapshots/<snapshotId>` so the snapshotId travels with the URL on tab
+    // switches (it's part of the path, not a query param).
+    const encodedSnapshotId = encodeURIComponent(snapshotId);
     const urlPath = config.segment
-        ? `${routePrefix}/${config.segment}`
-        : routePrefix;
+        ? `${routePrefix}/${encodedSnapshotId}/${config.segment}`
+        : `${routePrefix}/${encodedSnapshotId}`;
 
     const routePath = config.segment
         ? `/${config.segment}`

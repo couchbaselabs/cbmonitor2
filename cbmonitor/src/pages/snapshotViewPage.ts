@@ -1,7 +1,7 @@
 import React from 'react';
 import { SceneAppPage, SceneRefreshPicker, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectBase, SceneObjectState } from '@grafana/scenes';
 import { dateTime } from '@grafana/data';
-import { ROUTES, prefixRoute } from '../utils/utils.routing';
+import { ROUTES, ROUTE_PATHS, prefixRoute } from '../utils/utils.routing';
 import { getDashboardsForServices } from '../pages';
 import { locationService } from '@grafana/runtime';
 import { SnapshotSearchScene } from './SnapshotSearch';
@@ -22,7 +22,7 @@ import { Spinner } from '@grafana/ui';
 // Simple loading scene to show while snapshot is being loaded
 class LoadingScene extends SceneObjectBase<SceneObjectState> {
   public static Component = () => {
-    return React.createElement('div', 
+    return React.createElement('div',
       { style: { display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px', flexDirection: 'column', gap: '16px' } },
       React.createElement(Spinner, { size: 32 }),
       React.createElement('div', null, 'Loading snapshot...')
@@ -34,15 +34,54 @@ class LoadingScene extends SceneObjectBase<SceneObjectState> {
 const timeRange = createNoUrlSyncTimeRange();
 
 /**
- * Combined search and snapshot viewer page
- * Route: /cbmonitor (shows search when no snapshotId, shows snapshot data when snapshotId present)
+ * Search landing page.
+ * Route: /snapshots (exact)
+ *
+ * Renders the SnapshotSearchScene. Reads an optional `?error=...` query param
+ * so the viewer page (or a legacy redirect) can surface a load failure here.
+ */
+export const snapshotSearchPage = new SceneAppPage({
+  title: '',
+  url: prefixRoute(`${ROUTES.CBMonitor}`),
+  routePath: ROUTES.CBMonitor,
+  hideFromBreadcrumbs: true,
+  getScene: () => {
+    const errorMessage = (locationService.getSearchObject().error as string) || undefined;
+    return new EmbeddedScene({
+      body: new SceneFlexLayout({
+        direction: 'column',
+        children: [
+          new SceneFlexItem({
+            body: new SnapshotSearchScene({ errorMessage }),
+          }),
+        ],
+      }),
+    });
+  },
+});
+
+snapshotSearchPage.addActivationHandler(() => {
+  // Backwards-compat: rewrite legacy `?snapshotId=<id>` landing URLs to the
+  // path-based viewer URL while preserving other query params.
+  const params = locationService.getSearchObject();
+  if (params.snapshotId) {
+    redirectLegacyQueryParam();
+  }
+});
+
+/**
+ * Snapshot viewer page.
+ * Route: /snapshots/:snapshotId/* (snapshotId required, splat carries tabs and future drilldowns)
  */
 export const snapshotViewPage = new SceneAppPage({
   title: '',
-  url: prefixRoute(`${ROUTES.CBMonitor}`),
-  routePath: `${ROUTES.CBMonitor}/*`,
+  // The url is a placeholder; the activation handler updates breadcrumbs/title
+  // once the snapshot is loaded. We use a non-routable placeholder segment so
+  // it doesn't accidentally clash with a real snapshot id in nav links.
+  url: prefixRoute(`${ROUTES.CBMonitor}/_`),
+  routePath: `${ROUTES.CBMonitor}/:snapshotId/*`,
   hideFromBreadcrumbs: true,
-  // Provide a default getScene that shows loading state
+  // Default getScene shows loading while activation handler fetches the snapshot.
   getScene: () => new EmbeddedScene({
     body: new SceneFlexLayout({
       direction: 'column',
@@ -55,27 +94,27 @@ export const snapshotViewPage = new SceneAppPage({
   }),
 });
 
-// Add activation handler to fetch and configure snapshot
+// Activation handler — loads the snapshot for the id in the URL path.
 snapshotViewPage.addActivationHandler(() => {
   const initialParams = locationService.getSearchObject();
   if (initialParams.refresh) {
     locationService.partial({ refresh: null }, true);
   }
 
-  // Variable to track time range subscription for cleanup
+  // Track time range subscription for cleanup
   let timeRangeSubscription: { unsubscribe: () => void } | null = null;
   // Track currently loaded snapshot to avoid reloading on tab switches
   let currentLoadedSnapshotId: string | null = null;
 
-  // Function to load snapshot based on current URL
   const loadSnapshotFromUrl = () => {
     const params = locationService.getSearchObject();
-    const snapshotId = params.snapshotId as string;
+    const snapshotId = getSnapshotIdFromViewerPath(locationService.getLocation().pathname);
 
     if (!snapshotId) {
-      // No snapshotId - show search interface
-      showSearchInterface();
-      currentLoadedSnapshotId = null;
+      // Viewer URL with no snapshotId — should not happen given the routePath
+      // requires :snapshotId. If it does (e.g. someone hits the placeholder),
+      // bounce to search.
+      locationService.replace(prefixRoute(ROUTE_PATHS.search()));
       return;
     }
 
@@ -84,49 +123,36 @@ snapshotViewPage.addActivationHandler(() => {
       return;
     }
 
-    // Fetch snapshot data
     const fetchSnapshot = async () => {
       try {
-        // Clear scene cache when loading a different snapshot
         if (currentLoadedSnapshotId !== null && currentLoadedSnapshotId !== snapshotId) {
           sceneCacheService.clearAll();
-          // Reset cluster filter when loading a different snapshot
           clusterFilterService.reset();
         }
-
-        // Update the currently loaded snapshot
         currentLoadedSnapshotId = snapshotId;
 
-        // Load snapshot using unified loader
         const loaded = await loadSnapshot(snapshotId);
         const { metadata } = loaded;
 
-        // Initialize time range from snapshot metadata or phase
         const urlPhase = params.phase as string;
         initializeTimeRange(timeRange, metadata, urlPhase);
 
-        // Handler for when time range changes - update URL with phase if applicable
         const handleTimeRangeChange = () => {
           const currentTimeRange = timeRange.state;
           const currentFrom = currentTimeRange.value.raw.from?.toString();
           const currentTo = currentTimeRange.value.raw.to?.toString();
 
-          // Check if current time range matches a phase
           if (metadata.phases) {
             const matchingPhase = metadata.phases.find((p: Phase) => {
-              const phaseMatches = p.ts_start === currentFrom && p.ts_end === currentTo;
-              return phaseMatches;
+              return p.ts_start === currentFrom && p.ts_end === currentTo;
             });
 
             if (matchingPhase) {
-              // Update URL with phase parameter, using replace: true to avoid history bloat
               const currentPhase = (locationService.getSearchObject().phase) as string;
               if (currentPhase !== matchingPhase.label) {
                 locationService.partial({ phase: matchingPhase.label }, true);
               }
-            } else if (metadata.ts_start === currentFrom &&
-              metadata.ts_end === currentTo) {
-              // Full range selected - remove phase parameter if set
+            } else if (metadata.ts_start === currentFrom && metadata.ts_end === currentTo) {
               const currentPhase = (locationService.getSearchObject().phase) as string;
               if (currentPhase) {
                 locationService.partial({ phase: null }, true);
@@ -135,13 +161,10 @@ snapshotViewPage.addActivationHandler(() => {
           }
         };
 
-        // Clean up previous subscription if it exists
         if (timeRangeSubscription) {
           timeRangeSubscription.unsubscribe();
         }
-
-        // Subscribe to time range changes
-        timeRangeSubscription = timeRange.subscribeToState((state) => {
+        timeRangeSubscription = timeRange.subscribeToState(() => {
           handleTimeRangeChange();
         });
 
@@ -149,12 +172,10 @@ snapshotViewPage.addActivationHandler(() => {
           if (!metadata.phases || metadata.phases.length === 0) {
             return;
           }
-
           const selectedPhase = metadata.phases.find((p: Phase) => p.label === phaseLabel);
           if (!selectedPhase) {
             return;
           }
-
           const nextTo = selectedPhase.ts_end || metadata.ts_end;
           timeRange.onTimeRangeChange({
             from: dateTime(selectedPhase.ts_start),
@@ -171,51 +192,35 @@ snapshotViewPage.addActivationHandler(() => {
           });
         };
 
-        // Handler for layout change - regenerate tabs with new layout
         const handleLayoutChange = () => {
-          // Clear scene cache so scenes are recreated with new layout
           sceneCacheService.clearAll();
-          // Regenerate tabs with current services and snapshotId
           snapshotViewPage.setState({
             tabs: getDashboardsForServices(metadata.services, snapshotId),
           });
         };
 
-        // Handler for datasource change - regenerate tabs with new query builders
         const handleDataSourceChange = () => {
-          // Clear scene cache so scenes are recreated with new datasource queries
           sceneCacheService.clearAll();
-          // Regenerate tabs with current services and snapshotId
           snapshotViewPage.setState({
             tabs: getDashboardsForServices(metadata.services, snapshotId),
           });
         };
 
-        // Handler for cluster filter change - regenerate tabs with cluster-filtered queries
         const handleClusterChange = (clusterId: string | null) => {
-          // Update the cluster filter service
           clusterFilterService.setCurrentCluster(clusterId);
-          // Clear scene cache so scenes are recreated with new cluster filter
           sceneCacheService.clearAll();
-          // Regenerate tabs with current services and snapshotId
           snapshotViewPage.setState({
             tabs: getDashboardsForServices(metadata.services, snapshotId),
           });
         };
 
-        // Handler for hide empty toggle - regenerate tabs to apply new visibility
         const handleHideEmptyChange = () => {
-          // Clear scene cache so scenes are recreated
           sceneCacheService.clearAll();
-          // Regenerate tabs
           snapshotViewPage.setState({
             tabs: getDashboardsForServices(metadata.services, snapshotId),
           });
         };
 
-        // Create controls array — only the refresh picker stays in the SceneAppPage
-        // controls slot. All other settings/actions live inside the DashboardHeader
-        // rendered via renderTitle below.
         const controls: any[] = [];
 
         const clusterToggle = new ClusterToggle({
@@ -223,7 +228,6 @@ snapshotViewPage.addActivationHandler(() => {
           onClusterChange: handleClusterChange,
         });
 
-        // If we have active snapshot, display the refresh picker
         if (metadata.ts_end && metadata.ts_end.startsWith("now")) {
           controls.push(new SceneRefreshPicker({
             intervals: ['5s', '10s', '30s', '1m', '2m', '5m', '10m'],
@@ -231,9 +235,6 @@ snapshotViewPage.addActivationHandler(() => {
           }));
         }
 
-        // Settings dropdown is rendered inside the DashboardHeader action row.
-        // Cluster filter is shown in the header context row, so hide it here to
-        // avoid duplication.
         const settingsDropdown = new SettingsDropdown({
           snapshotId,
           clusters: metadata.clusters || [],
@@ -243,7 +244,6 @@ snapshotViewPage.addActivationHandler(() => {
           showClusterSection: false,
         });
 
-        // Update page with snapshot data
         snapshotViewPage.setState({
           title: "",
           tabs: getDashboardsForServices(metadata.services, snapshotId),
@@ -265,14 +265,15 @@ snapshotViewPage.addActivationHandler(() => {
               ],
             });
           },
-          getScene: undefined, // Remove getScene when using tabs
+          getScene: undefined,
         });
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Failed to load snapshot';
         console.error('Error loading snapshot:', errorMessage);
-        // Show search interface with error message
-        showSearchInterface(errorMessage);
+        // Redirect to the search page with the error message surfaced there.
+        const target = `${prefixRoute(ROUTE_PATHS.search())}?error=${encodeURIComponent(errorMessage)}`;
+        locationService.replace(target);
         currentLoadedSnapshotId = null;
       }
     };
@@ -280,48 +281,67 @@ snapshotViewPage.addActivationHandler(() => {
     fetchSnapshot();
   };
 
-  // Load snapshot immediately on mount
   loadSnapshotFromUrl();
 
-  // Subscribe to URL changes to reload snapshot when snapshotId changes (ignore phase changes)
   const urlSubscription = locationService.getHistory().listen(() => {
-    const newParams = locationService.getSearchObject();
-    const newSnapshotId = newParams.snapshotId as string;
-    // Only reload if snapshotId actually changed, not just phase
-    if (newSnapshotId && newSnapshotId !== currentLoadedSnapshotId) {
+    const newSnapshotId = getSnapshotIdFromViewerPath(locationService.getLocation().pathname);
+    if (newSnapshotId !== currentLoadedSnapshotId) {
       loadSnapshotFromUrl();
     }
   });
 
-  // Return deactivation handler
   return () => {
-    // Unsubscribe from URL changes
     urlSubscription();
-    // Unsubscribe from time range changes
     if (timeRangeSubscription) {
       timeRangeSubscription.unsubscribe();
     }
   };
 });
 
-// Helper function to show search interface
-function showSearchInterface(errorMessage?: string) {
-    snapshotViewPage.setState({
-        title: '',
-        subTitle: errorMessage ? `Unable to load snapshot - ${errorMessage}` : '',
-        tabs: undefined,
-        controls: undefined,
-        renderTitle: undefined,
-        $timeRange: undefined,
-        getScene: () => new EmbeddedScene({
-            body: new SceneFlexLayout({
-                direction: 'column',
-                children: [
-                    new SceneFlexItem({
-                        body: new SnapshotSearchScene({ errorMessage }),
-                    }),
-                ],
-            }),
-        })
-    });
+// Extract snapshotId from a viewer pathname like `/a/cbmonitor/snapshots/<id>[/...]`.
+// Returns undefined for the bare `/snapshots` search path or unrelated paths.
+// Skips the literal `_` placeholder used as the page's default url.
+function getSnapshotIdFromViewerPath(pathname: string): string | undefined {
+  const prefix = `${prefixRoute(ROUTES.CBMonitor)}/`;
+  if (!pathname.startsWith(prefix)) {
+    return undefined;
+  }
+  const rest = pathname.slice(prefix.length);
+  const segments = rest.split('/').filter(Boolean);
+  if (segments.length === 0) {
+    return undefined;
+  }
+  const candidate = decodeURIComponent(segments[0]);
+  if (candidate === '_') {
+    return undefined;
+  }
+  return candidate;
+}
+
+// Rewrite a legacy `?snapshotId=<id>` URL to `/snapshots/<id>` while preserving
+// any other query params (e.g. `phase`). Uses replace() so the legacy URL
+// doesn't pollute browser history.
+function redirectLegacyQueryParam() {
+  const params = locationService.getSearchObject();
+  const legacyId = params.snapshotId as string | undefined;
+  if (!legacyId) {
+    return;
+  }
+  const { snapshotId: _drop, ...rest } = params;
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(rest)) {
+    if (value === undefined || value === null) {
+      continue;
+    }
+    if (Array.isArray(value)) {
+      for (const v of value) {
+        query.append(key, String(v));
+      }
+    } else {
+      query.set(key, String(value));
+    }
+  }
+  const qs = query.toString();
+  const target = `${prefixRoute(ROUTE_PATHS.snapshotView(legacyId))}${qs ? `?${qs}` : ''}`;
+  locationService.replace(target);
 }
