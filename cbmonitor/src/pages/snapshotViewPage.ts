@@ -12,6 +12,7 @@ import { DashboardHeader } from '../components/DashboardHeader/DashboardHeader';
 import { PinPanelToggle } from '../components/DashboardHeader/actions/PinPanelToggle';
 import { EditModeToggle } from '../components/DashboardHeader/actions/EditModeToggle';
 import { ExploreButton } from '../components/DashboardHeader/actions/ExploreButton';
+import { MetricsDrilldownButton } from '../components/DashboardHeader/actions/MetricsDrilldownButton';
 import { createNoUrlSyncTimeRange, initializeTimeRange } from '../utils/timeRange';
 import { loadSnapshot } from '../services/snapshotLoader';
 import { sceneCacheService } from '../services/sceneCache';
@@ -260,6 +261,7 @@ snapshotViewPage.addActivationHandler(() => {
                 { key: 'pin', render: () => React.createElement(PinPanelToggle, {}) },
                 { key: 'edit', render: () => React.createElement(EditModeToggle, {}) },
                 { key: 'explore', render: () => React.createElement(ExploreButton, { snapshotId, timeRange }) },
+                { key: 'metricsDrilldown', render: () => React.createElement(MetricsDrilldownButton, { snapshotId, timeRange }) },
               ],
             });
           },
