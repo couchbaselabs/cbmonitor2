@@ -1,4 +1,4 @@
-import React, { ChangeEvent, useMemo, useState } from 'react';
+import React, { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { lastValueFrom } from 'rxjs';
 import { css } from '@emotion/css';
 import { AppPluginMeta, GrafanaTheme2, PluginConfigPageProps, PluginMeta } from '@grafana/data';
@@ -67,7 +67,38 @@ type State = {
   isPasswordSet: boolean;
 };
 
-type ProbeResult = { ok: boolean; message: string; latencyMs?: number };
+type ProbeState = 'skipped' | 'ok' | 'error';
+type ProbeResult = { state: ProbeState; message: string; latencyMs?: number };
+
+// probeFromResponse maps a single healthcheck sub-object (shape produced
+// by the Go handler in resources.go) to the UI's ProbeResult.
+const probeFromResponse = (probe: any): ProbeResult => {
+  if (probe?.skipped) {
+    return { state: 'skipped', message: probe.reason ?? 'feature disabled' };
+  }
+  if (probe?.ok) {
+    return {
+      state: 'ok',
+      message: `Bucket "${probe.bucket ?? ''}" reachable at ${probe.connectionString ?? ''}`,
+      latencyMs: probe.latencyMs,
+    };
+  }
+  return { state: 'error', message: probe?.error ?? 'unknown error' };
+};
+
+const badgeForState = (state: ProbeState): { text: string; color: 'green' | 'red' | 'blue'; icon: 'check' | 'times' | 'pause' } => {
+  switch (state) {
+    case 'ok':
+      return { text: 'OK', color: 'green', icon: 'check' };
+    case 'error':
+      return { text: 'Fail', color: 'red', icon: 'times' };
+    case 'skipped':
+      // Grafana's BadgeColor doesn't include grey; blue reads as neutral/
+      // informational which is the right register for "feature disabled,
+      // not a failure".
+      return { text: 'Off', color: 'blue', icon: 'pause' };
+  }
+};
 
 export interface AppConfigProps extends PluginConfigPageProps<AppPluginMeta<AppPluginSettings>> {}
 
@@ -103,9 +134,37 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
   });
 
   const [isTesting, setIsTesting] = useState(false);
-  const [cbResult, setCbResult] = useState<ProbeResult | null>(null);
+  const [snapResult, setSnapResult] = useState<ProbeResult | null>(null);
+  const [cbDsResult, setCbDsResult] = useState<ProbeResult | null>(null);
   const [dsResult, setDsResult] = useState<ProbeResult | null>(null);
   const [dsUid, setDsUid] = useState<string>(PROM_DATASOURCE_REF.uid);
+  // settingsError is the message the backend reports when LoadSettings
+  // rejected the saved jsonData (e.g. malformed URL on a previously-saved
+  // config). The /config/datasources endpoint exposes it; we surface it
+  // as a banner so the user knows their stored config was thrown away
+  // and they're running on defaults.
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getBackendSrv()
+      .get(`${API_BASE_URL}/config/datasources`)
+      .then((r: any) => {
+        if (cancelled) {
+          return;
+        }
+        if (r?.settings && r.settings.valid === false) {
+          setSettingsError(r.settings.error ?? 'Saved configuration was rejected; running on defaults.');
+        }
+      })
+      .catch(() => {
+        // /config/datasources unavailable is a separate failure mode
+        // already surfaced elsewhere; don't double-banner here.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const needsCouchbaseServer = state.snapshots.enabled || state.couchbaseDatasource.enabled;
   const validationError = useMemo(() => validate(state), [state]);
@@ -113,7 +172,8 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
 
   const runProbe = async () => {
     setIsTesting(true);
-    setCbResult(null);
+    setSnapResult(null);
+    setCbDsResult(null);
     setDsResult(null);
 
     const cfg = await dataSourceService.getDataSourceConfig();
@@ -125,40 +185,34 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
 
     const probes: Array<Promise<unknown>> = [];
 
-    if (state.snapshots.enabled) {
-      probes.push(
-        getBackendSrv()
-          .get(`${API_BASE_URL}/healthcheck/connection`)
-          .then((r: any) =>
-            setCbResult({
-              ok: Boolean(r?.couchbase?.ok),
-              message: r?.couchbase?.ok
-                ? `Bucket "${r.couchbase.bucket}" reachable at ${r.couchbase.connectionString}`
-                : r?.couchbase?.error ?? 'unknown error',
-              latencyMs: r?.couchbase?.latencyMs,
-            })
-          )
-          .catch((e: any) =>
-            setCbResult({
-              ok: false,
-              message: e?.data?.message ?? e?.message ?? 'request failed',
-            })
-          )
-      );
-    }
+    // Single backend call returns both Snapshots and CouchbaseDatasource
+    // bucket probes — each carries its own skipped/ok/error state.
+    probes.push(
+      getBackendSrv()
+        .get(`${API_BASE_URL}/healthcheck/connection`)
+        .then((r: any) => {
+          setSnapResult(probeFromResponse(r?.snapshots));
+          setCbDsResult(probeFromResponse(r?.couchbaseDatasource));
+        })
+        .catch((e: any) => {
+          const message = e?.data?.message ?? e?.message ?? 'request failed';
+          setSnapResult({ state: 'error', message });
+          setCbDsResult({ state: 'error', message });
+        })
+    );
 
     probes.push(
       getBackendSrv()
         .get(`/api/datasources/uid/${uid}/health`)
         .then((r: any) =>
           setDsResult({
-            ok: typeof r?.status === 'string' && r.status.toLowerCase() === 'ok',
+            state: typeof r?.status === 'string' && r.status.toLowerCase() === 'ok' ? 'ok' : 'error',
             message: r?.message ?? `Datasource ${uid} healthy`,
           })
         )
         .catch((e: any) =>
           setDsResult({
-            ok: false,
+            state: 'error',
             message: e?.data?.message ?? e?.message ?? 'unknown error',
           })
         )
@@ -266,6 +320,15 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
 
   return (
     <form onSubmit={onSubmit}>
+      {settingsError && (
+        <Alert
+          severity="error"
+          title="Saved configuration was rejected — running on defaults"
+          data-testid={testIds.appConfig.settingsError}
+        >
+          {settingsError}
+        </Alert>
+      )}
       <FieldSet label="Snapshots">
         <Field label="Enable snapshots" description="Read snapshot metadata from a Couchbase bucket.">
           <Switch
@@ -456,41 +519,31 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
           </Button>
         </div>
 
-        {cbResult && (
-          <div className={s.resultRow} data-testid={testIds.appConfig.testCbResult}>
-            <Badge
-              text={cbResult.ok ? 'OK' : 'Fail'}
-              color={cbResult.ok ? 'green' : 'red'}
-              icon={cbResult.ok ? 'check' : 'times'}
-            />
-            <span className={s.resultLabel}>
-              Snapshots bucket
-              {typeof cbResult.latencyMs === 'number' ? ` (${cbResult.latencyMs} ms)` : ''}
-            </span>
-            {!cbResult.ok && (
-              <Alert severity="error" title="Connection failed" className={s.resultAlert}>
-                {cbResult.message}
-              </Alert>
-            )}
-            {cbResult.ok && <span className={s.resultMessage}>{cbResult.message}</span>}
-          </div>
+        {snapResult && (
+          <ProbeRow
+            label="Snapshots bucket"
+            result={snapResult}
+            testid={testIds.appConfig.testCbResult}
+            styles={s}
+          />
+        )}
+
+        {cbDsResult && (
+          <ProbeRow
+            label="Couchbase datasource bucket"
+            result={cbDsResult}
+            testid={testIds.appConfig.testCbDsResult}
+            styles={s}
+          />
         )}
 
         {dsResult && (
-          <div className={s.resultRow} data-testid={testIds.appConfig.testDsResult}>
-            <Badge
-              text={dsResult.ok ? 'OK' : 'Fail'}
-              color={dsResult.ok ? 'green' : 'red'}
-              icon={dsResult.ok ? 'check' : 'times'}
-            />
-            <span className={s.resultLabel}>Default datasource (uid={dsUid})</span>
-            {!dsResult.ok && (
-              <Alert severity="error" title="Connection failed" className={s.resultAlert}>
-                {dsResult.message}
-              </Alert>
-            )}
-            {dsResult.ok && <span className={s.resultMessage}>{dsResult.message}</span>}
-          </div>
+          <ProbeRow
+            label={`Default datasource (uid=${dsUid})`}
+            result={dsResult}
+            testid={testIds.appConfig.testDsResult}
+            styles={s}
+          />
         )}
       </FieldSet>
     </form>
@@ -530,6 +583,37 @@ function validate(state: State): string | null {
 }
 
 export default AppConfig;
+
+type ProbeRowProps = {
+  label: string;
+  result: ProbeResult;
+  testid: string;
+  styles: ReturnType<typeof getStyles>;
+};
+
+// ProbeRow renders a single healthcheck/probe outcome with state-aware
+// badge styling. Three states (skipped/ok/error) drive distinct visual
+// affordances: grey "Off" for skipped (feature disabled — informational),
+// green "OK" for ok, red "Fail" for error.
+const ProbeRow: React.FC<ProbeRowProps> = ({ label, result, testid, styles }) => {
+  const badge = badgeForState(result.state);
+  return (
+    <div className={styles.resultRow} data-testid={testid}>
+      <Badge text={badge.text} color={badge.color} icon={badge.icon} />
+      <span className={styles.resultLabel}>
+        {label}
+        {typeof result.latencyMs === 'number' ? ` (${result.latencyMs} ms)` : ''}
+      </span>
+      {result.state === 'error' ? (
+        <Alert severity="error" title="Connection failed" className={styles.resultAlert}>
+          {result.message}
+        </Alert>
+      ) : (
+        <span className={styles.resultMessage}>{result.message}</span>
+      )}
+    </div>
+  );
+};
 
 const getStyles = (theme: GrafanaTheme2) => ({
   colorWeak: css`

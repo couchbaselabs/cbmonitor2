@@ -1,8 +1,10 @@
 export const testIds = {
   appConfig: {
     submit: 'data-testid ac-submit-form',
+    settingsError: 'data-testid ac-settings-error',
     testConnection: 'data-testid ac-test-connection',
     testCbResult: 'data-testid ac-test-cb',
+    testCbDsResult: 'data-testid ac-test-cbds',
     testDsResult: 'data-testid ac-test-ds',
     couchbaseConnectionString: 'data-testid ac-cb-conn',
     couchbaseUsername: 'data-testid ac-cb-user',

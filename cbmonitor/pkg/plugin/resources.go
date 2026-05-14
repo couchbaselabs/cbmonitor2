@@ -167,48 +167,24 @@ func (a *App) setupPrometheusRoutes(mux *http.ServeMux) {
 	log.Printf("PromQL Query API routes registered: /query, /query_range, /series")
 }
 
-// handleHealthCheckConnection performs a fresh, short-timeout probe of the
-// configured Couchbase snapshot bucket. The endpoint always responds with HTTP
-// 200; failures (including "snapshots disabled") are encoded inside the JSON
-// body so the frontend can render per-check status without distinguishing
-// transport vs application errors.
+// handleHealthCheckConnection probes the Couchbase buckets each enabled
+// feature relies on (Snapshots metadata bucket + CouchbaseDatasource
+// metrics bucket). Always responds HTTP 200; per-bucket state lives in
+// the JSON body so the frontend can render distinct badges for
+// "skipped because the feature is off" vs "actually broken".
 func (a *App) handleHealthCheckConnection(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	if !a.settings.Snapshots.Enabled {
-		resp := map[string]any{
-			"couchbase": map[string]any{
-				"ok":     false,
-				"bucket": "",
-				"error":  "snapshots disabled",
-			},
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {
-			log.Printf("[handleHealthCheckConnection] error encoding response: %v", encErr)
-		}
-		return
-	}
-
 	cb := a.settings.CouchbaseServer
-	bucket := a.settings.Snapshots.Bucket
-
 	ctx, cancel := context.WithTimeout(req.Context(), 6*time.Second)
 	defer cancel()
 
-	start := time.Now()
-	err := services.ProbeCouchbaseBucket(ctx, cb.ConnectionString, cb.Username, cb.Password, bucket, 5*time.Second)
 	resp := map[string]any{
-		"couchbase": map[string]any{
-			"ok":               err == nil,
-			"bucket":           bucket,
-			"connectionString": cb.ConnectionString,
-			"latencyMs":        time.Since(start).Milliseconds(),
-			"error":            errString(err),
-		},
+		"snapshots":           a.probeBucket(ctx, cb, a.settings.Snapshots.Enabled, a.settings.Snapshots.Bucket, "snapshots feature disabled"),
+		"couchbaseDatasource": a.probeBucket(ctx, cb, a.settings.CouchbaseDatasource.Enabled, a.settings.CouchbaseDatasource.Bucket, "couchbase datasource feature disabled"),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -217,9 +193,38 @@ func (a *App) handleHealthCheckConnection(w http.ResponseWriter, req *http.Reque
 	}
 }
 
-func errString(err error) string {
-	if err == nil {
-		return ""
+// probeBucket returns a healthcheck sub-result for a single feature/bucket
+// combination. The shape is intentionally compact — three mutually-exclusive
+// states (`skipped`, `ok`, `error`) drive distinct UI affordances.
+func (a *App) probeBucket(ctx context.Context, cb CouchbaseServerSettings, enabled bool, bucket, disabledReason string) map[string]any {
+	if !enabled {
+		return map[string]any{
+			"skipped": true,
+			"reason":  disabledReason,
+		}
 	}
-	return err.Error()
+	if cb.ConnectionString == "" {
+		// Feature enabled but server settings missing — surface as error,
+		// not skipped, so the user knows there's something to fix.
+		return map[string]any{
+			"skipped": false,
+			"ok":      false,
+			"bucket":  bucket,
+			"error":   "couchbase server connection string is empty",
+		}
+	}
+
+	start := time.Now()
+	err := services.ProbeCouchbaseBucket(ctx, cb.ConnectionString, cb.Username, cb.Password, bucket, 5*time.Second)
+	out := map[string]any{
+		"skipped":          false,
+		"ok":               err == nil,
+		"bucket":           bucket,
+		"connectionString": cb.ConnectionString,
+		"latencyMs":        time.Since(start).Milliseconds(),
+	}
+	if err != nil {
+		out["error"] = err.Error()
+	}
+	return out
 }

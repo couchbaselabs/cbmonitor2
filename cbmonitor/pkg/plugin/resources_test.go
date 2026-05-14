@@ -210,25 +210,49 @@ func TestCallResource_SnapshotRoutesGatedByToggle(t *testing.T) {
 	}
 }
 
-func TestCallResource_HealthcheckDisabledWhenSnapshotsOff(t *testing.T) {
+// healthcheckResponse mirrors the JSON returned by /healthcheck/connection.
+// Each sub-object is either skipped (feature off) or carries a probe result
+// (ok, bucket, error). The frontend renders each independently.
+type healthcheckResponse struct {
+	Snapshots           healthcheckBucket `json:"snapshots"`
+	CouchbaseDatasource healthcheckBucket `json:"couchbaseDatasource"`
+}
+
+type healthcheckBucket struct {
+	Skipped bool   `json:"skipped"`
+	Reason  string `json:"reason"`
+	OK      bool   `json:"ok"`
+	Bucket  string `json:"bucket"`
+	Error   string `json:"error"`
+}
+
+func TestCallResource_HealthcheckSkipsBothWhenAllFeaturesDisabled(t *testing.T) {
+	// Default settings have both features off. The healthcheck must mark
+	// each sub-result `skipped: true` with a clear reason — distinct from
+	// a real connection failure so the frontend can render a grey "Off"
+	// rather than a red "Fail".
 	app := newAppWithSettings(t, defaultSettings())
 	resp := call(t, app, http.MethodGet, "healthcheck/connection", nil)
 	if resp.Status != http.StatusOK {
 		t.Fatalf("healthcheck status = %d, want 200", resp.Status)
 	}
-	var got struct {
-		Couchbase struct {
-			OK    bool   `json:"ok"`
-			Error string `json:"error"`
-		} `json:"couchbase"`
-	}
+	var got healthcheckResponse
 	if err := json.Unmarshal(resp.Body, &got); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if got.Couchbase.OK {
-		t.Errorf("expected ok=false when snapshots disabled")
+	if !got.Snapshots.Skipped {
+		t.Errorf("expected snapshots.skipped = true when feature off")
 	}
-	if got.Couchbase.Error != "snapshots disabled" {
-		t.Errorf("expected error='snapshots disabled', got %q", got.Couchbase.Error)
+	if got.Snapshots.Reason == "" {
+		t.Errorf("expected non-empty snapshots.reason")
+	}
+	if got.Snapshots.OK {
+		t.Errorf("skipped probe must not report ok=true")
+	}
+	if !got.CouchbaseDatasource.Skipped {
+		t.Errorf("expected couchbaseDatasource.skipped = true when feature off")
+	}
+	if got.CouchbaseDatasource.Reason == "" {
+		t.Errorf("expected non-empty couchbaseDatasource.reason")
 	}
 }
