@@ -3,8 +3,6 @@ import { dateTime } from '@grafana/data';
 import { ROUTES, prefixRoute, ROUTE_PATHS } from '../../utils/utils.routing';
 import { locationService } from '@grafana/runtime';
 import React from 'react';
-import { Button } from '@grafana/ui';
-import CompareHeader from './CompareHeader';
 import { layoutService } from '../../services/layoutService';
 import { createNoUrlSyncTimeRange, syncTimeRangesToPhase, syncTimeRangesToFullRange, NoUrlSyncTimeRange } from '../../utils/timeRange';
 import { loadSnapshots, findCommonServicesInSnapshots, findCommonPhasesInSnapshots, formatSnapshotInfo, getMaxSnapshotDuration } from '../../services/snapshotLoader';
@@ -13,6 +11,11 @@ import { buildServiceTabs } from '../../services/pageBuilder';
 import { StatusScene } from '../SceneComponents/StatusScene';
 import { InputScene } from '../SceneComponents/InputScene';
 import { SettingsDropdown } from '../SettingsDropdown/SettingsDropdown';
+import { CompareDashboardHeader } from '../DashboardHeader/CompareDashboardHeader';
+import { OverlapToggle } from '../DashboardHeader/actions/OverlapToggle';
+import { PinPanelToggle } from '../DashboardHeader/actions/PinPanelToggle';
+import { EditModeToggle } from '../DashboardHeader/actions/EditModeToggle';
+import { ExploreButton } from '../DashboardHeader/actions/ExploreButton';
 
 // Global overlap mode (when true, hide columns and show placeholders)
 let overlapMode = false;
@@ -41,9 +44,19 @@ function setOverlapMode(value: boolean) {
     invalidateComparisonTabs();
 }
 
-// Local header row showing  Overlap button
-function CompareTopBar() {
+// React component that subscribes to overlap state and renders the unified
+// CompareDashboardHeader. The header owns title list, common phase pills, and
+// the action row (overlap toggle + future actions + settings dropdown).
+interface CompareHeaderContainerProps {
+    items: Array<{ id: string; meta: import('types/snapshot').SnapshotMetadata; title?: string }>;
+    commonPhases: string[];
+    onSelectCommonPhase: (label: string) => void;
+    onSelectFullRange: () => void;
+}
+
+function CompareHeaderContainer(props: CompareHeaderContainerProps) {
     const [overlap, setOverlap] = React.useState(isOverlapModeEnabled());
+
     const compareSettingsDropdown = React.useMemo(() => new SettingsDropdown({
         snapshotId: '',
         clusters: [],
@@ -60,26 +73,28 @@ function CompareTopBar() {
         showHideEmptySection: true,
     }), []);
 
-    const onToggle = () => {
+    const onToggleOverlap = React.useCallback(() => {
         setOverlap((prev) => {
             const next = !prev;
             setOverlapMode(next);
             return next;
         });
-    };
-    return React.createElement('div', {
-        style: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', width: '100%' }
-    },
-        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-            React.createElement((Button as any), {
-                variant: 'secondary',
-                size: 'sm',
-                onClick: onToggle,
-                style: overlap ? { background: '#065f46', borderColor: '#065f46', color: '#E5E7EB' } : undefined
-            }, 'Overlap'),
-            React.createElement((compareSettingsDropdown as any).Component, { model: compareSettingsDropdown })
-        )
-    );
+    }, []);
+
+    return React.createElement(CompareDashboardHeader, {
+        items: props.items,
+        commonPhases: props.commonPhases,
+        onSelectCommonPhase: props.onSelectCommonPhase,
+        onSelectFullRange: props.onSelectFullRange,
+        overlapEnabled: overlap,
+        settingsDropdown: compareSettingsDropdown,
+        actions: [
+            { key: 'overlap', render: () => React.createElement(OverlapToggle, { active: overlap, onToggle: onToggleOverlap }) },
+            { key: 'pin', render: () => React.createElement(PinPanelToggle, {}) },
+            { key: 'edit', render: () => React.createElement(EditModeToggle, {}) },
+            { key: 'explore', render: () => React.createElement(ExploreButton, {}) },
+        ],
+    });
 }
 
 // This page is used to compare multiple snapshots
@@ -246,22 +261,19 @@ comparisonPage.addActivationHandler(() => {
                     syncTimeRangesToFullRange(timeRanges, snapshots);
                 };
 
-                // Render header with a top status row (Ready + Overlap toggle) and compare cards below, then set tabs
+                // Render the unified compare header (title list + common phase pills + actions)
+                const headerItems = snapshots.map((s, idx) => ({
+                    id: s.id,
+                    meta: s.snapshot.metadata,
+                    title: `Snapshot ${String.fromCharCode(65 + idx)}`,
+                }));
                 comparisonPage.setState({
-                    renderTitle: () => React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 0' } },
-                        React.createElement(CompareTopBar as any, {}),
-                        React.createElement(CompareHeader as any, {
-                            items: snapshots.map((s, idx) => ({
-                                id: s.id,
-                                meta: s.snapshot.metadata,
-                                title: `Snapshot ${String.fromCharCode(65 + idx)}`,
-                            })),
-                            commonPhases,
-                            onSelectCommonPhase,
-                            onSelectFullRange,
-                            overlapEnabled: isOverlapModeEnabled(),
-                        })
-                    ),
+                    renderTitle: () => React.createElement(CompareHeaderContainer, {
+                        items: headerItems,
+                        commonPhases,
+                        onSelectCommonPhase,
+                        onSelectFullRange,
+                    }),
                     // Clear controls to avoid duplicate pickers above tabs
                     controls: [],
                     tabs,
