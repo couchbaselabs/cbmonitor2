@@ -7,13 +7,14 @@ export function queryMetricsDashboard(snapshotId: string): EmbeddedScene {
         body: createFlexLayout({
             children: [
                 // Query Engine
-                createMetricPanel('sysproc_cpu_seconds_total', 'Query Engine CPU Time (Cumulative Seconds)', {
-                    expr: `sum by (instance) (sysproc_cpu_seconds_total{job="${snapshotId}",proc="cbq-engine"})`,
+                createMetricPanel('sysproc_cpu_seconds_total', 'Query Engine CPU Usage (cores)', {
+                    expr: `sum by (instance) (rate(sysproc_cpu_seconds_total{job="${snapshotId}",proc="cbq-engine"}[$__rate_interval]))`,
                     legendFormat: '{{instance}}',
                     snapshotId,
                     labelFilters: { proc: 'cbq-engine' },
                     extraFields: ['d.labels.`instance`', 'd.labels.`mode`'],
-                    unit: 's'
+                    transformFunction: 'rate',
+                    unit: 'short'
                 }),
                 createMetricPanel('sysproc_mem_resident', 'Query Engine Resident Memory (Bytes)', {
                     expr: `sum by (instance) (sysproc_mem_resident{job="${snapshotId}",proc="cbq-engine"})`,

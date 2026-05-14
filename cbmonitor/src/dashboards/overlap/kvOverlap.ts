@@ -5,16 +5,16 @@ export function kvOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSec
   return createInstanceAwareOverlapScene(
     snapshotIds,
     ({ titleSuffix, instanceFilter, instanceSumBySuffix, createOverlapMetricPanel }) => [
-      createOverlapMetricPanel('sysproc_cpu_seconds_total', `memcached CPU Time (Cumulative Seconds)${titleSuffix}`, {
-        expr: `sum by (job${instanceSumBySuffix}) (sysproc_cpu_seconds_total{job=~"${snapshotIds}",proc="memcached"${instanceFilter}})`,
-        unit: 's',
+      createOverlapMetricPanel('sysproc_cpu_seconds_total', `memcached CPU Usage (cores)${titleSuffix}`, {
+        expr: `sum by (job${instanceSumBySuffix}) (rate(sysproc_cpu_seconds_total{job=~"${snapshotIds}",proc="memcached"${instanceFilter}}[$__rate_interval]))`,
+        unit: 'short',
       }),
       createOverlapMetricPanel('sysproc_mem_resident', `memcached Resident Memory (Bytes)${titleSuffix}`, {
         expr: `sum by (job${instanceSumBySuffix}) (sysproc_mem_resident{job=~"${snapshotIds}",proc="memcached"${instanceFilter}})`,
         unit: 'bytes',
       }),
-      createOverlapMetricPanel('kv_vb_ops_get', `vBucket GET Ops${titleSuffix}`, {
-        expr: `sum by (job${instanceSumBySuffix}, bucket) (kv_vb_ops_get{job=~"${snapshotIds}"${instanceFilter}})`,
+      createOverlapMetricPanel('kv_vb_ops_get', `vBucket GET Ops/Sec${titleSuffix}`, {
+        expr: `sum by (job${instanceSumBySuffix}, bucket) (rate(kv_vb_ops_get{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
         legendFormat: '{{job}}, {{instance}}, {{bucket}}',
         unit: 'short',
       }),
@@ -74,8 +74,8 @@ export function kvOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSec
         legendFormat: '{{job}}, {{instance}}, {{bucket}}, {{connection_type}}',
         unit: 'short',
       }),
-      createOverlapMetricPanel('kv_ops', `KV Operations (ops)${titleSuffix}`, {
-        expr: `sum by (job${instanceSumBySuffix}, bucket, op, result) (kv_ops{job=~"${snapshotIds}"${instanceFilter}})`,
+      createOverlapMetricPanel('kv_ops', `KV Operations/Sec${titleSuffix}`, {
+        expr: `sum by (job${instanceSumBySuffix}, bucket, op, result) (rate(kv_ops{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
         legendFormat: '{{job}}, {{instance}}, {{bucket}}, {{op}}, {{result}}',
         unit: 'short',
         width: '100%',

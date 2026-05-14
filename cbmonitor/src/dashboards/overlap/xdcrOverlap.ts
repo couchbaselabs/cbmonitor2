@@ -5,28 +5,30 @@ export function xdcrOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeS
   return createInstanceAwareOverlapScene(
     snapshotIds,
     ({ titleSuffix, instanceFilter, instanceSumBySuffix, createOverlapMetricPanel }) => [
-      createOverlapMetricPanel('sysproc_cpu_seconds_total', `goxdcr CPU Time (Cumulative Seconds)${titleSuffix}`, {
-        expr: `sum by (job${instanceSumBySuffix}) (sysproc_cpu_seconds_total{job=~"${snapshotIds}",proc="goxdcr"${instanceFilter}})`,
-        unit: 's',
+      createOverlapMetricPanel('sysproc_cpu_seconds_total', `goxdcr CPU Usage (cores)${titleSuffix}`, {
+        expr: `sum by (job${instanceSumBySuffix}) (rate(sysproc_cpu_seconds_total{job=~"${snapshotIds}",proc="goxdcr"${instanceFilter}}[$__rate_interval]))`,
+        unit: 'short',
       }),
       createOverlapMetricPanel('sysproc_mem_resident', `goxdcr Resident Memory (Bytes)${titleSuffix}`, {
         expr: `sum by (job${instanceSumBySuffix}) (sysproc_mem_resident{job=~"${snapshotIds}",proc="goxdcr"${instanceFilter}})`,
         unit: 'bytes',
       }),
-      createOverlapMetricPanel('xdcr_changes_left_total', `Changes Left Total${titleSuffix}`, {
+      // NOTE: gauge, not a counter — do not wrap in rate(). Tracks documents
+      // currently pending replication, which goes up and down over time.
+      createOverlapMetricPanel('xdcr_changes_left_total', `Changes Left (Pending Docs)${titleSuffix}`, {
         expr: `sum by (job${instanceSumBySuffix}) (xdcr_changes_left_total{job=~"${snapshotIds}",pipelineType="Main"${instanceFilter}})`,
         unit: 'short',
       }),
-      createOverlapMetricPanel('xdcr_docs_cloned_total', `Documents Cloned Total${titleSuffix}`, {
-        expr: `sum by (job${instanceSumBySuffix}) (xdcr_docs_cloned_total{job=~"${snapshotIds}",pipelineType="Main"${instanceFilter}})`,
+      createOverlapMetricPanel('xdcr_docs_cloned_total', `Documents Cloned/Sec${titleSuffix}`, {
+        expr: `sum by (job${instanceSumBySuffix}) (rate(xdcr_docs_cloned_total{job=~"${snapshotIds}",pipelineType="Main"${instanceFilter}}[$__rate_interval]))`,
         unit: 'short',
       }),
-      createOverlapMetricPanel('xdcr_docs_checked_total', `Documents Checked Total${titleSuffix}`, {
-        expr: `sum by (job${instanceSumBySuffix}) (xdcr_docs_checked_total{job=~"${snapshotIds}",pipelineType="Main"${instanceFilter}})`,
+      createOverlapMetricPanel('xdcr_docs_checked_total', `Documents Checked/Sec${titleSuffix}`, {
+        expr: `sum by (job${instanceSumBySuffix}) (rate(xdcr_docs_checked_total{job=~"${snapshotIds}",pipelineType="Main"${instanceFilter}}[$__rate_interval]))`,
         unit: 'short',
       }),
-      createOverlapMetricPanel('xdcr_docs_written_total', `Documents Written Total${titleSuffix}`, {
-        expr: `sum by (job${instanceSumBySuffix}) (xdcr_docs_written_total{job=~"${snapshotIds}",pipelineType="Main"${instanceFilter}})`,
+      createOverlapMetricPanel('xdcr_docs_written_total', `Documents Written/Sec${titleSuffix}`, {
+        expr: `sum by (job${instanceSumBySuffix}) (rate(xdcr_docs_written_total{job=~"${snapshotIds}",pipelineType="Main"${instanceFilter}}[$__rate_interval]))`,
         unit: 'short',
       }),
       createOverlapMetricPanel('xdcr_wtavg_docs_latency_seconds', `Weighted Average Document Latency (Seconds)${titleSuffix}`, {

@@ -5,11 +5,12 @@ import { createInstanceAwareScene } from 'utils/instanceScene';
 export function kvMetricsDashboard(snapshotId: string): EmbeddedScene {
     const buildBaseChildren = () => [
         // memcached
-        createMetricPanel('sysproc_cpu_seconds_total', 'memcached CPU Time (Cumulative Seconds)', {
-            expr: `sum by (instance) (sysproc_cpu_seconds_total{job="${snapshotId}",proc="memcached"})`,
+        createMetricPanel('sysproc_cpu_seconds_total', 'memcached CPU Usage (cores)', {
+            expr: `sum by (instance) (rate(sysproc_cpu_seconds_total{job="${snapshotId}",proc="memcached"}[$__rate_interval]))`,
             snapshotId,
             labelFilters: { proc: 'memcached' },
-            unit: 's',
+            transformFunction: 'rate',
+            unit: 'short',
         }),
         createMetricPanel('sysproc_mem_resident', 'memcached Resident Memory (Bytes)', {
             expr: `sum by (instance) (sysproc_mem_resident{job="${snapshotId}",proc="memcached"})`,
@@ -18,11 +19,12 @@ export function kvMetricsDashboard(snapshotId: string): EmbeddedScene {
             unit: 'bytes',
         }),
 
-        // Operations & Performance (keep GET ops aggregated for now)
-        createMetricPanel('kv_vb_ops_get', 'vBucket GET Ops', {
-            expr: `sum by (instance, bucket) (kv_vb_ops_get{job="${snapshotId}"})`,
+        // Operations & Performance (rate of GET ops aggregated by instance + bucket)
+        createMetricPanel('kv_vb_ops_get', 'vBucket GET Ops/Sec', {
+            expr: `sum by (instance, bucket) (rate(kv_vb_ops_get{job="${snapshotId}"}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{bucket}}',
             snapshotId,
+            transformFunction: 'rate',
             extraFields: ['d.labels.`instance`', 'd.labels.`bucket`'],
             unit: 'short',
         }),
@@ -126,21 +128,23 @@ export function kvMetricsDashboard(snapshotId: string): EmbeddedScene {
         'kv_ops',
         buildBaseChildren,
         (i: string) => [
-            createMetricPanel('kv_ops', `KV Operations (ops) (${i})`, {
-                expr: `kv_ops{job="${snapshotId}",instance="${i}"}`,
+            createMetricPanel('kv_ops', `KV Operations/Sec (${i})`, {
+                expr: `rate(kv_ops{job="${snapshotId}",instance="${i}"}[$__rate_interval])`,
                 legendFormat: '{{bucket}} , {{op}} , {{result}}',
                 snapshotId,
                 labelFilters: { instance: i },
                 extraFields: ['d.labels.`bucket`', 'd.labels.`op`', 'd.labels.`result`'],
+                transformFunction: 'rate',
                 unit: 'short',
             }),
         ],
         () => [
-            createMetricPanel('kv_ops', 'KV Operations (ops)', {
-                expr: `kv_ops{job="${snapshotId}"}`,
+            createMetricPanel('kv_ops', 'KV Operations/Sec', {
+                expr: `rate(kv_ops{job="${snapshotId}"}[$__rate_interval])`,
                 legendFormat: '{{instance}} , {{bucket}} , {{op}} , {{result}}',
                 snapshotId,
                 extraFields: ['d.labels.`instance`','d.labels.`bucket`', 'd.labels.`op`', 'd.labels.`result`'],
+                transformFunction: 'rate',
                 unit: 'short',
             }),
         ]

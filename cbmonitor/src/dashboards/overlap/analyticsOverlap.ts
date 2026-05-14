@@ -8,9 +8,9 @@ export function analyticsOverlapMetricsDashboard(snapshotIds: string, overlapEnd
      }) => {
 
         return [
-        createOverlapMetricPanel('sysproc_cpu_seconds_total', `Java CPU Time (Cumulative Seconds)${titleSuffix}`, {
-            expr: `sum by (job${instanceSumBySuffix}) (sysproc_cpu_seconds_total{job=~"${snapshotIds}",proc="java"${instanceFilter}})`,
-            unit: 's'
+        createOverlapMetricPanel('sysproc_cpu_seconds_total', `Java CPU Usage (cores)${titleSuffix}`, {
+            expr: `sum by (job${instanceSumBySuffix}) (rate(sysproc_cpu_seconds_total{job=~"${snapshotIds}",proc="java"${instanceFilter}}[$__rate_interval]))`,
+            unit: 'short'
         }),
         createOverlapMetricPanel('sysproc_mem_resident', `Java Resident Memory (Bytes)${titleSuffix}`, {
             expr: `sum by (job${instanceSumBySuffix}) (sysproc_mem_resident{job=~"${snapshotIds}",proc="java"${instanceFilter}})`,
@@ -25,13 +25,13 @@ export function analyticsOverlapMetricsDashboard(snapshotIds: string, overlapEnd
             expr: `sum by (job${instanceSumBySuffix}) (cbas_direct_memory_used_bytes{job=~"${snapshotIds}"${instanceFilter}})`,
             unit: 'bytes'
         }),
-        createOverlapMetricPanel('cbas_gc_count_total', `Total GC Count${titleSuffix}`, {
-            expr: `sum by (job${instanceSumBySuffix}) (cbas_gc_count_total{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('cbas_gc_count_total', `GC Events/Sec${titleSuffix}`, {
+            expr: `sum by (job${instanceSumBySuffix}) (rate(cbas_gc_count_total{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             unit: 'short'
         }),
-        createOverlapMetricPanel('cbas_gc_time_seconds_total', `GC Time (Seconds)${titleSuffix}`, {
-            expr: `sum by (job${instanceSumBySuffix}) (cbas_gc_time_seconds_total{job=~"${snapshotIds}"${instanceFilter}})`,
-            unit: 's'
+        createOverlapMetricPanel('cbas_gc_time_seconds_total', `GC Time Rate (seconds-per-second)${titleSuffix}`, {
+            expr: `sum by (job${instanceSumBySuffix}) (rate(cbas_gc_time_seconds_total{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
+            unit: 'percentunit'
         }),
         createOverlapMetricPanel('cbas_heap_memory_committed_bytes', `Heap Memory Committed (Bytes)${titleSuffix}`, {
             expr: `sum by (job${instanceSumBySuffix}) (cbas_heap_memory_committed_bytes{job=~"${snapshotIds}"${instanceFilter}})`,
@@ -41,12 +41,12 @@ export function analyticsOverlapMetricsDashboard(snapshotIds: string, overlapEnd
             expr: `sum by (job${instanceSumBySuffix}) (cbas_heap_memory_used_bytes{job=~"${snapshotIds}"${instanceFilter}})`,
             unit: 'bytes'
         }),
-        createOverlapMetricPanel('cbas_io_reads_total', `Total IO Reads${titleSuffix}`, {
-            expr: `sum by (job${instanceSumBySuffix}) (cbas_io_reads_total{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('cbas_io_reads_total', `IO Reads/Sec${titleSuffix}`, {
+            expr: `sum by (job${instanceSumBySuffix}) (rate(cbas_io_reads_total{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             unit: 'short'
         }),
-        createOverlapMetricPanel('cbas_io_writes_total', `Total IO Writes${titleSuffix}`, {
-            expr: `sum by (job${instanceSumBySuffix}) (cbas_io_writes_total{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('cbas_io_writes_total', `IO Writes/Sec${titleSuffix}`, {
+            expr: `sum by (job${instanceSumBySuffix}) (rate(cbas_io_writes_total{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             unit: 'short'
         }),
         createOverlapMetricPanel('cbas_running_jobs', `Running Jobs${titleSuffix}`, {
@@ -57,8 +57,8 @@ export function analyticsOverlapMetricsDashboard(snapshotIds: string, overlapEnd
             expr: `sum by (job${instanceSumBySuffix}) (cbas_queued_jobs{job=~"${snapshotIds}"${instanceFilter}})`,
             unit: 'short'
         }),
-        createOverlapMetricPanel('cbas_jobs_total', `Total Jobs${titleSuffix}`, {
-            expr: `sum by (result, job${instanceSumBySuffix}) (cbas_jobs_total{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('cbas_jobs_total', `Jobs/Sec${titleSuffix}`, {
+            expr: `sum by (result, job${instanceSumBySuffix}) (rate(cbas_jobs_total{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             unit: 'short'
         }),
         createOverlapMetricPanel('cbas_system_load_average', `System WorkLoad Average${titleSuffix}`, {
@@ -66,12 +66,12 @@ export function analyticsOverlapMetricsDashboard(snapshotIds: string, overlapEnd
             unit: 'short'
         }),
         // Disk usage metrics
-        createOverlapMetricPanel('cbas_requests_total', `Total Received Requests${titleSuffix}`, {
-            expr: `sum by (job${instanceSumBySuffix}) (cbas_requests_total{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('cbas_requests_total', `Received Requests/Sec${titleSuffix}`, {
+            expr: `sum by (job${instanceSumBySuffix}) (rate(cbas_requests_total{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             unit: 'short'
         }),
-        createOverlapMetricPanel('cbas_http_requests_total', `HTTP Requests Total${titleSuffix}`, {
-            expr: `sum by (job${instanceSumBySuffix}) (cbas_http_requests_total{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('cbas_http_requests_total', `HTTP Requests/Sec${titleSuffix}`, {
+            expr: `sum by (job${instanceSumBySuffix}) (rate(cbas_http_requests_total{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             unit: 'short'
         }),
         // RAM usage metrics

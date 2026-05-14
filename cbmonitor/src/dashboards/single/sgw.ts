@@ -12,6 +12,8 @@ export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
                     snapshotId,
                     unit: 'bytes'
                 }),
+                // NOTE: gauge, not a counter — do not wrap in rate(). Reports total
+                // system memory available, which is a point-in-time value.
                 createMetricPanel('sgw_resource_utilization_system_memory_total', 'System Memory Total', {
                     expr: `sgw_resource_utilization_system_memory_total{job="${snapshotId}"}`,
                     snapshotId,
@@ -290,6 +292,8 @@ export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
                     unit: 'short'
                 }),
+                // NOTE: gauge, not a counter — do not wrap in rate(). Reports the current
+                // number of active replications, which goes up and down over time.
                 createMetricPanel('sgw_database_num_replications_total', 'Database Number of Total Replications', {
                     expr: `sum by (instance, database) (sgw_database_num_replications_total{job="${snapshotId}"})`,
                     legendFormat: '{{instance}} , {{database}}',

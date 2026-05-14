@@ -5,9 +5,9 @@ export function indexOverlapMetricsDashboard(snapshotIds: string, overlapEndTime
   return createInstanceAwareOverlapScene(
     snapshotIds,
     ({ titleSuffix, instanceFilter, instanceSumBySuffix, createOverlapMetricPanel }) => [
-      createOverlapMetricPanel('sysproc_cpu_seconds_total', `Indexer CPU Time (Cumulative Seconds)${titleSuffix}`, {
-        expr: `sum by (job${instanceSumBySuffix}) (sysproc_cpu_seconds_total{job=~"${snapshotIds}",proc="indexer"${instanceFilter}})`,
-        unit: 's',
+      createOverlapMetricPanel('sysproc_cpu_seconds_total', `Indexer CPU Usage (cores)${titleSuffix}`, {
+        expr: `sum by (job${instanceSumBySuffix}) (rate(sysproc_cpu_seconds_total{job=~"${snapshotIds}",proc="indexer"${instanceFilter}}[$__rate_interval]))`,
+        unit: 'short',
       }),
       createOverlapMetricPanel('sysproc_mem_resident', `Indexer Resident Memory (Bytes)${titleSuffix}`, {
         expr: `sum by (job${instanceSumBySuffix}) (sysproc_mem_resident{job=~"${snapshotIds}",proc="indexer"${instanceFilter}})`,

@@ -10,6 +10,8 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
             expr: `sum by (job) (sgw_resource_utilization_process_memory_resident{job=~"${snapshotIds}"${instanceFilter}})`,
             unit: 'bytes'
         }),
+        // NOTE: gauge, not a counter — do not wrap in rate(). Reports total
+        // system memory available, which is a point-in-time value.
         createOverlapMetricPanel('sgw_resource_utilization_system_memory_total', `System Memory Total${titleSuffix}`, {
             expr: `sum by (job) (sgw_resource_utilization_system_memory_total{job=~"${snapshotIds}"${instanceFilter}})`,
             unit: 'bytes'
@@ -217,6 +219,8 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
+        // NOTE: gauge, not a counter — do not wrap in rate(). Reports the current
+        // number of active replications, which goes up and down over time.
         createOverlapMetricPanel('sgw_database_num_replications_total', `Database Number of Total Replications${titleSuffix}`, {
             expr: `sum by (job, database) (sgw_database_num_replications_total{job=~"${snapshotIds}"${instanceFilter}})`,
             legendFormat: '{{instance}} , {{database}}',

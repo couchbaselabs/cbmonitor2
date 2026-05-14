@@ -6,13 +6,14 @@ import { createInstanceAwareScene } from 'utils/instanceScene';
 export function indexMetricsDashboard(snapshotId: string): EmbeddedScene {
     const buildBaseChildren = () => [
         // Indexer
-        createMetricPanel('sysproc_cpu_seconds_total', 'Indexer CPU Time (Cumulative Seconds)', {
-            expr: `sum by (instance) (sysproc_cpu_seconds_total{job="${snapshotId}",proc="indexer"})`,
+        createMetricPanel('sysproc_cpu_seconds_total', 'Indexer CPU Usage (cores)', {
+            expr: `sum by (instance) (rate(sysproc_cpu_seconds_total{job="${snapshotId}",proc="indexer"}[$__rate_interval]))`,
             legendFormat: '{{instance}}',
             snapshotId,
             labelFilters: { proc: 'indexer' },
             extraFields: ['d.labels.`instance`', 'd.labels.`mode`'],
-            unit: 's',
+            transformFunction: 'rate',
+            unit: 'short',
         }),
         createMetricPanel('sysproc_mem_resident', 'Indexer Resident Memory (Bytes)', {
             expr: `sum by (instance) (sysproc_mem_resident{job="${snapshotId}",proc="indexer"})`,

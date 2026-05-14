@@ -9,12 +9,13 @@ export function eventingMetricsDashboard(snapshotId: string): EmbeddedScene {
             children: [
                 // Eventing
                 // mara here: couldnt find the label eventing, did find eventing-produc though 
-                createMetricPanel('sysproc_cpu_seconds_total', 'Eventing CPU Time (Cumulative Seconds)', {
-                    expr: `sum by (instance) (sysproc_cpu_seconds_total{job="${snapshotId}",proc="eventing-produc"})`,
+                createMetricPanel('sysproc_cpu_seconds_total', 'Eventing CPU Usage (cores)', {
+                    expr: `sum by (instance) (rate(sysproc_cpu_seconds_total{job="${snapshotId}",proc="eventing-produc"}[$__rate_interval]))`,
                     snapshotId,
                     labelFilters: { proc: 'eventing-produc' },
                     extraFields: ['d.labels.`instance`', 'd.labels.`mode`'],
-                    unit: 's'
+                    transformFunction: 'rate',
+                    unit: 'short'
                 }),
                 createMetricPanel('sysproc_mem_resident', 'Eventing Resident Memory (Bytes)', {
                     expr: `sum by (instance) (sysproc_mem_resident{job="${snapshotId}",proc="eventing-produc"})`,

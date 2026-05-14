@@ -5,40 +5,40 @@ export function ftsOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
   return createInstanceAwareOverlapScene(
     snapshotIds,
     ({ titleSuffix, instanceFilter, instanceSumBySuffix, createOverlapMetricPanel }) => [
-      createOverlapMetricPanel('sysproc_cpu_seconds_total', `Search CPU Time (Cumulative Seconds)${titleSuffix}`, {
-        expr: `sum by (job${instanceSumBySuffix}) (sysproc_cpu_seconds_total{job=~"${snapshotIds}",proc="cbft"${instanceFilter}})`,
-        unit: 's',
+      createOverlapMetricPanel('sysproc_cpu_seconds_total', `Search CPU Usage (cores)${titleSuffix}`, {
+        expr: `sum by (job${instanceSumBySuffix}) (rate(sysproc_cpu_seconds_total{job=~"${snapshotIds}",proc="cbft"${instanceFilter}}[$__rate_interval]))`,
+        unit: 'short',
       }),
       createOverlapMetricPanel('sysproc_mem_resident', `Search Resident Memory (Bytes)${titleSuffix}`, {
         expr: `sum by (job${instanceSumBySuffix}) (sysproc_mem_resident{job=~"${snapshotIds}",proc="cbft"${instanceFilter}})`,
         unit: 'bytes',
       }),
-      createOverlapMetricPanel('fts_total_queries', `Total Queries${titleSuffix}`, {
-        expr: `sum by (job${instanceSumBySuffix}) (fts_total_queries{job=~"${snapshotIds}"${instanceFilter}})`,
+      createOverlapMetricPanel('fts_total_queries', `Queries/Sec${titleSuffix}`, {
+        expr: `sum by (job${instanceSumBySuffix}) (rate(fts_total_queries{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
         unit: 'short',
       }),
-      createOverlapMetricPanel('fts_total_request_time', `Total Request Time${titleSuffix}`, {
-        expr: `sum by (job${instanceSumBySuffix}) (fts_total_request_time{job=~"${snapshotIds}"${instanceFilter}})`,
-        unit: 'ns',
-      }),
-      createOverlapMetricPanel('fts_total_queries_error', `Total Queries Error${titleSuffix}`, {
-        expr: `sum by (job${instanceSumBySuffix}) (fts_total_queries_error{job=~"${snapshotIds}"${instanceFilter}})`,
+      createOverlapMetricPanel('fts_total_request_time', `Request Time Rate (ns/sec)${titleSuffix}`, {
+        expr: `sum by (job${instanceSumBySuffix}) (rate(fts_total_request_time{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
         unit: 'short',
       }),
-      createOverlapMetricPanel('fts_total_bytes_query_results', `Total Bytes Query Results${titleSuffix}`, {
-        expr: `sum by (job${instanceSumBySuffix}) (fts_total_bytes_query_results{job=~"${snapshotIds}"${instanceFilter}})`,
-        unit: 'bytes',
-      }),
-      createOverlapMetricPanel('fts_total_queries_slow', `Total Queries Slow${titleSuffix}`, {
-        expr: `sum by (job${instanceSumBySuffix}) (fts_total_queries_slow{job=~"${snapshotIds}"${instanceFilter}})`,
+      createOverlapMetricPanel('fts_total_queries_error', `Queries Error/Sec${titleSuffix}`, {
+        expr: `sum by (job${instanceSumBySuffix}) (rate(fts_total_queries_error{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
         unit: 'short',
       }),
-      createOverlapMetricPanel('fts_total_queries_timeout', `Total Queries Timeout${titleSuffix}`, {
-        expr: `sum by (job${instanceSumBySuffix}) (fts_total_queries_timeout{job=~"${snapshotIds}"${instanceFilter}})`,
+      createOverlapMetricPanel('fts_total_bytes_query_results', `Query Result Bytes/Sec${titleSuffix}`, {
+        expr: `sum by (job${instanceSumBySuffix}) (rate(fts_total_bytes_query_results{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
+        unit: 'Bps',
+      }),
+      createOverlapMetricPanel('fts_total_queries_slow', `Queries Slow/Sec${titleSuffix}`, {
+        expr: `sum by (job${instanceSumBySuffix}) (rate(fts_total_queries_slow{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
         unit: 'short',
       }),
-      createOverlapMetricPanel('fts_total_gc', `Total GC${titleSuffix}`, {
-        expr: `sum by (job${instanceSumBySuffix}) (fts_total_gc{job=~"${snapshotIds}"${instanceFilter}})`,
+      createOverlapMetricPanel('fts_total_queries_timeout', `Queries Timeout/Sec${titleSuffix}`, {
+        expr: `sum by (job${instanceSumBySuffix}) (rate(fts_total_queries_timeout{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
+        unit: 'short',
+      }),
+      createOverlapMetricPanel('fts_total_gc', `GC Events/Sec${titleSuffix}`, {
+        expr: `sum by (job${instanceSumBySuffix}) (rate(fts_total_gc{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
         unit: 'short',
       }),
       createOverlapMetricPanel('fts_pct_cpu_gc', `CPU GC (%)${titleSuffix}`, {
