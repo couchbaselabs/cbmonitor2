@@ -259,7 +259,7 @@ snapshotViewPage.addActivationHandler(() => {
               actions: [
                 { key: 'pin', render: () => React.createElement(PinPanelToggle, {}) },
                 { key: 'edit', render: () => React.createElement(EditModeToggle, {}) },
-                { key: 'explore', render: () => React.createElement(ExploreButton, {}) },
+                { key: 'explore', render: () => React.createElement(ExploreButton, { snapshotId, timeRange }) },
               ],
             });
           },

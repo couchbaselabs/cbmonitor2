@@ -1,19 +1,47 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { SceneTimeRange } from '@grafana/scenes';
 import { ToolbarButton } from '@grafana/ui';
+import { dataSourceService } from '../../../services/datasourceService';
+import { DataSourceType } from '../../../types/datasource';
+import { buildExploreUrl } from '../../../utils/exploreUrl';
 
 interface ExploreButtonProps {
-    onClick?: () => void;
-    disabled?: boolean;
+    snapshotId: string;
+    timeRange: SceneTimeRange;
 }
 
-export function ExploreButton({ onClick, disabled = true }: ExploreButtonProps) {
+export function ExploreButton({ snapshotId, timeRange }: ExploreButtonProps) {
+    const [ds, setDs] = useState<DataSourceType>(dataSourceService.getCurrentDataSource());
+
+    useEffect(() => {
+        return dataSourceService.subscribe(setDs);
+    }, []);
+
+    const { value } = timeRange.useState();
+    const promAvailable = ds === DataSourceType.Prometheus;
+
+    const onClick = () => {
+        if (!promAvailable) {
+            return;
+        }
+        const url = buildExploreUrl({
+            snapshotIds: snapshotId,
+            range: { from: String(value.raw.from), to: String(value.raw.to) },
+        });
+        window.open(url, '_blank', 'noopener,noreferrer');
+    };
+
     return (
         <ToolbarButton
             icon="compass"
-            tooltip={disabled ? 'Open in Explore (coming soon)' : 'Open active panel in Grafana Explore'}
+            tooltip={
+                promAvailable
+                    ? 'Open Grafana Explore scoped to this snapshot (Prometheus). Time range and job label are pre-filled.'
+                    : 'Explore is only available when the Prometheus data source is selected.'
+            }
             aria-label="Open in Explore"
             onClick={onClick}
-            disabled={disabled}
+            disabled={!promAvailable}
         >
             Explore
         </ToolbarButton>
