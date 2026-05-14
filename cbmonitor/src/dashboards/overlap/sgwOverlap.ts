@@ -16,21 +16,21 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
             expr: `sum by (job) (sgw_resource_utilization_system_memory_total{job=~"${snapshotIds}"${instanceFilter}})`,
             unit: 'bytes'
         }),
-        createOverlapMetricPanel('sgw_resource_utilization_pub_net_bytes_sent', `Public Network Bytes Sent${titleSuffix}`, {
-            expr: `sum by (job) (sgw_resource_utilization_pub_net_bytes_sent{job=~"${snapshotIds}"${instanceFilter}})`,
-            unit: 'bytes'
+        createOverlapMetricPanel('sgw_resource_utilization_pub_net_bytes_sent', `Public Network Bytes Sent/Sec${titleSuffix}`, {
+            expr: `sum by (job) (rate(sgw_resource_utilization_pub_net_bytes_sent{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
+            unit: 'Bps'
         }),
-        createOverlapMetricPanel('sgw_resource_utilization_pub_net_bytes_recv', `Public Network Bytes Received${titleSuffix}`, {
-            expr: `sum by (job) (sgw_resource_utilization_pub_net_bytes_recv{job=~"${snapshotIds}"${instanceFilter}})`,
-            unit: 'bytes'
+        createOverlapMetricPanel('sgw_resource_utilization_pub_net_bytes_recv', `Public Network Bytes Received/Sec${titleSuffix}`, {
+            expr: `sum by (job) (rate(sgw_resource_utilization_pub_net_bytes_recv{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
+            unit: 'Bps'
         }),
-        createOverlapMetricPanel('sgw_resource_utilization_admin_net_bytes_recv', `Admin Network Bytes Received${titleSuffix}`, {
-            expr: `sum by (job) (sgw_resource_utilization_admin_net_bytes_recv{job=~"${snapshotIds}"${instanceFilter}})`,
-            unit: 'bytes'
+        createOverlapMetricPanel('sgw_resource_utilization_admin_net_bytes_recv', `Admin Network Bytes Received/Sec${titleSuffix}`, {
+            expr: `sum by (job) (rate(sgw_resource_utilization_admin_net_bytes_recv{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
+            unit: 'Bps'
         }),
-        createOverlapMetricPanel('sgw_resource_utilization_admin_net_bytes_sent', `Admin Network Bytes Sent${titleSuffix}`, {
-            expr: `sum by (job) (sgw_resource_utilization_admin_net_bytes_sent{job=~"${snapshotIds}"${instanceFilter}})`,
-            unit: 'bytes'
+        createOverlapMetricPanel('sgw_resource_utilization_admin_net_bytes_sent', `Admin Network Bytes Sent/Sec${titleSuffix}`, {
+            expr: `sum by (job) (rate(sgw_resource_utilization_admin_net_bytes_sent{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
+            unit: 'Bps'
         }),
         createOverlapMetricPanel('sgw_resource_utilization_num_goroutines', `Number of Goroutines${titleSuffix}`, {
             expr: `sum by (job) (sgw_resource_utilization_num_goroutines{job=~"${snapshotIds}"${instanceFilter}})`,
@@ -72,12 +72,12 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
             expr: `sum by (job) (sgw_resource_utilization_go_memstats_stacksys{job=~"${snapshotIds}"${instanceFilter}})`,
             unit: 'bytes'
         }),
-        createOverlapMetricPanel('sgw_resource_utilization_error_count', `Error Count${titleSuffix}`, {
-            expr: `sum by (job) (sgw_resource_utilization_error_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_resource_utilization_error_count', `Errors/Sec${titleSuffix}`, {
+            expr: `sum by (job) (rate(sgw_resource_utilization_error_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_resource_utilization_warn_count', `Warning Count${titleSuffix}`, {
-            expr: `sum by (job) (sgw_resource_utilization_warn_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_resource_utilization_warn_count', `Warnings/Sec${titleSuffix}`, {
+            expr: `sum by (job) (rate(sgw_resource_utilization_warn_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             unit: 'short'
         }),
 
@@ -87,13 +87,13 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_cache_chan_cache_hits', `Channel Cache Hits${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_cache_chan_cache_hits{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_cache_chan_cache_hits', `Channel Cache Hits/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_cache_chan_cache_hits{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_cache_chan_cache_misses', `Channel Cache Misses${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_cache_chan_cache_misses{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_cache_chan_cache_misses', `Channel Cache Misses/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_cache_chan_cache_misses{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
@@ -122,48 +122,48 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_cache_chan_cache_bypass_count', `Channel Cache Bypass Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_cache_chan_cache_bypass_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_cache_chan_cache_bypass_count', `Channel Cache Bypass/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_cache_chan_cache_bypass_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_cache_chan_cache_channels_added', `Channel Cache Channels Added${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_cache_chan_cache_channels_added{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_cache_chan_cache_channels_added', `Channel Cache Channels Added/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_cache_chan_cache_channels_added{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_cache_chan_cache_channels_evicted_inactive', `Channel Cache Channels Evicted Inactive${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_cache_chan_cache_channels_evicted_inactive{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_cache_chan_cache_channels_evicted_inactive', `Channel Cache Channels Evicted Inactive/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_cache_chan_cache_channels_evicted_inactive{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_cache_chan_cache_channels_evicted_nru', `Channel Cache Channels Evicted NRU${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_cache_chan_cache_channels_evicted_nru{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_cache_chan_cache_channels_evicted_nru', `Channel Cache Channels Evicted NRU/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_cache_chan_cache_channels_evicted_nru{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_cache_chan_cache_compact_count', `Channel Cache Compact Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_cache_chan_cache_compact_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_cache_chan_cache_compact_count', `Channel Cache Compactions/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_cache_chan_cache_compact_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_cache_abandoned_seqs', `Cache Abandoned Sequences${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_cache_abandoned_seqs{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_cache_abandoned_seqs', `Cache Abandoned Sequences/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_cache_abandoned_seqs{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_cache_num_skipped_seqs', `Cache Number of Skipped Sequences${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_cache_num_skipped_seqs{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_cache_num_skipped_seqs', `Cache Skipped Sequences/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_cache_num_skipped_seqs{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_cache_high_seq_cached', `Cache High Sequence Cached${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_cache_high_seq_cached{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_cache_high_seq_cached', `Cache High Sequence Cached Rate (seq/sec)${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_cache_high_seq_cached{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_cache_high_seq_stable', `Cache High Sequence Stable${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_cache_high_seq_stable{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_cache_high_seq_stable', `Cache High Sequence Stable Rate (seq/sec)${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_cache_high_seq_stable{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
@@ -177,35 +177,35 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_cache_current_skipped_seq_count', `Cache Current Skipped Sequence Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_cache_current_skipped_seq_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_cache_current_skipped_seq_count', `Cache Current Skipped Sequences/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_cache_current_skipped_seq_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
 
         // Database Metrics
-        createOverlapMetricPanel('sgw_database_sequence_get_count', `Database Sequence Get Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_sequence_get_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_database_sequence_get_count', `Database Sequence Gets/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_sequence_get_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_database_sequence_incr_count', `Database Sequence Increment Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_sequence_incr_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_database_sequence_incr_count', `Database Sequence Increments/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_sequence_incr_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_database_sequence_reserved_count', `Database Sequence Reserved Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_sequence_reserved_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_database_sequence_reserved_count', `Database Sequence Reservations/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_sequence_reserved_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_database_sequence_assigned_count', `Database Sequence Assigned Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_sequence_assigned_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_database_sequence_assigned_count', `Database Sequence Assignments/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_sequence_assigned_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_database_sequence_released_count', `Database Sequence Released Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_sequence_released_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_database_sequence_released_count', `Database Sequence Releases/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_sequence_released_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
@@ -219,65 +219,63 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        // NOTE: gauge, not a counter — do not wrap in rate(). Reports the current
-        // number of active replications, which goes up and down over time.
-        createOverlapMetricPanel('sgw_database_num_replications_total', `Database Number of Total Replications${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_num_replications_total{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_database_num_replications_total', `Database Replications Started/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_num_replications_total{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_database_num_doc_writes', `Database Number of Document Writes${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_num_doc_writes{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_database_num_doc_writes', `Database Document Writes/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_num_doc_writes{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_database_num_tombstones_compacted', `Database Number of Tombstones Compacted${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_num_tombstones_compacted{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_database_num_tombstones_compacted', `Database Tombstones Compacted/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_num_tombstones_compacted{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_database_doc_writes_bytes', `Database Document Write Bytes${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_doc_writes_bytes{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_database_doc_writes_bytes', `Database Document Write Bytes/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_doc_writes_bytes{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
-            unit: 'bytes'
+            unit: 'Bps'
         }),
-        createOverlapMetricPanel('sgw_database_doc_writes_xattr_bytes', `Database Document Write XAttr Bytes${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_doc_writes_xattr_bytes{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_database_doc_writes_xattr_bytes', `Database Document Write XAttr Bytes/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_doc_writes_xattr_bytes{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
-            unit: 'bytes'
+            unit: 'Bps'
         }),
-        createOverlapMetricPanel('sgw_database_num_doc_reads_rest', `Database Number of Document Reads REST${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_num_doc_reads_rest{job=~"${snapshotIds}"${instanceFilter}})`,
-            legendFormat: '{{instance}} , {{database}}',
-            unit: 'short'
-        }),
-        createOverlapMetricPanel('sgw_database_num_doc_reads_blip', `Database Number of Document Reads BLIP${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_num_doc_reads_blip{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_database_num_doc_reads_rest', `Database Document Reads REST/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_num_doc_reads_rest{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_database_doc_writes_bytes_blip', `Database Document Write Bytes BLIP${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_doc_writes_bytes_blip{job=~"${snapshotIds}"${instanceFilter}})`,
-            legendFormat: '{{instance}} , {{database}}',
-            unit: 'bytes'
-        }),
-        createOverlapMetricPanel('sgw_database_doc_reads_bytes_blip', `Database Document Read Bytes BLIP${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_doc_reads_bytes_blip{job=~"${snapshotIds}"${instanceFilter}})`,
-            legendFormat: '{{instance}} , {{database}}',
-            unit: 'bytes'
-        }),
-        createOverlapMetricPanel('sgw_database_warn_xattr_size_count', `Database Warning XAttr Size Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_warn_xattr_size_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_database_num_doc_reads_blip', `Database Document Reads BLIP/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_num_doc_reads_blip{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_database_warn_channels_per_doc_count', `Database Warning Channels Per Document Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_warn_channels_per_doc_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_database_doc_writes_bytes_blip', `Database Document Write Bytes BLIP/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_doc_writes_bytes_blip{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
+            legendFormat: '{{instance}} , {{database}}',
+            unit: 'Bps'
+        }),
+        createOverlapMetricPanel('sgw_database_doc_reads_bytes_blip', `Database Document Read Bytes BLIP/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_doc_reads_bytes_blip{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
+            legendFormat: '{{instance}} , {{database}}',
+            unit: 'Bps'
+        }),
+        createOverlapMetricPanel('sgw_database_warn_xattr_size_count', `Database XAttr Size Warnings/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_warn_xattr_size_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_database_warn_grants_per_doc_count', `Database Warning Grants Per Document Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_warn_grants_per_doc_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_database_warn_channels_per_doc_count', `Database Channels-Per-Doc Warnings/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_warn_channels_per_doc_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
+            legendFormat: '{{instance}} , {{database}}',
+            unit: 'short'
+        }),
+        createOverlapMetricPanel('sgw_database_warn_grants_per_doc_count', `Database Grants-Per-Doc Warnings/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_warn_grants_per_doc_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
@@ -286,8 +284,8 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_database_high_seq_feed', `Database High Sequence Feed${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_high_seq_feed{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_database_high_seq_feed', `Database High Sequence Feed Rate (seq/sec)${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_high_seq_feed{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
@@ -306,18 +304,18 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
             legendFormat: '{{instance}} , {{database}}',
             unit: 'ms'
         }),
-        createOverlapMetricPanel('sgw_database_sync_function_time', `Database Sync Function Time${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_sync_function_time{job=~"${snapshotIds}"${instanceFilter}})`,
-            legendFormat: '{{instance}} , {{database}}',
-            unit: 'ms'
-        }),
-        createOverlapMetricPanel('sgw_database_sync_function_count', `Database Sync Function Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_sync_function_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_database_sync_function_time', `Database Sync Function Time Rate (ns/sec)${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_sync_function_time{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_database_conflict_write_count', `Database Conflict Write Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_database_conflict_write_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_database_sync_function_count', `Database Sync Function Invocations/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_sync_function_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
+            legendFormat: '{{instance}} , {{database}}',
+            unit: 'short'
+        }),
+        createOverlapMetricPanel('sgw_database_conflict_write_count', `Database Conflict Writes/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_database_conflict_write_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
@@ -333,25 +331,25 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
             legendFormat: '{{instance}} , {{database}}',
             unit: 'ms'
         }),
-        createOverlapMetricPanel('sgw_replication_push_propose_change_time', `Replication Push Propose Change Time${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_replication_push_propose_change_time{job=~"${snapshotIds}"${instanceFilter}})`,
-            legendFormat: '{{instance}} , {{database}}',
-            unit: 'ms'
-        }),
-        createOverlapMetricPanel('sgw_replication_push_propose_change_count', `Replication Push Propose Change Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_replication_push_propose_change_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_replication_push_propose_change_time', `Replication Push Propose Change Time Rate (ns/sec)${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_replication_push_propose_change_time{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_replication_push_attachment_push_count', `Replication Push Attachment Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_replication_push_attachment_push_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_replication_push_propose_change_count', `Replication Push Propose Changes/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_replication_push_propose_change_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_replication_push_attachment_push_bytes', `Replication Push Attachment Bytes${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_replication_push_attachment_push_bytes{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_replication_push_attachment_push_count', `Replication Push Attachments/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_replication_push_attachment_push_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
-            unit: 'bytes'
+            unit: 'short'
+        }),
+        createOverlapMetricPanel('sgw_replication_push_attachment_push_bytes', `Replication Push Attachment Bytes/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_replication_push_attachment_push_bytes{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
+            legendFormat: '{{instance}} , {{database}}',
+            unit: 'Bps'
         }),
 
         // Replication Pull Metrics
@@ -375,8 +373,8 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_replication_pull_num_pull_repl_since_zero', `Replication Pull Since Zero${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_replication_pull_num_pull_repl_since_zero{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_replication_pull_num_pull_repl_since_zero', `Replication Pull Since Zero/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_replication_pull_num_pull_repl_since_zero{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
@@ -385,25 +383,25 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_replication_pull_request_changes_count', `Replication Pull Request Changes Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_replication_pull_request_changes_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_replication_pull_request_changes_count', `Replication Pull Request Changes/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_replication_pull_request_changes_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_replication_pull_request_changes_time', `Replication Pull Request Changes Time${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_replication_pull_request_changes_time{job=~"${snapshotIds}"${instanceFilter}})`,
-            legendFormat: '{{instance}} , {{database}}',
-            unit: 'ms'
-        }),
-        createOverlapMetricPanel('sgw_replication_pull_rev_send_count', `Replication Pull Revision Send Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_replication_pull_rev_send_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_replication_pull_request_changes_time', `Replication Pull Request Changes Time Rate (ns/sec)${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_replication_pull_request_changes_time{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_replication_pull_rev_send_latency', `Replication Pull Revision Send Latency${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_replication_pull_rev_send_latency{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_replication_pull_rev_send_count', `Replication Pull Revisions Sent/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_replication_pull_rev_send_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
-            unit: 'ms'
+            unit: 'short'
+        }),
+        createOverlapMetricPanel('sgw_replication_pull_rev_send_latency', `Replication Pull Revision Send Latency Rate (ns/sec)${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_replication_pull_rev_send_latency{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
+            legendFormat: '{{instance}} , {{database}}',
+            unit: 'short'
         }),
         createOverlapMetricPanel('sgw_replication_pull_rev_processing_time', `Replication Pull Revision Processing Time${titleSuffix}`, {
             expr: `sum by (job, database) (sgw_replication_pull_rev_processing_time{job=~"${snapshotIds}"${instanceFilter}})`,
@@ -415,35 +413,35 @@ export function sgwOverlapMetricsDashboard(snapshotIds: string, overlapEndTimeSe
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_replication_pull_attachment_pull_count', `Replication Pull Attachment Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_replication_pull_attachment_pull_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_replication_pull_attachment_pull_count', `Replication Pull Attachments/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_replication_pull_attachment_pull_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_replication_pull_attachment_pull_bytes', `Replication Pull Attachment Bytes${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_replication_pull_attachment_pull_bytes{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_replication_pull_attachment_pull_bytes', `Replication Pull Attachment Bytes/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_replication_pull_attachment_pull_bytes{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
-            unit: 'bytes'
+            unit: 'Bps'
         }),
 
         // Security Metrics
-        createOverlapMetricPanel('sgw_security_num_docs_rejected', `Security Documents Rejected${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_security_num_docs_rejected{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_security_num_docs_rejected', `Security Documents Rejected/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_security_num_docs_rejected{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_security_num_access_errors', `Security Access Errors${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_security_num_access_errors{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_security_num_access_errors', `Security Access Errors/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_security_num_access_errors{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_security_auth_success_count', `Security Authentication Success Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_security_auth_success_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_security_auth_success_count', `Security Auth Successes/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_security_auth_success_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),
-        createOverlapMetricPanel('sgw_security_auth_failed_count', `Security Authentication Failed Count${titleSuffix}`, {
-            expr: `sum by (job, database) (sgw_security_auth_failed_count{job=~"${snapshotIds}"${instanceFilter}})`,
+        createOverlapMetricPanel('sgw_security_auth_failed_count', `Security Auth Failures/Sec${titleSuffix}`, {
+            expr: `sum by (job, database) (rate(sgw_security_auth_failed_count{job=~"${snapshotIds}"${instanceFilter}}[$__rate_interval]))`,
             legendFormat: '{{instance}} , {{database}}',
             unit: 'short'
         }),

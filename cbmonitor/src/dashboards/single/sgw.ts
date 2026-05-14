@@ -19,25 +19,29 @@ export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
                     snapshotId,
                     unit: 'bytes'
                 }),
-                createMetricPanel('sgw_resource_utilization_pub_net_bytes_sent', 'Public Network Bytes Sent', {
-                    expr: `sgw_resource_utilization_pub_net_bytes_sent{job="${snapshotId}"}`,
+                createMetricPanel('sgw_resource_utilization_pub_net_bytes_sent', 'Public Network Bytes Sent/Sec', {
+                    expr: `rate(sgw_resource_utilization_pub_net_bytes_sent{job="${snapshotId}"}[$__rate_interval])`,
                     snapshotId,
-                    unit: 'bytes'
+                    transformFunction: 'rate',
+                    unit: 'Bps'
                 }),
-                createMetricPanel('sgw_resource_utilization_pub_net_bytes_recv', 'Public Network Bytes Received', {
-                    expr: `sgw_resource_utilization_pub_net_bytes_recv{job="${snapshotId}"}`,
+                createMetricPanel('sgw_resource_utilization_pub_net_bytes_recv', 'Public Network Bytes Received/Sec', {
+                    expr: `rate(sgw_resource_utilization_pub_net_bytes_recv{job="${snapshotId}"}[$__rate_interval])`,
                     snapshotId,
-                    unit: 'bytes'
+                    transformFunction: 'rate',
+                    unit: 'Bps'
                 }),
-                createMetricPanel('sgw_resource_utilization_admin_net_bytes_recv', 'Admin Network Bytes Received', {
-                    expr: `sgw_resource_utilization_admin_net_bytes_recv{job="${snapshotId}"}`,
+                createMetricPanel('sgw_resource_utilization_admin_net_bytes_recv', 'Admin Network Bytes Received/Sec', {
+                    expr: `rate(sgw_resource_utilization_admin_net_bytes_recv{job="${snapshotId}"}[$__rate_interval])`,
                     snapshotId,
-                    unit: 'bytes'
+                    transformFunction: 'rate',
+                    unit: 'Bps'
                 }),
-                createMetricPanel('sgw_resource_utilization_admin_net_bytes_sent', 'Admin Network Bytes Sent', {
-                    expr: `sgw_resource_utilization_admin_net_bytes_sent{job="${snapshotId}"}`,
+                createMetricPanel('sgw_resource_utilization_admin_net_bytes_sent', 'Admin Network Bytes Sent/Sec', {
+                    expr: `rate(sgw_resource_utilization_admin_net_bytes_sent{job="${snapshotId}"}[$__rate_interval])`,
                     snapshotId,
-                    unit: 'bytes'
+                    transformFunction: 'rate',
+                    unit: 'Bps'
                 }),
                 createMetricPanel('sgw_resource_utilization_num_goroutines', 'Number of Goroutines', {
                     expr: `sgw_resource_utilization_num_goroutines{job="${snapshotId}"}`,
@@ -89,14 +93,16 @@ export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
                     snapshotId,
                     unit: 'bytes'
                 }),
-                createMetricPanel('sgw_resource_utilization_error_count', 'Error Count', {
-                    expr: `sgw_resource_utilization_error_count{job="${snapshotId}"}`,
+                createMetricPanel('sgw_resource_utilization_error_count', 'Errors/Sec', {
+                    expr: `rate(sgw_resource_utilization_error_count{job="${snapshotId}"}[$__rate_interval])`,
                     snapshotId,
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_resource_utilization_warn_count', 'Warning Count', {
-                    expr: `sgw_resource_utilization_warn_count{job="${snapshotId}"}`,
+                createMetricPanel('sgw_resource_utilization_warn_count', 'Warnings/Sec', {
+                    expr: `rate(sgw_resource_utilization_warn_count{job="${snapshotId}"}[$__rate_interval])`,
                     snapshotId,
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
 
@@ -108,18 +114,20 @@ export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_cache_chan_cache_hits', 'Channel Cache Hits', {
-                    expr: `sum by (instance, database) (sgw_cache_chan_cache_hits{job="${snapshotId}"})`,
+                createMetricPanel('sgw_cache_chan_cache_hits', 'Channel Cache Hits/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_cache_chan_cache_hits{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_cache_chan_cache_misses', 'Channel Cache Misses', {
-                    expr: `sum by (instance, database) (sgw_cache_chan_cache_misses{job="${snapshotId}"})`,
+                createMetricPanel('sgw_cache_chan_cache_misses', 'Channel Cache Misses/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_cache_chan_cache_misses{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
                 createMetricPanel('sgw_cache_chan_cache_pending_queries', 'Channel Cache Pending Queries', {
@@ -157,67 +165,76 @@ export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_cache_chan_cache_bypass_count', 'Channel Cache Bypass Count', {
-                    expr: `sum by (instance, database) (sgw_cache_chan_cache_bypass_count{job="${snapshotId}"})`,
+                createMetricPanel('sgw_cache_chan_cache_bypass_count', 'Channel Cache Bypass/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_cache_chan_cache_bypass_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_cache_chan_cache_channels_added', 'Channel Cache Channels Added', {
-                    expr: `sum by (instance, database) (sgw_cache_chan_cache_channels_added{job="${snapshotId}"})`,
+                createMetricPanel('sgw_cache_chan_cache_channels_added', 'Channel Cache Channels Added/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_cache_chan_cache_channels_added{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_cache_chan_cache_channels_evicted_inactive', 'Channel Cache Channels Evicted Inactive', {
-                    expr: `sum by (instance, database) (sgw_cache_chan_cache_channels_evicted_inactive{job="${snapshotId}"})`,
+                createMetricPanel('sgw_cache_chan_cache_channels_evicted_inactive', 'Channel Cache Channels Evicted Inactive/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_cache_chan_cache_channels_evicted_inactive{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_cache_chan_cache_channels_evicted_nru', 'Channel Cache Channels Evicted NRU', {
-                    expr: `sum by (instance, database) (sgw_cache_chan_cache_channels_evicted_nru{job="${snapshotId}"})`,
+                createMetricPanel('sgw_cache_chan_cache_channels_evicted_nru', 'Channel Cache Channels Evicted NRU/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_cache_chan_cache_channels_evicted_nru{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_cache_chan_cache_compact_count', 'Channel Cache Compact Count', {
-                    expr: `sum by (instance, database) (sgw_cache_chan_cache_compact_count{job="${snapshotId}"})`,
+                createMetricPanel('sgw_cache_chan_cache_compact_count', 'Channel Cache Compactions/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_cache_chan_cache_compact_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance', 'd.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_cache_abandoned_seqs', 'Cache Abandoned Sequences', {
-                    expr: `sum by (instance, database) (sgw_cache_abandoned_seqs{job="${snapshotId}"})`,
+                createMetricPanel('sgw_cache_abandoned_seqs', 'Cache Abandoned Sequences/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_cache_abandoned_seqs{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_cache_num_skipped_seqs', 'Cache Number of Skipped Sequences', {
-                    expr: `sum by (instance, database) (sgw_cache_num_skipped_seqs{job="${snapshotId}"})`,
+                createMetricPanel('sgw_cache_num_skipped_seqs', 'Cache Skipped Sequences/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_cache_num_skipped_seqs{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_cache_high_seq_cached', 'Cache High Sequence Cached', {
-                    expr: `sum by (instance, database) (sgw_cache_high_seq_cached{job="${snapshotId}"})`,
+                createMetricPanel('sgw_cache_high_seq_cached', 'Cache High Sequence Cached Rate (seq/sec)', {
+                    expr: `sum by (instance, database) (rate(sgw_cache_high_seq_cached{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_cache_high_seq_stable', 'Cache High Sequence Stable', {
-                    expr: `sum by (instance, database) (sgw_cache_high_seq_stable{job="${snapshotId}"})`,
+                createMetricPanel('sgw_cache_high_seq_stable', 'Cache High Sequence Stable Rate (seq/sec)', {
+                    expr: `sum by (instance, database) (rate(sgw_cache_high_seq_stable{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
                 createMetricPanel('sgw_cache_skipped_seq_len', 'Cache Skipped Sequence Length', {
@@ -234,48 +251,54 @@ export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_cache_current_skipped_seq_count', 'Cache Current Skipped Sequence Count', {
-                    expr: `sum by (instance, database) (sgw_cache_current_skipped_seq_count{job="${snapshotId}"})`,
+                createMetricPanel('sgw_cache_current_skipped_seq_count', 'Cache Current Skipped Sequences/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_cache_current_skipped_seq_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
 
                 // Database Metrics
-                createMetricPanel('sgw_database_sequence_get_count', 'Database Sequence Get Count', {
-                    expr: `sum by (instance, database) (sgw_database_sequence_get_count{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_sequence_get_count', 'Database Sequence Gets/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_sequence_get_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_database_sequence_incr_count', 'Database Sequence Increment Count', {
-                    expr: `sum by (instance, database) (sgw_database_sequence_incr_count{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_sequence_incr_count', 'Database Sequence Increments/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_sequence_incr_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_database_sequence_reserved_count', 'Database Sequence Reserved Count', {
-                    expr: `sum by (instance, database) (sgw_database_sequence_reserved_count{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_sequence_reserved_count', 'Database Sequence Reservations/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_sequence_reserved_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_database_sequence_assigned_count', 'Database Sequence Assigned Count', {
-                    expr: `sum by (instance, database) (sgw_database_sequence_assigned_count{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_sequence_assigned_count', 'Database Sequence Assignments/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_sequence_assigned_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_database_sequence_released_count', 'Database Sequence Released Count', {
-                    expr: `sum by (instance, database) (sgw_database_sequence_released_count{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_sequence_released_count', 'Database Sequence Releases/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_sequence_released_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
                 createMetricPanel('sgw_database_crc32c_match_count', 'Database CRC32C Match Count', {
@@ -292,90 +315,100 @@ export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
                     unit: 'short'
                 }),
-                // NOTE: gauge, not a counter — do not wrap in rate(). Reports the current
-                // number of active replications, which goes up and down over time.
-                createMetricPanel('sgw_database_num_replications_total', 'Database Number of Total Replications', {
-                    expr: `sum by (instance, database) (sgw_database_num_replications_total{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_num_replications_total', 'Database Replications Started/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_num_replications_total{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_database_num_doc_writes', 'Database Number of Document Writes', {
-                    expr: `sum by (instance, database) (sgw_database_num_doc_writes{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_num_doc_writes', 'Database Document Writes/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_num_doc_writes{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_database_num_tombstones_compacted', 'Database Number of Tombstones Compacted', {
-                    expr: `sum by (instance, database) (sgw_database_num_tombstones_compacted{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_num_tombstones_compacted', 'Database Tombstones Compacted/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_num_tombstones_compacted{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_database_doc_writes_bytes', 'Database Document Write Bytes', {
-                    expr: `sum by (instance, database) (sgw_database_doc_writes_bytes{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_doc_writes_bytes', 'Database Document Write Bytes/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_doc_writes_bytes{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
-                    unit: 'bytes'
+                    transformFunction: 'rate',
+                    unit: 'Bps'
                 }),
-                createMetricPanel('sgw_database_doc_writes_xattr_bytes', 'Database Document Write XAttr Bytes', {
-                    expr: `sum by (instance, database) (sgw_database_doc_writes_xattr_bytes{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_doc_writes_xattr_bytes', 'Database Document Write XAttr Bytes/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_doc_writes_xattr_bytes{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
-                    unit: 'bytes'
+                    transformFunction: 'rate',
+                    unit: 'Bps'
                 }),
-                createMetricPanel('sgw_database_num_doc_reads_rest', 'Database Number of Document Reads REST', {
-                    expr: `sum by (instance, database) (sgw_database_num_doc_reads_rest{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_num_doc_reads_rest', 'Database Document Reads REST/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_num_doc_reads_rest{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_database_num_doc_reads_blip', 'Database Number of Document Reads BLIP', {
-                    expr: `sum by (instance, database) (sgw_database_num_doc_reads_blip{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_num_doc_reads_blip', 'Database Document Reads BLIP/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_num_doc_reads_blip{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_database_doc_writes_bytes_blip', 'Database Document Write Bytes BLIP', {
-                    expr: `sum by (instance, database) (sgw_database_doc_writes_bytes_blip{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_doc_writes_bytes_blip', 'Database Document Write Bytes BLIP/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_doc_writes_bytes_blip{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
-                    unit: 'bytes'
+                    transformFunction: 'rate',
+                    unit: 'Bps'
                 }),
-                createMetricPanel('sgw_database_doc_reads_bytes_blip', 'Database Document Read Bytes BLIP', {
-                    expr: `sum by (instance, database) (sgw_database_doc_reads_bytes_blip{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_doc_reads_bytes_blip', 'Database Document Read Bytes BLIP/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_doc_reads_bytes_blip{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
-                    unit: 'bytes'
+                    transformFunction: 'rate',
+                    unit: 'Bps'
                 }),
-                createMetricPanel('sgw_database_warn_xattr_size_count', 'Database Warning XAttr Size Count', {
-                    expr: `sum by (instance, database) (sgw_database_warn_xattr_size_count{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_warn_xattr_size_count', 'Database XAttr Size Warnings/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_warn_xattr_size_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_database_warn_channels_per_doc_count', 'Database Warning Channels Per Document Count', {
-                    expr: `sum by (instance, database) (sgw_database_warn_channels_per_doc_count{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_warn_channels_per_doc_count', 'Database Channels-Per-Doc Warnings/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_warn_channels_per_doc_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_database_warn_grants_per_doc_count', 'Database Warning Grants Per Document Count', {
-                    expr: `sum by (instance, database) (sgw_database_warn_grants_per_doc_count{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_warn_grants_per_doc_count', 'Database Grants-Per-Doc Warnings/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_warn_grants_per_doc_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
                 createMetricPanel('sgw_database_dcp_received_count', 'Database DCP Received Count', {
@@ -385,11 +418,12 @@ export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_database_high_seq_feed', 'Database High Sequence Feed', {
-                    expr: `sum by (instance, database) (sgw_database_high_seq_feed{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_high_seq_feed', 'Database High Sequence Feed Rate (seq/sec)', {
+                    expr: `sum by (instance, database) (rate(sgw_database_high_seq_feed{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
                 createMetricPanel('sgw_database_dcp_received_time', 'Database DCP Received Time', {
@@ -413,25 +447,28 @@ export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
                     unit: 'ms'
                 }),
-                createMetricPanel('sgw_database_sync_function_time', 'Database Sync Function Time', {
-                    expr: `sum by (instance, database) (sgw_database_sync_function_time{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_sync_function_time', 'Database Sync Function Time Rate (ns/sec)', {
+                    expr: `sum by (instance, database) (rate(sgw_database_sync_function_time{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
-                    unit: 'ms'
-                }),
-                createMetricPanel('sgw_database_sync_function_count', 'Database Sync Function Count', {
-                    expr: `sum by (instance, database) (sgw_database_sync_function_count{job="${snapshotId}"})`,
-                    legendFormat: '{{instance}} , {{database}}',
-                    snapshotId,
-                    extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_database_conflict_write_count', 'Database Conflict Write Count', {
-                    expr: `sum by (instance, database) (sgw_database_conflict_write_count{job="${snapshotId}"})`,
+                createMetricPanel('sgw_database_sync_function_count', 'Database Sync Function Invocations/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_sync_function_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
+                    unit: 'short'
+                }),
+                createMetricPanel('sgw_database_conflict_write_count', 'Database Conflict Writes/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_database_conflict_write_count{job="${snapshotId}"}[$__rate_interval]))`,
+                    legendFormat: '{{instance}} , {{database}}',
+                    snapshotId,
+                    extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
 
@@ -450,33 +487,37 @@ export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
                     unit: 'ms'
                 }),
-                createMetricPanel('sgw_replication_push_propose_change_time', 'Replication Push Propose Change Time', {
-                    expr: `sum by (instance, database) (sgw_replication_push_propose_change_time{job="${snapshotId}"})`,
+                createMetricPanel('sgw_replication_push_propose_change_time', 'Replication Push Propose Change Time Rate (ns/sec)', {
+                    expr: `sum by (instance, database) (rate(sgw_replication_push_propose_change_time{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
-                    unit: 'ms'
-                }),
-                createMetricPanel('sgw_replication_push_propose_change_count', 'Replication Push Propose Change Count', {
-                    expr: `sum by (instance, database) (sgw_replication_push_propose_change_count{job="${snapshotId}"})`,
-                    legendFormat: '{{instance}} , {{database}}',
-                    snapshotId,
-                    extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_replication_push_attachment_push_count', 'Replication Push Attachment Count', {
-                    expr: `sum by (instance, database) (sgw_replication_push_attachment_push_count{job="${snapshotId}"})`,
+                createMetricPanel('sgw_replication_push_propose_change_count', 'Replication Push Propose Changes/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_replication_push_propose_change_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_replication_push_attachment_push_bytes', 'Replication Push Attachment Bytes', {
-                    expr: `sum by (instance, database) (sgw_replication_push_attachment_push_bytes{job="${snapshotId}"})`,
+                createMetricPanel('sgw_replication_push_attachment_push_count', 'Replication Push Attachments/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_replication_push_attachment_push_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
-                    unit: 'bytes'
+                    transformFunction: 'rate',
+                    unit: 'short'
+                }),
+                createMetricPanel('sgw_replication_push_attachment_push_bytes', 'Replication Push Attachment Bytes/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_replication_push_attachment_push_bytes{job="${snapshotId}"}[$__rate_interval]))`,
+                    legendFormat: '{{instance}} , {{database}}',
+                    snapshotId,
+                    extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
+                    unit: 'Bps'
                 }),
 
                 // Replication Pull Metrics
@@ -508,11 +549,12 @@ export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_replication_pull_num_pull_repl_since_zero', 'Replication Pull Since Zero', {
-                    expr: `sum by (instance, database) (sgw_replication_pull_num_pull_repl_since_zero{job="${snapshotId}"})`,
+                createMetricPanel('sgw_replication_pull_num_pull_repl_since_zero', 'Replication Pull Since Zero/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_replication_pull_num_pull_repl_since_zero{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
                 createMetricPanel('sgw_replication_pull_num_pull_repl_caught_up', 'Replication Pull Caught Up', {
@@ -522,33 +564,37 @@ export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_replication_pull_request_changes_count', 'Replication Pull Request Changes Count', {
-                    expr: `sum by (instance, database) (sgw_replication_pull_request_changes_count{job="${snapshotId}"})`,
+                createMetricPanel('sgw_replication_pull_request_changes_count', 'Replication Pull Request Changes/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_replication_pull_request_changes_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_replication_pull_request_changes_time', 'Replication Pull Request Changes Time', {
-                    expr: `sum by (instance, database) (sgw_replication_pull_request_changes_time{job="${snapshotId}"})`,
+                createMetricPanel('sgw_replication_pull_request_changes_time', 'Replication Pull Request Changes Time Rate (ns/sec)', {
+                    expr: `sum by (instance, database) (rate(sgw_replication_pull_request_changes_time{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
-                    unit: 'ms'
-                }),
-                createMetricPanel('sgw_replication_pull_rev_send_count', 'Replication Pull Revision Send Count', {
-                    expr: `sum by (instance, database) (sgw_replication_pull_rev_send_count{job="${snapshotId}"})`,
-                    legendFormat: '{{instance}} , {{database}}',
-                    snapshotId,
-                    extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_replication_pull_rev_send_latency', 'Replication Pull Revision Send Latency', {
-                    expr: `sum by (instance, database) (sgw_replication_pull_rev_send_latency{job="${snapshotId}"})`,
+                createMetricPanel('sgw_replication_pull_rev_send_count', 'Replication Pull Revisions Sent/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_replication_pull_rev_send_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
-                    unit: 'ms'
+                    transformFunction: 'rate',
+                    unit: 'short'
+                }),
+                createMetricPanel('sgw_replication_pull_rev_send_latency', 'Replication Pull Revision Send Latency Rate (ns/sec)', {
+                    expr: `sum by (instance, database) (rate(sgw_replication_pull_rev_send_latency{job="${snapshotId}"}[$__rate_interval]))`,
+                    legendFormat: '{{instance}} , {{database}}',
+                    snapshotId,
+                    extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
+                    unit: 'short'
                 }),
                 createMetricPanel('sgw_replication_pull_rev_processing_time', 'Replication Pull Revision Processing Time', {
                     expr: `sum by (instance, database) (sgw_replication_pull_rev_processing_time{job="${snapshotId}"})`,
@@ -564,48 +610,54 @@ export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_replication_pull_attachment_pull_count', 'Replication Pull Attachment Count', {
-                    expr: `sum by (instance, database) (sgw_replication_pull_attachment_pull_count{job="${snapshotId}"})`,
+                createMetricPanel('sgw_replication_pull_attachment_pull_count', 'Replication Pull Attachments/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_replication_pull_attachment_pull_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_replication_pull_attachment_pull_bytes', 'Replication Pull Attachment Bytes', {
-                    expr: `sum by (instance, database) (sgw_replication_pull_attachment_pull_bytes{job="${snapshotId}"})`,
+                createMetricPanel('sgw_replication_pull_attachment_pull_bytes', 'Replication Pull Attachment Bytes/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_replication_pull_attachment_pull_bytes{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
-                    unit: 'bytes'
+                    transformFunction: 'rate',
+                    unit: 'Bps'
                 }),
 
                 // Security Metrics
-                createMetricPanel('sgw_security_num_docs_rejected', 'Security Documents Rejected', {
-                    expr: `sum by (instance, database) (sgw_security_num_docs_rejected{job="${snapshotId}"})`,
+                createMetricPanel('sgw_security_num_docs_rejected', 'Security Documents Rejected/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_security_num_docs_rejected{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_security_num_access_errors', 'Security Access Errors', {
-                    expr: `sum by (instance, database) (sgw_security_num_access_errors{job="${snapshotId}"})`,
+                createMetricPanel('sgw_security_num_access_errors', 'Security Access Errors/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_security_num_access_errors{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_security_auth_success_count', 'Security Authentication Success Count', {
-                    expr: `sum by (instance, database) (sgw_security_auth_success_count{job="${snapshotId}"})`,
+                createMetricPanel('sgw_security_auth_success_count', 'Security Auth Successes/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_security_auth_success_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
-                createMetricPanel('sgw_security_auth_failed_count', 'Security Authentication Failed Count', {
-                    expr: `sum by (instance, database) (sgw_security_auth_failed_count{job="${snapshotId}"})`,
+                createMetricPanel('sgw_security_auth_failed_count', 'Security Auth Failures/Sec', {
+                    expr: `sum by (instance, database) (rate(sgw_security_auth_failed_count{job="${snapshotId}"}[$__rate_interval]))`,
                     legendFormat: '{{instance}} , {{database}}',
                     snapshotId,
                     extraFields: ['d.labels.instance','d.labels.\`database\`'],
+                    transformFunction: 'rate',
                     unit: 'short'
                 }),
                 createMetricPanel('sgw_security_total_auth_time', 'Security Total Authentication Time', {
