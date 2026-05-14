@@ -19,6 +19,14 @@ export interface PageBuilderOptions {
     timeRanges?: SceneTimeRange[];
     overlapMode?: boolean;
     overlapEndTimeSeconds?: number;
+    /**
+     * Optional base URL for single-snapshot tabs. Defaults to
+     * `${routePrefix}/${snapshotId}`. Set this when tabs live underneath a
+     * deeper path (e.g. a cluster drilldown at
+     * `/snapshots/<id>/cluster/<uid>`) so each tab's URL stays under the
+     * drilldown route.
+     */
+    urlBase?: string;
 }
 
 /**
@@ -48,7 +56,7 @@ export interface PageBuilderOptions {
  * });
  */
 export function buildServiceTabs(options: PageBuilderOptions): SceneAppPage[] {
-    const { snapshotIds, services, mode, routePrefix, timeRanges, overlapMode, overlapEndTimeSeconds } = options;
+    const { snapshotIds, services, mode, routePrefix, timeRanges, overlapMode, overlapEndTimeSeconds, urlBase } = options;
 
     if (mode === 'single' && snapshotIds.length !== 1) {
         throw new Error('Single mode requires exactly one snapshot ID');
@@ -67,7 +75,7 @@ export function buildServiceTabs(options: PageBuilderOptions): SceneAppPage[] {
 
     for (const config of serviceConfigs) {
         if (mode === 'single') {
-            pages.push(buildSingleSnapshotPage(config.key, snapshotIds[0], routePrefix));
+            pages.push(buildSingleSnapshotPage(config.key, snapshotIds[0], routePrefix, urlBase));
         } else {
             pages.push(buildComparisonPage(config.key, snapshotIds, routePrefix, timeRanges, overlapMode, overlapEndTimeSeconds));
         }
@@ -83,7 +91,8 @@ export function buildServiceTabs(options: PageBuilderOptions): SceneAppPage[] {
 function buildSingleSnapshotPage(
     serviceKey: string,
     snapshotId: string,
-    routePrefix: string
+    routePrefix: string,
+    urlBase?: string
 ): SceneAppPage {
     const config = getServiceConfig(serviceKey);
 
@@ -91,13 +100,12 @@ function buildSingleSnapshotPage(
         throw new Error(`Unknown service: ${serviceKey}`);
     }
 
-    // Single-snapshot tabs live under the path-based parent route
-    // `/snapshots/<snapshotId>` so the snapshotId travels with the URL on tab
-    // switches (it's part of the path, not a query param).
-    const encodedSnapshotId = encodeURIComponent(snapshotId);
+    // Default base: `<routePrefix>/<snapshotId>`. Caller may override (e.g. for
+    // drilldowns nested deeper than the snapshot page).
+    const base = urlBase ?? `${routePrefix}/${encodeURIComponent(snapshotId)}`;
     const urlPath = config.segment
-        ? `${routePrefix}/${encodedSnapshotId}/${config.segment}`
-        : `${routePrefix}/${encodedSnapshotId}`;
+        ? `${base}/${config.segment}`
+        : base;
 
     const routePath = config.segment
         ? `/${config.segment}`

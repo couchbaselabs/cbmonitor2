@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { SceneObjectBase, SceneComponentProps, SceneObjectState } from '@grafana/scenes';
 import { SelectableValue } from '@grafana/data';
-import { Select } from '@grafana/ui';
+import { locationService } from '@grafana/runtime';
+import { IconButton, Select } from '@grafana/ui';
 import { Cluster } from 'types/snapshot';
 import { clusterFilterService } from '../../services/clusterFilterService';
+import { clusterDrilldownUrl } from '../../pages/clusterDrilldownPage';
 
 const ALL_CLUSTERS = '__all__';
 
 interface ClusterToggleState extends SceneObjectState {
     clusters: Cluster[];
+    snapshotId?: string;
     onClusterChange?: (clusterId: string | null) => void;
 }
 
@@ -21,7 +24,7 @@ export class ClusterToggle extends SceneObjectBase<ClusterToggleState> {
 }
 
 function ClusterToggleRenderer({ model }: SceneComponentProps<ClusterToggle>) {
-    const { clusters, onClusterChange } = model.useState();
+    const { clusters, onClusterChange, snapshotId } = model.useState();
     
     // Initialize from service and sync with it
     const getInitialValue = () => {
@@ -66,18 +69,39 @@ function ClusterToggleRenderer({ model }: SceneComponentProps<ClusterToggle>) {
     // Always render for debugging - show "No clusters" if empty
     const displayClusters = clusters || [];
 
+    const canOpenDrilldown = Boolean(snapshotId) && selectedCluster !== ALL_CLUSTERS;
+    const handleOpenDrilldown = () => {
+        if (!canOpenDrilldown || !snapshotId) {
+            return;
+        }
+        locationService.push(clusterDrilldownUrl(snapshotId, selectedCluster));
+    };
+
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {displayClusters.length === 0 ? (
                 <span style={{ fontSize: '12px', color: '#666' }}>No clusters in metadata</span>
             ) : (
-                <Select
-                    options={options}
-                    value={selectedCluster}
-                    onChange={handleChange}
-                    placeholder="All clusters"
-                    width={25}
-                />
+                <>
+                    <Select
+                        options={options}
+                        value={selectedCluster}
+                        onChange={handleChange}
+                        placeholder="All clusters"
+                        width={25}
+                    />
+                    {snapshotId && (
+                        <IconButton
+                            name="external-link-alt"
+                            aria-label="Open cluster drilldown"
+                            tooltip={canOpenDrilldown
+                                ? 'Open a dedicated page for this cluster'
+                                : 'Pick a specific cluster to enable the drilldown'}
+                            disabled={!canOpenDrilldown}
+                            onClick={handleOpenDrilldown}
+                        />
+                    )}
+                </>
             )}
         </div>
     );

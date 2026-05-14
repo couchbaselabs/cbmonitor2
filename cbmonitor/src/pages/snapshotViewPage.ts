@@ -14,6 +14,7 @@ import { EditModeToggle } from '../components/DashboardHeader/actions/EditModeTo
 import { ExploreButton } from '../components/DashboardHeader/actions/ExploreButton';
 import { MetricsDrilldownButton } from '../components/DashboardHeader/actions/MetricsDrilldownButton';
 import { createNoUrlSyncTimeRange, initializeTimeRange } from '../utils/timeRange';
+import { clusterDrilldown } from './clusterDrilldownPage';
 import { loadSnapshot } from '../services/snapshotLoader';
 import { sceneCacheService } from '../services/sceneCache';
 import { clusterFilterService } from '../services/clusterFilterService';
@@ -92,6 +93,7 @@ export const snapshotViewPage = new SceneAppPage({
       ],
     }),
   }),
+  drilldowns: [clusterDrilldown],
 });
 
 // Activation handler — loads the snapshot for the id in the URL path.
@@ -225,6 +227,7 @@ snapshotViewPage.addActivationHandler(() => {
 
         const clusterToggle = new ClusterToggle({
           clusters: metadata.clusters || [],
+          snapshotId,
           onClusterChange: handleClusterChange,
         });
 
