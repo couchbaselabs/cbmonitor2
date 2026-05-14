@@ -71,6 +71,31 @@ export function queryMetricsDashboard(snapshotId: string): EmbeddedScene {
                     snapshotId,
                     unit: 'short'
                 }),
+
+                // Request-time tail latency. Server exports these as  pre-computed gauges (ns), so we plot them directly
+                createMetricPanel('n1ql_request_timer_percentiles', 'Query Request Time — p50 / p95 / p99', {
+                    expr: `
+                      label_replace(sum by (instance) (n1ql_request_timer_median{job="${snapshotId}"}), "quantile", "p50", "", "")
+                      or label_replace(sum by (instance) (n1ql_request_timer_p95{job="${snapshotId}"}),  "quantile", "p95", "", "")
+                      or label_replace(sum by (instance) (n1ql_request_timer_p99{job="${snapshotId}"}),  "quantile", "p99", "", "")
+                    `.trim(),
+                    legendFormat: '{{instance}} , {{quantile}}',
+                    snapshotId,
+                    extraFields: ['d.labels.`instance`', 'd.labels.`quantile`'],
+                    unit: 'ns',
+                }),
+
+                // Mean / max for outlier context alongside the percentile panel. Same overlay pattern.
+                createMetricPanel('n1ql_request_timer_mean_max', 'Query Request Time — mean / max', {
+                    expr: `
+                      label_replace(sum by (instance) (n1ql_request_timer_mean{job="${snapshotId}"}), "stat", "mean", "", "")
+                      or label_replace(sum by (instance) (n1ql_request_timer_max{job="${snapshotId}"}),  "stat", "max",  "", "")
+                    `.trim(),
+                    legendFormat: '{{instance}} , {{stat}}',
+                    snapshotId,
+                    extraFields: ['d.labels.`instance`', 'd.labels.`stat`'],
+                    unit: 'ns',
+                }),
             ]
         })
     });

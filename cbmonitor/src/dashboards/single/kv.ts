@@ -27,6 +27,17 @@ export function kvMetricsDashboard(snapshotId: string): EmbeddedScene {
             unit: 'short',
         }),
 
+        // Workload mix: ops/sec broken out by operation type across all
+        // buckets/instances. Answers "is this workload read-heavy or write-heavy?" at a glance.
+        createMetricPanel('kv_ops_by_type', 'KV Operations by Type (ops/sec)', {
+            expr: `sum by (op) (rate(kv_ops{job="${snapshotId}"}[$__rate_interval]))`,
+            legendFormat: '{{op}}',
+            snapshotId,
+            transformFunction: 'rate',
+            extraFields: ['d.labels.`op`'],
+            unit: 'short',
+        }),
+
         // Data & Items (what we're storing)
         createMetricPanel('kv_curr_items', 'Current Items Count', {
             expr: `sum by (instance) (kv_curr_items{job="${snapshotId}"})`,
