@@ -51,11 +51,8 @@ class DataSourceService {
 
             this.currentDataSource = nextDataSource;
             this.configInitialized = true;
-
-            console.log('[DataSourceService] Configuration loaded from backend:', this.config);
         } catch (error) {
-            console.error('[DataSourceService] Failed to initialize config from backend:', error);
-            console.log('[DataSourceService] Using default configuration');
+            console.error('[DataSourceService] Failed to initialize config from backend; using defaults:', error);
             this.configInitialized = true;
         }
 

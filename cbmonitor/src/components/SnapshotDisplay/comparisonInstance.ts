@@ -293,7 +293,6 @@ comparisonPage.addActivationHandler(() => {
 
     // Return deactivation handler
     return () => {
-        console.log('ComparisonPage deactivation handler triggered');
         urlSubscription();
         // Restore previous layout mode when leaving compare page
         if (layoutService.getLayout() !== previousLayout) {

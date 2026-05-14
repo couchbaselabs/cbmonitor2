@@ -307,7 +307,6 @@ snapshotViewPage.addActivationHandler(() => {
 
   // Return deactivation handler
   return () => {
-    console.log('SnapshotViewPage deactivation handler triggered');
     // Unsubscribe from URL changes
     urlSubscription();
     // Unsubscribe from time range changes

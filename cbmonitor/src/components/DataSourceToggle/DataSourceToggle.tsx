@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SceneObjectBase, SceneComponentProps, SceneObjectState } from '@grafana/scenes';
-import { Combobox, ComboboxOption, Tooltip } from '@grafana/ui';
+import { SelectableValue } from '@grafana/data';
+import { Select, Tooltip } from '@grafana/ui';
 import { DataSourceConfig, DataSourceType } from 'types/datasource';
 import { dataSourceService } from 'services/datasourceService';
 
@@ -76,7 +77,7 @@ function DataSourceToggleRenderer({ model }: SceneComponentProps<DataSourceToggl
         };
     }, [snapshotId]);
 
-    const handleChange = (option: ComboboxOption<DataSourceType> | null) => {
+    const handleChange = (option: SelectableValue<DataSourceType> | null) => {
         if (option?.value) {
             if (option.value === dataSource) {
                 return;
@@ -89,7 +90,7 @@ function DataSourceToggleRenderer({ model }: SceneComponentProps<DataSourceToggl
         }
     };
 
-    const options: Array<ComboboxOption<DataSourceType>> = [
+    const options: Array<SelectableValue<DataSourceType>> = [
         {
             label: 'Prometheus (Default)',
             value: DataSourceType.Prometheus,
@@ -114,10 +115,10 @@ function DataSourceToggleRenderer({ model }: SceneComponentProps<DataSourceToggl
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Tooltip content="Switch between Prometheus (default) and Couchbase SQL++ (experimental)." placement="bottom">
                 <span>
-                    <Combobox
+                    <Select
                         options={options}
                         value={dataSource}
-                        onChange={(option) => handleChange(option)}
+                        onChange={handleChange}
                         isClearable={false}
                         width={22}
                         placeholder="DataSource"

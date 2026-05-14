@@ -16,7 +16,6 @@ class SnapshotService {
 
     for (let attempt = 1; attempt <= this.maxSnapshotFetchAttempts; attempt++) {
       try {
-        console.log(`Fetching snapshot from: ${url} (attempt ${attempt}/${this.maxSnapshotFetchAttempts})`);
         const response = await fetch(url, {
           method: 'GET',
           headers: {
@@ -49,7 +48,6 @@ class SnapshotService {
           throw new Error(apiResponse.error || 'Unknown API error');
         }
 
-        console.log(`Successfully fetched snapshot: ${snapshotId}`);
         return apiResponse.data;
       } catch (error) {
         const isLastAttempt = attempt === this.maxSnapshotFetchAttempts;
@@ -81,7 +79,6 @@ class SnapshotService {
       sessionStorage.setItem(`cbmonitor_snapshot_${snapshotId}`, JSON.stringify(data));
       // Also store the current snapshot ID
       sessionStorage.setItem('cbmonitor_current_snapshot', snapshotId);
-      console.log(`Stored snapshot ${snapshotId} in session storage`);
     } catch (error) {
       console.error('Error storing snapshot data:', error);
     }
@@ -125,7 +122,6 @@ class SnapshotService {
         }
         sessionStorage.removeItem('cbmonitor_current_snapshot');
       }
-      console.log('Cleared snapshot data from storage');
     } catch (error) {
       console.error('Error clearing snapshot data:', error);
     }

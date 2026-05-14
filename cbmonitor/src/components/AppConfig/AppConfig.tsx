@@ -660,11 +660,15 @@ const updatePluginAndReload = async (pluginId: string, data: Partial<PluginMeta<
 };
 
 const updatePlugin = async (pluginId: string, data: Partial<PluginMeta>) => {
-  const response = await getBackendSrv().fetch({
+  const response = getBackendSrv().fetch({
     url: `/api/plugins/${pluginId}/settings`,
     method: 'POST',
     data,
   });
 
-  return lastValueFrom(response);
+  // Cast to any: getBackendSrv().fetch() returns an Observable typed against
+  // the rxjs version bundled inside @grafana/data, while lastValueFrom comes
+  // from the project's own rxjs install. Same library, two type identities.
+  // Runtime is fine; the cast keeps tsc quiet.
+  return lastValueFrom(response as any);
 };

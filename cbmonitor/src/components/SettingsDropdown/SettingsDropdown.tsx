@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SceneObjectBase, SceneComponentProps, SceneObjectState } from '@grafana/scenes';
-import { Icon, RadioButtonGroup, Combobox, ComboboxOption, Switch } from '@grafana/ui';
+import { SelectableValue } from '@grafana/data';
+import { Icon, RadioButtonGroup, Select, Switch } from '@grafana/ui';
 import { Cluster } from 'types/snapshot';
 import { layoutService, LayoutMode } from '../../services/layoutService';
 import { dataSourceService } from '../../services/datasourceService';
@@ -135,14 +136,14 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
         onLayoutChange?.();
     };
 
-    const handleDataSourceChange = (option: ComboboxOption<DataSourceType> | null) => {
+    const handleDataSourceChange = (option: SelectableValue<DataSourceType> | null) => {
         if (option?.value && option.value !== dataSource) {
             dataSourceService.setCurrentDataSource(option.value);
             onDataSourceChange?.();
         }
     };
 
-    const handleClusterChange = (option: ComboboxOption<string> | null) => {
+    const handleClusterChange = (option: SelectableValue<string> | null) => {
         const newValue = option?.value ?? ALL_CLUSTERS;
         setSelectedCluster(newValue);
         onClusterChange?.(newValue === ALL_CLUSTERS ? null : newValue);
@@ -158,12 +159,12 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
         { label: 'Rows', value: 'rows' as LayoutMode, icon: 'list-ul' },
     ];
 
-    const dataSourceOptions: Array<ComboboxOption<DataSourceType>> = [
+    const dataSourceOptions: Array<SelectableValue<DataSourceType>> = [
         { label: 'Prometheus', value: DataSourceType.Prometheus },
         { label: 'Couchbase SQL++', value: DataSourceType.Couchbase },
     ];
 
-    const clusterOptions: Array<ComboboxOption<string>> = [
+    const clusterOptions: Array<SelectableValue<string>> = [
         { label: 'All clusters', value: ALL_CLUSTERS },
         ...clusters.map((cluster, index) => ({
             label: cluster.name || `Cluster ${index + 1}`,
@@ -227,7 +228,7 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
                     {showDataSourceSection && (
                         <div style={{ marginBottom: 16 }}>
                             <div style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 6 }}>Data Source</div>
-                            <Combobox
+                            <Select
                                 options={dataSourceOptions}
                                 value={dataSource}
                                 onChange={handleDataSourceChange}
@@ -239,7 +240,7 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
                     {showClusterSection && clusters.length > 0 && (
                         <div style={{ marginBottom: 16 }}>
                             <div style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 6 }}>Cluster Filter</div>
-                            <Combobox
+                            <Select
                                 options={clusterOptions}
                                 value={selectedCluster}
                                 onChange={handleClusterChange}

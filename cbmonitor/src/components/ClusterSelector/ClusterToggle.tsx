@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SceneObjectBase, SceneComponentProps, SceneObjectState } from '@grafana/scenes';
-import { Combobox, ComboboxOption } from '@grafana/ui';
+import { SelectableValue } from '@grafana/data';
+import { Select } from '@grafana/ui';
 import { Cluster } from 'types/snapshot';
 import { clusterFilterService } from '../../services/clusterFilterService';
 
@@ -39,7 +40,7 @@ function ClusterToggleRenderer({ model }: SceneComponentProps<ClusterToggle>) {
 
     // Build options with "All clusters" as default
     // Note: label is displayed, value (UUID) is used internally for filtering
-    const options: Array<ComboboxOption<string>> = [
+    const options: Array<SelectableValue<string>> = [
         {
             label: 'All clusters',
             value: ALL_CLUSTERS,
@@ -52,7 +53,7 @@ function ClusterToggleRenderer({ model }: SceneComponentProps<ClusterToggle>) {
         })),
     ];
 
-    const handleChange = (option: ComboboxOption<string> | null) => {
+    const handleChange = (option: SelectableValue<string> | null) => {
         const newValue = option?.value ?? ALL_CLUSTERS;
         setSelectedCluster(newValue);
         if (onClusterChange) {
@@ -70,7 +71,7 @@ function ClusterToggleRenderer({ model }: SceneComponentProps<ClusterToggle>) {
             {displayClusters.length === 0 ? (
                 <span style={{ fontSize: '12px', color: '#666' }}>No clusters in metadata</span>
             ) : (
-                <Combobox
+                <Select
                     options={options}
                     value={selectedCluster}
                     onChange={handleChange}
