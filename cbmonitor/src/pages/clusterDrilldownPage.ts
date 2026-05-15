@@ -17,6 +17,7 @@ import { buildServiceTabs } from '../services/pageBuilder';
 import { sceneCacheService } from '../services/sceneCache';
 import { clusterFilterService } from '../services/clusterFilterService';
 import { createNoUrlSyncTimeRange, initializeTimeRange } from '../utils/timeRange';
+import { buildClusterOverviewScene } from './drilldownOverview';
 
 // Reusable loading placeholder while the snapshot metadata resolves.
 class LoadingScene extends SceneObjectBase<SceneObjectState> {
@@ -96,23 +97,29 @@ function buildClusterDrilldownPage(snapshotId: string, clusterUid: string, paren
         const urlPhase = undefined;
         initializeTimeRange(timeRange, metadata, urlPhase);
 
-        const tabs = buildServiceTabs({
+        const urlBase = `${ROUTES.CBMonitor}/${encodeURIComponent(snapshotId)}/clusters/${encodeURIComponent(clusterUid)}`;
+        const serviceTabs = buildServiceTabs({
           snapshotIds: [snapshotId],
           services: metadata.services,
           mode: 'single',
           routePrefix: ROUTES.CBMonitor,
-          urlBase: `${ROUTES.CBMonitor}/${encodeURIComponent(snapshotId)}/clusters/${encodeURIComponent(clusterUid)}`,
+          urlBase,
         });
+        // Built once and reused across tab switches — Scenes activates the
+        // overview's query runners on mount; React preserves the underlying
+        // instance because the model reference is stable.
+        const overviewScene = buildClusterOverviewScene(snapshotId, clusterUid, metadata);
 
         page.setState({
           title: `Cluster: ${clusterName}`,
           subTitle: cluster?.name ? `UUID: ${clusterUid}` : undefined,
           $timeRange: timeRange,
-          tabs,
+          tabs: serviceTabs,
           getScene: undefined,
           renderTitle: () => React.createElement(ClusterHeader, {
             clusterName,
             clusterUid,
+            overviewScene,
           }),
         });
       } catch (error) {
@@ -139,15 +146,16 @@ function buildClusterDrilldownPage(snapshotId: string, clusterUid: string, paren
 interface ClusterHeaderProps {
   clusterName: string;
   clusterUid: string;
+  overviewScene: EmbeddedScene;
 }
 
-// Header for the cluster drilldown. Node discovery has moved to legend
-// DataLinks on each panel + the Nodes section in `SnapshotDetailsDrawer`, so
-// this header just identifies the cluster.
-function ClusterHeader({ clusterName, clusterUid }: ClusterHeaderProps) {
+// Header for the cluster drilldown: title + identity, plus the overview
+// stats scene rendered inline so the summary lives above the tab strip and
+// stays mounted across tab switches.
+function ClusterHeader({ clusterName, clusterUid, overviewScene }: ClusterHeaderProps) {
   return React.createElement(
     'div',
-    { style: { display: 'flex', flexDirection: 'column', gap: '4px' } },
+    { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
     React.createElement(
       'h2',
       { style: { margin: 0, fontSize: '20px' } },
@@ -159,6 +167,11 @@ function ClusterHeader({ clusterName, clusterUid }: ClusterHeaderProps) {
           { style: { fontSize: '12px', opacity: 0.7 } },
           `UUID: ${clusterUid}`
         )
-      : null
+      : null,
+    React.createElement(
+      'div',
+      { style: { width: '100%' } },
+      React.createElement(overviewScene.Component, { model: overviewScene })
+    )
   );
 }

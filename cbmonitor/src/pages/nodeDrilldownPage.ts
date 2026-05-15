@@ -17,6 +17,7 @@ import { buildServiceTabs } from '../services/pageBuilder';
 import { sceneCacheService } from '../services/sceneCache';
 import { instanceFilterService } from '../services/instanceFilterService';
 import { createNoUrlSyncTimeRange, initializeTimeRange } from '../utils/timeRange';
+import { buildNodeOverviewScene } from './drilldownOverview';
 
 class LoadingScene extends SceneObjectBase<SceneObjectState> {
   public static Component = () => React.createElement(
@@ -84,19 +85,27 @@ function buildNodeDrilldownPage(snapshotId: string, nodeName: string, parent: Sc
         const timeRange = createNoUrlSyncTimeRange();
         initializeTimeRange(timeRange, metadata, undefined);
 
-        const tabs = buildServiceTabs({
+        const urlBase = `${ROUTES.CBMonitor}/${encodeURIComponent(snapshotId)}/nodes/${encodeURIComponent(nodeName)}`;
+        const serviceTabs = buildServiceTabs({
           snapshotIds: [snapshotId],
           services: metadata.services,
           mode: 'single',
           routePrefix: ROUTES.CBMonitor,
-          urlBase: `${ROUTES.CBMonitor}/${encodeURIComponent(snapshotId)}/nodes/${encodeURIComponent(nodeName)}`,
+          urlBase,
         });
+        // Built once and reused across tab switches; the overview's queries
+        // activate on mount and stay alive as the user clicks between tabs.
+        const overviewScene = buildNodeOverviewScene(snapshotId, nodeName, metadata);
 
         page.setState({
           title: `Node: ${nodeName}`,
           $timeRange: timeRange,
-          tabs,
+          tabs: serviceTabs,
           getScene: undefined,
+          renderTitle: () => React.createElement(NodeHeader, {
+            nodeName,
+            overviewScene,
+          }),
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to load node';
@@ -116,4 +125,29 @@ function buildNodeDrilldownPage(snapshotId: string, nodeName: string, parent: Sc
   });
 
   return page;
+}
+
+interface NodeHeaderProps {
+  nodeName: string;
+  overviewScene: EmbeddedScene;
+}
+
+// Header for the node drilldown: title + the overview stats scene rendered
+// inline so the summary sits above the tabs and stays mounted across tab
+// switches.
+function NodeHeader({ nodeName, overviewScene }: NodeHeaderProps) {
+  return React.createElement(
+    'div',
+    { style: { display: 'flex', flexDirection: 'column', gap: '8px' } },
+    React.createElement(
+      'h2',
+      { style: { margin: 0, fontSize: '20px' } },
+      `Node: ${nodeName}`
+    ),
+    React.createElement(
+      'div',
+      { style: { width: '100%' } },
+      React.createElement(overviewScene.Component, { model: overviewScene })
+    )
+  );
 }
