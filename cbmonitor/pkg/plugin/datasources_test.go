@@ -124,7 +124,7 @@ func TestReconcile_CreatesMissingDatasource(t *testing.T) {
 		JSONData: map[string]any{"httpMethod": "POST"},
 	}}
 
-	if err := r.Reconcile(context.Background(), desired); err != nil {
+	if err := r.Reconcile(context.Background(), desired, nil); err != nil {
 		t.Fatalf("Reconcile: %v", err)
 	}
 
@@ -167,7 +167,7 @@ func TestReconcile_NoOpWhenEqual(t *testing.T) {
 		JSONData: map[string]any{"httpMethod": "POST"},
 	}}
 
-	if err := r.Reconcile(context.Background(), desired); err != nil {
+	if err := r.Reconcile(context.Background(), desired, nil); err != nil {
 		t.Fatalf("Reconcile: %v", err)
 	}
 
@@ -197,7 +197,7 @@ func TestReconcile_UpdatesOnURLDiff(t *testing.T) {
 		JSONData: map[string]any{"httpMethod": "POST"},
 	}}
 
-	if err := r.Reconcile(context.Background(), desired); err != nil {
+	if err := r.Reconcile(context.Background(), desired, nil); err != nil {
 		t.Fatalf("Reconcile: %v", err)
 	}
 
@@ -236,7 +236,7 @@ func TestReconcile_SkipsReadOnlyDatasource(t *testing.T) {
 		JSONData: map[string]any{"httpMethod": "POST"},
 	}}
 
-	err := r.Reconcile(context.Background(), desired)
+	err := r.Reconcile(context.Background(), desired, nil)
 	if err == nil || !strings.Contains(err.Error(), "read-only") {
 		t.Fatalf("expected read-only error, got %v", err)
 	}
@@ -264,7 +264,7 @@ func TestReconcile_SkipsDesiredWithEmptyURL(t *testing.T) {
 		JSONData: map[string]any{},
 	}}
 
-	err := r.Reconcile(context.Background(), desired)
+	err := r.Reconcile(context.Background(), desired, nil)
 	if err == nil || !strings.Contains(err.Error(), "empty URL") {
 		t.Fatalf("expected empty-URL error, got %v", err)
 	}
@@ -292,7 +292,7 @@ func TestReconcile_OmitsEmptySecrets(t *testing.T) {
 		SecureJSONData: map[string]string{"password": ""},
 	}}
 
-	if err := r.Reconcile(context.Background(), desired); err != nil {
+	if err := r.Reconcile(context.Background(), desired, nil); err != nil {
 		t.Fatalf("Reconcile: %v", err)
 	}
 
@@ -320,7 +320,7 @@ func TestReconcile_ContextCancelled(t *testing.T) {
 	err := r.Reconcile(ctx, []DesiredDatasource{{
 		UID: "prometheus", Name: "p", Type: "prometheus", Access: "proxy",
 		URL: "http://prom:9090",
-	}})
+	}}, nil)
 	if err == nil {
 		t.Fatalf("expected an error from cancelled context")
 	}
@@ -340,7 +340,7 @@ func TestReconcile_DeletesOrphanedAppManagedDatasource(t *testing.T) {
 
 	r := newTestReconciler(srv)
 	// desired is empty — the user disabled prometheus.
-	if err := r.Reconcile(context.Background(), []DesiredDatasource{}); err != nil {
+	if err := r.Reconcile(context.Background(), []DesiredDatasource{}, nil); err != nil {
 		t.Fatalf("Reconcile: %v", err)
 	}
 
@@ -370,7 +370,7 @@ func TestReconcile_DeleteAbsentUIDIsNoOp(t *testing.T) {
 	defer srv.Close()
 
 	r := newTestReconciler(srv)
-	if err := r.Reconcile(context.Background(), []DesiredDatasource{}); err != nil {
+	if err := r.Reconcile(context.Background(), []DesiredDatasource{}, nil); err != nil {
 		t.Fatalf("Reconcile should tolerate absent UIDs: %v", err)
 	}
 	// Only GETs (one per appManagedUID) — no DELETE attempted.
@@ -394,7 +394,7 @@ func TestReconcile_RefusesToDeleteReadOnlyDatasource(t *testing.T) {
 	defer srv.Close()
 
 	r := newTestReconciler(srv)
-	err := r.Reconcile(context.Background(), []DesiredDatasource{})
+	err := r.Reconcile(context.Background(), []DesiredDatasource{}, nil)
 	if err == nil || !strings.Contains(err.Error(), "read-only") {
 		t.Fatalf("expected read-only refusal error, got %v", err)
 	}
@@ -426,7 +426,7 @@ func TestReconcile_CreatesOneDeletesAnotherInSinglePass(t *testing.T) {
 		URL: "http://prom:9090", IsDefault: true,
 		JSONData: map[string]any{"httpMethod": "POST"},
 	}}
-	if err := r.Reconcile(context.Background(), desired); err != nil {
+	if err := r.Reconcile(context.Background(), desired, nil); err != nil {
 		t.Fatalf("Reconcile: %v", err)
 	}
 	if _, present := fake.store["cbdatasource"]; present {
@@ -434,6 +434,79 @@ func TestReconcile_CreatesOneDeletesAnotherInSinglePass(t *testing.T) {
 	}
 	if _, present := fake.store["prometheus"]; !present {
 		t.Errorf("prometheus should be created")
+	}
+}
+
+func TestReconcile_PreservesClaimedDatasourceWithMissingConfig(t *testing.T) {
+	// Hardening against deployer regressions: when the user has enabled
+	// a feature (e.g. Prometheus) but the URL is empty (e.g. because
+	// $PROMETHEUS_URL didn't reach Grafana's process env), the reconciler
+	// must NOT delete a previously-good datasource. Empty URL → not in
+	// desired; "claimed" tells the delete phase to leave the UID alone.
+	fake := newFakeGrafana()
+	fake.store["prometheus"] = map[string]any{
+		"uid": "prometheus", "name": "Prometheus", "type": "prometheus",
+		"access": "proxy", "url": "http://prom:9090", "readOnly": false,
+	}
+	srv := httptest.NewServer(fake.handler(t))
+	defer srv.Close()
+
+	r := newTestReconciler(srv)
+	claimed := map[string]bool{dsUIDPrometheus: true} // feature enabled
+	// desired is empty — URL was missing so desiredDatasources() skipped it.
+	if err := r.Reconcile(context.Background(), []DesiredDatasource{}, claimed); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	if _, present := fake.store["prometheus"]; !present {
+		t.Errorf("prometheus datasource was deleted despite being claimed; expected it preserved")
+	}
+	for _, req := range fake.requests {
+		if req.method == http.MethodDelete && req.path == "/api/datasources/uid/prometheus" {
+			t.Errorf("unexpected DELETE on claimed prometheus: %#v", req)
+		}
+	}
+}
+
+func TestClaimedDatasources_ReflectsEnabledFlags(t *testing.T) {
+	// claimedDatasources() ignores URL/connection-string presence — it's
+	// purely about user intent. Verifies the hardening pivot: "did the
+	// user ask for this feature to be on?" rather than "is it currently
+	// reconcilable?".
+	cases := []struct {
+		name string
+		s    PluginSettings
+		want map[string]bool
+	}{
+		{
+			name: "both enabled, both URLs/strings empty",
+			s: PluginSettings{
+				PrometheusDatasource: PrometheusDatasourceSettings{Enabled: true},
+				CouchbaseDatasource:  CouchbaseDatasourceSettings{Enabled: true},
+			},
+			want: map[string]bool{dsUIDPrometheus: true, dsUIDCouchbase: true},
+		},
+		{
+			name: "prom enabled, couchbase disabled",
+			s: PluginSettings{
+				PrometheusDatasource: PrometheusDatasourceSettings{Enabled: true, URL: "http://x"},
+				CouchbaseDatasource:  CouchbaseDatasourceSettings{Enabled: false},
+			},
+			want: map[string]bool{dsUIDPrometheus: true, dsUIDCouchbase: false},
+		},
+		{
+			name: "neither enabled",
+			s:    PluginSettings{},
+			want: map[string]bool{dsUIDPrometheus: false, dsUIDCouchbase: false},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.s.claimedDatasources()
+			if got[dsUIDPrometheus] != tc.want[dsUIDPrometheus] || got[dsUIDCouchbase] != tc.want[dsUIDCouchbase] {
+				t.Errorf("claimedDatasources() = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
 

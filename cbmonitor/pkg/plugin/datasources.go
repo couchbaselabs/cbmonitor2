@@ -96,7 +96,15 @@ func NewReconciler(ctx context.Context) (*Reconciler, error) {
 // Grafana, then deletes any app-managed UID the user no longer wants
 // (feature toggled off). Errors on individual datasources are logged and
 // accumulated; reconciliation never aborts on the first failure.
-func (r *Reconciler) Reconcile(ctx context.Context, desired []DesiredDatasource) error {
+//
+// `claimed` is the set of app-managed UIDs the user has intent to
+// provision but for which required config (URL, connection string) is
+// currently missing. UIDs in `claimed` but absent from `desired` are
+// skipped during the delete phase — that turns a deployer regression
+// (e.g. missing $PROMETHEUS_URL) into a no-op instead of silently
+// destroying a previously-good datasource. Pass nil to disable this
+// protection (the existing test suite does so).
+func (r *Reconciler) Reconcile(ctx context.Context, desired []DesiredDatasource, claimed map[string]bool) error {
 	ctx, cancel := context.WithTimeout(ctx, reconcileTimeout)
 	defer cancel()
 
@@ -117,9 +125,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, desired []DesiredDatasource)
 
 	// Phase 2: delete any app-managed UID the user no longer wants. A 404
 	// on the GET is fine (nothing to delete); a read-only finding refuses
-	// to delete and surfaces the conflict.
+	// to delete and surfaces the conflict. UIDs the user still intends to
+	// provision but couldn't be reconciled (missing required config) are
+	// left alone — see the `claimed` doc above.
 	for _, uid := range appManagedUIDs {
 		if wanted[uid] {
+			continue
+		}
+		if claimed[uid] {
+			sdklog.DefaultLogger.Warn("cbmonitor reconcile: skipping delete; feature enabled but required config missing", "uid", uid)
 			continue
 		}
 		if err := r.deleteIfPresent(ctx, uid); err != nil {
@@ -342,6 +356,18 @@ func readBodySnippet(body io.Reader) string {
 	const max = 512
 	buf, _ := io.ReadAll(io.LimitReader(body, max))
 	return strings.TrimSpace(string(buf))
+}
+
+// claimedDatasources returns the set of app-managed UIDs the user has
+// expressed intent to have provisioned, regardless of whether the
+// required config (URL / connection string) is present. The reconciler
+// uses this to distinguish "feature disabled — clean up the DS" from
+// "feature enabled but misconfigured — leave the existing DS alone".
+func (s *PluginSettings) claimedDatasources() map[string]bool {
+	return map[string]bool{
+		dsUIDPrometheus: s.PrometheusDatasource.Enabled,
+		dsUIDCouchbase:  s.CouchbaseDatasource.Enabled,
+	}
 }
 
 // desiredDatasources translates the current PluginSettings into the

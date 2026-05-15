@@ -157,7 +157,7 @@ func (a *App) reconcileNow(ctx context.Context) {
 		return
 	}
 
-	if err := r.Reconcile(ctx, desired); err != nil {
+	if err := r.Reconcile(ctx, desired, a.settings.claimedDatasources()); err != nil {
 		a.setReconcileState(ReconcileStatus{
 			Status:         "error",
 			LastError:      err.Error(),
