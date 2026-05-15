@@ -146,12 +146,18 @@ function buildClusterDrilldownPage(snapshotId: string, clusterUid: string, paren
 interface ClusterHeaderProps {
   clusterName: string;
   clusterUid: string;
-  overviewScene: EmbeddedScene;
+  overviewScene: SceneFlexLayout;
 }
 
 // Header for the cluster drilldown: title + identity, plus the overview
-// stats scene rendered inline so the summary lives above the tab strip and
+// stats layout rendered inline so the summary lives above the tab strip and
 // stays mounted across tab switches.
+//
+// The overview wrapper has an explicit pixel height + `overflow: visible`
+// because Grafana's page header is a flex column where any child with
+// `flex-grow: 1` (which `SceneFlexLayout` applies at the root) inflates and
+// overlays the body, blocking clicks on the panels below. Bounding the
+// wrapper height keeps the overview at its intended size.
 function ClusterHeader({ clusterName, clusterUid, overviewScene }: ClusterHeaderProps) {
   return React.createElement(
     'div',
@@ -170,7 +176,7 @@ function ClusterHeader({ clusterName, clusterUid, overviewScene }: ClusterHeader
       : null,
     React.createElement(
       'div',
-      { style: { width: '100%' } },
+      { style: { width: '100%', height: 110, flex: '0 0 auto', display: 'flex' } },
       React.createElement(overviewScene.Component, { model: overviewScene })
     )
   );

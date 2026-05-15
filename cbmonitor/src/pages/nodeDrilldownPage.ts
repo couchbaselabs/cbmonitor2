@@ -129,12 +129,14 @@ function buildNodeDrilldownPage(snapshotId: string, nodeName: string, parent: Sc
 
 interface NodeHeaderProps {
   nodeName: string;
-  overviewScene: EmbeddedScene;
+  overviewScene: SceneFlexLayout;
 }
 
-// Header for the node drilldown: title + the overview stats scene rendered
+// Header for the node drilldown: title + the overview stats layout rendered
 // inline so the summary sits above the tabs and stays mounted across tab
-// switches.
+// switches. The wrapper is height-bounded to keep the page header's flex
+// column from inflating the overview and overlaying the body — see
+// `ClusterHeader` in `clusterDrilldownPage.ts` for the full rationale.
 function NodeHeader({ nodeName, overviewScene }: NodeHeaderProps) {
   return React.createElement(
     'div',
@@ -146,7 +148,7 @@ function NodeHeader({ nodeName, overviewScene }: NodeHeaderProps) {
     ),
     React.createElement(
       'div',
-      { style: { width: '100%' } },
+      { style: { width: '100%', height: 110, flex: '0 0 auto', display: 'flex' } },
       React.createElement(overviewScene.Component, { model: overviewScene })
     )
   );

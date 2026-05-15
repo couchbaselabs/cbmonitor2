@@ -1,37 +1,32 @@
-import { EmbeddedScene, SceneFlexLayout } from '@grafana/scenes';
+import { SceneFlexLayout } from '@grafana/scenes';
 import { BigValueGraphMode } from '@grafana/schema';
 import { SnapshotMetadata } from '../types/snapshot';
 import { createStatPanel } from '../utils/statPanel';
 import { createNoUrlSyncTimeRange, initializeTimeRange } from '../utils/timeRange';
 
-// Shared sizing so cluster + node overviews stay visually consistent.
-// Tall enough for the title + big value + sparkline to render legibly, and
-// a real min-width so the numbers don't get squeezed when the header is
-// narrow — panels wrap to a second row instead.
 const STAT_HEIGHT = 110;
 const STAT_MIN_WIDTH = '180px';
 
 /**
- * Overview scene for a cluster drilldown. Shows headline numbers that span
- * the whole cluster — node count, CPU avg/peak, memory used — which the
- * per-service tabs don't surface in one place. Filters (cluster_uuid) are
- * injected by `createStatPanel` from the active filter service.
+ * Overview layout for a cluster drilldown. Returned as a `SceneFlexLayout`
+ * (not an EmbeddedScene) because EmbeddedScene's container CSS
+ * (`flex-grow: 1; min-height: 100%`) inflates inside the page header slot
+ * and overlays the tab body, blocking clicks on panels below. The layout
+ * carries its own `$timeRange` so query runners walking up the scene graph
+ * find a snapshot-aligned range instead of Grafana's global default.
  */
 export function buildClusterOverviewScene(
     snapshotId: string,
     _clusterUid: string,
     metadata: SnapshotMetadata
-): EmbeddedScene {
-    // Overview is rendered outside the SceneAppPage's scene tree (via
-    // renderTitle), so it needs its own $timeRange — query runners walk up
-    // their own scene graph to find one and otherwise fall back to Grafana's
-    // default global range, which doesn't include the snapshot data.
+): SceneFlexLayout {
     const timeRange = createNoUrlSyncTimeRange();
     initializeTimeRange(timeRange, metadata, undefined);
 
-    const stats = new SceneFlexLayout({
+    return new SceneFlexLayout({
         direction: 'row',
         wrap: 'wrap',
+        $timeRange: timeRange,
         children: [
             createStatPanel('cluster_node_count', 'Nodes', {
                 expr: `count(group by (instance) (sys_cpu_utilization_rate{job="${snapshotId}"}))`,
@@ -64,25 +59,24 @@ export function buildClusterOverviewScene(
             }),
         ],
     });
-
-    return new EmbeddedScene({ body: stats, $timeRange: timeRange });
 }
 
 /**
- * Overview scene for a node drilldown. Same shape as cluster overview but
- * scoped to a single instance (filter injected by `createStatPanel`).
+ * Overview layout for a node drilldown. See `buildClusterOverviewScene` for
+ * why this returns a `SceneFlexLayout` rather than an `EmbeddedScene`.
  */
 export function buildNodeOverviewScene(
     snapshotId: string,
     _nodeName: string,
     metadata: SnapshotMetadata
-): EmbeddedScene {
+): SceneFlexLayout {
     const timeRange = createNoUrlSyncTimeRange();
     initializeTimeRange(timeRange, metadata, undefined);
 
-    const stats = new SceneFlexLayout({
+    return new SceneFlexLayout({
         direction: 'row',
         wrap: 'wrap',
+        $timeRange: timeRange,
         children: [
             createStatPanel('node_avg_cpu', 'Avg CPU %', {
                 expr: `avg(avg_over_time(sys_cpu_utilization_rate{job="${snapshotId}"}[$__range]))`,
@@ -114,7 +108,4 @@ export function buildNodeOverviewScene(
             }),
         ],
     });
-
-    return new EmbeddedScene({ body: stats, $timeRange: timeRange });
 }
-

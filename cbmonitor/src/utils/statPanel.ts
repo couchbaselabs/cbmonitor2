@@ -65,7 +65,10 @@ export function createStatPanel(
 
     return new SceneFlexItem({
         height: options.height ?? 120,
-        width: options.width ?? '40%',
+        // Leave `width` undefined when the caller doesn't supply one so the
+        // panel flex-grows to share the row equally with its siblings —
+        // `minWidth` still triggers wrapping on narrow screens.
+        width: options.width,
         minWidth: options.minWidth ?? '180px',
         body: builder.build(),
     });
