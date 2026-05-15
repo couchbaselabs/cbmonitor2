@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { css } from '@emotion/css';
 import { dateTime, GrafanaTheme2 } from '@grafana/data';
+import { locationService } from '@grafana/runtime';
 import { Drawer, Icon, IconButton, useStyles2 } from '@grafana/ui';
 import { SnapshotMetadata } from 'types/snapshot';
+import { nodeDrilldownUrl } from '../../pages/nodeDrilldownPage';
 
 interface SnapshotDetailsDrawerProps {
     metadata: SnapshotMetadata;
@@ -150,6 +152,39 @@ export function SnapshotDetailsDrawer({ metadata, onClose }: SnapshotDetailsDraw
                         </div>
                     </Section>
                 )}
+
+                {metadata.clusters && metadata.clusters.some((c) => c.targets && c.targets.length > 0) && (
+                    <Section label={`Nodes (${metadata.clusters.reduce((n, c) => n + (c.targets?.length ?? 0), 0)})`}>
+                        <div className={styles.phaseList}>
+                            {metadata.clusters.map((c, i) => (
+                                (c.targets && c.targets.length > 0) ? (
+                                    <div key={c.uid} className={styles.clusterNodesBlock}>
+                                        <div className={styles.clusterNodesHeader}>
+                                            {c.name || `Cluster ${i + 1}`}
+                                        </div>
+                                        <div className={styles.nodeList}>
+                                            {c.targets!.map((target) => (
+                                                <a
+                                                    key={target}
+                                                    href={nodeDrilldownUrl(metadata.snapshotId, target)}
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        locationService.push(nodeDrilldownUrl(metadata.snapshotId, target));
+                                                        onClose();
+                                                    }}
+                                                    className={styles.nodeLink}
+                                                    title={`Open node ${target}`}
+                                                >
+                                                    <Icon name="database" size="xs" /> {target}
+                                                </a>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null
+                            ))}
+                        </div>
+                    </Section>
+                )}
             </div>
         </Drawer>
     );
@@ -269,5 +304,38 @@ const getStyles = (theme: GrafanaTheme2) => ({
         display: inline-flex;
         align-items: center;
         gap: ${theme.spacing(0.5)};
+    `,
+    clusterNodesBlock: css`
+        display: flex;
+        flex-direction: column;
+        gap: ${theme.spacing(0.5)};
+        padding: ${theme.spacing(0.5, 1)};
+        background: ${theme.colors.background.secondary};
+        border-radius: ${theme.shape.radius.default};
+    `,
+    clusterNodesHeader: css`
+        font-weight: ${theme.typography.fontWeightMedium};
+        font-size: ${theme.typography.bodySmall.fontSize};
+        color: ${theme.colors.text.secondary};
+    `,
+    nodeList: css`
+        display: flex;
+        flex-direction: column;
+        gap: ${theme.spacing(0.25)};
+    `,
+    nodeLink: css`
+        font-family: ${theme.typography.fontFamilyMonospace};
+        font-size: ${theme.typography.bodySmall.fontSize};
+        color: ${theme.colors.text.link};
+        text-decoration: none;
+        padding: ${theme.spacing(0.25, 0.5)};
+        border-radius: ${theme.shape.radius.default};
+        display: inline-flex;
+        align-items: center;
+        gap: ${theme.spacing(0.5)};
+        &:hover {
+            background: ${theme.colors.background.canvas};
+            text-decoration: underline;
+        }
     `,
 });

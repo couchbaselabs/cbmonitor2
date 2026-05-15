@@ -8,8 +8,10 @@ import { CBQueryBuilder, AggregationQueryBuilder } from './utils.cbquery';
 import { layoutService } from '../services/layoutService';
 import { dataSourceService } from '../services/datasourceService';
 import { clusterFilterService } from '../services/clusterFilterService';
+import { instanceFilterService } from '../services/instanceFilterService';
 import { DataSourceType } from '../types/datasource';
 import { PROM_DATASOURCE_REF } from '../constants';
+import { ROUTES, prefixRoute } from './utils.routing';
 
 // Global counter for unique panel IDs
 let panelIdCounter = 0;
@@ -163,6 +165,24 @@ export function injectClusterFilter(expr: string, clusterId: string): string {
 }
 
 /**
+ * Inject (or override) an `instance="<value>"` label selector on every metric
+ * selector in the expression. Replaces an existing `instance="..."` rather
+ * than skipping, so per-instance panels — whose dashboard builders hardcode a
+ * specific instance into the expression — are correctly rescoped to the
+ * drilldown's node. Mirrors {@link injectClusterFilter} otherwise.
+ */
+export function injectInstanceFilter(expr: string, instance: string): string {
+    return expr.replace(/(\w+)\{([^}]*)\}/g, (_match, metric, labels) => {
+        if (/\binstance\s*=/.test(labels)) {
+            const replaced = labels.replace(/\binstance\s*=\s*"[^"]*"/, `instance="${instance}"`);
+            return `${metric}{${replaced}}`;
+        }
+        const separator = labels.trim() ? ', ' : '';
+        return `${metric}{${labels}${separator}instance="${instance}"}`;
+    });
+}
+
+/**
  * Create a metric panel with a hardcoded PromQL expression (source of truth).
  *
  * When the active datasource is PromQL, uses the hardcoded `expr` directly.
@@ -197,19 +217,43 @@ export function createMetricPanel(
     const legendTemplate = options.legendFormat
         ? options.legendFormat.replace(/\{\{(\w+)\}\}/g, '${__field.labels.$1}')
         : makeLegendTemplate(options.extraFields);
+    // Data link to the node drilldown: rendered in the tooltip + legend
+    // context menu whenever a series has an `instance` label. Grafana
+    // resolves `${__field.labels.instance}` per-series, so non-instance
+    // series (e.g. fully aggregated) leave the variable empty and the link
+    // becomes harmless. snapshotId is baked in at build time.
+    const nodeLinkUrlTemplate = options.snapshotId
+        ? `${prefixRoute(ROUTES.CBMonitor)}/${encodeURIComponent(options.snapshotId)}/nodes/\${__field.labels.instance}`
+        : undefined;
     panelBuilder.setOverrides((b) => {
-        b.matchFieldsByQuery(metricName).overrideDisplayName(legendTemplate);
+        const m = b.matchFieldsByQuery(metricName).overrideDisplayName(legendTemplate);
+        if (nodeLinkUrlTemplate) {
+            m.overrideLinks([{
+                title: 'Open node ${__field.labels.instance}',
+                url: nodeLinkUrlTemplate,
+                targetBlank: false,
+            }]);
+        }
     });
 
     let queryRunner: SceneQueryRunner;
 
-    // Get current cluster filter
+    // Get current filter state
     const clusterFilter = clusterFilterService.getCurrentCluster();
+    const instanceFilter = instanceFilterService.getCurrentInstance();
 
     if (isPrometheus) {
         // --- PromQL path: use hardcoded expression directly ---
-        // If cluster filter is active, inject it into the PromQL expression
-        const finalExpr = clusterFilter ? injectClusterFilter(options.expr, clusterFilter) : options.expr;
+        // Apply active filters in order: cluster first, then instance (so the
+        // node drilldown's instance scope overrides any per-instance hardcoded
+        // selectors in the dashboard expressions).
+        let finalExpr = options.expr;
+        if (clusterFilter) {
+            finalExpr = injectClusterFilter(finalExpr, clusterFilter);
+        }
+        if (instanceFilter) {
+            finalExpr = injectInstanceFilter(finalExpr, instanceFilter);
+        }
 
         queryRunner = new SceneQueryRunner({
             datasource: PROM_DATASOURCE_REF,
@@ -225,6 +269,7 @@ export function createMetricPanel(
                 `**Metric:** ${metricName} \n`,
                 `**Datasource:** PromQL \n`,
                 clusterFilter ? `**Cluster:** ${clusterFilter} \n` : '',
+                instanceFilter ? `**Instance:** ${instanceFilter} \n` : '',
                 '',
                 '**Query:**',
                 '```promql',
@@ -248,6 +293,10 @@ export function createMetricPanel(
         // If cluster filter is active, add it to the query
         if (clusterFilter) {
             builder.addLabelFilter('cluster', clusterFilter);
+        }
+        // If instance filter is active, scope the SQL++ query to that node.
+        if (instanceFilter) {
+            builder.addLabelFilter('instance', instanceFilter);
         }
 
         queryRunner = builder.buildQueryRunner();

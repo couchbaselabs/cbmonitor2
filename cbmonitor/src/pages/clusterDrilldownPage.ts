@@ -30,22 +30,22 @@ class LoadingScene extends SceneObjectBase<SceneObjectState> {
 
 /**
  * Build the URL for a cluster drilldown page.
- * Shape: `/a/cbmonitor/snapshots/<snapshotId>/cluster/<clusterUid>`.
+ * Shape: `/a/cbmonitor/snapshots/<snapshotId>/clusters/<clusterUid>`.
  */
 export function clusterDrilldownUrl(snapshotId: string, clusterUid: string): string {
   return prefixRoute(
-    `${ROUTES.CBMonitor}/${encodeURIComponent(snapshotId)}/cluster/${encodeURIComponent(clusterUid)}`
+    `${ROUTES.CBMonitor}/${encodeURIComponent(snapshotId)}/clusters/${encodeURIComponent(clusterUid)}`
   );
 }
 
 /**
  * Scenes drilldown registration for the cluster page. Mounts under the
  * snapshot viewer page (`/snapshots/:snapshotId/*`) at the relative path
- * `cluster/:clusterUid`. The `getPage` factory receives `routeMatch.params`
+ * `clusters/:clusterUid`. The `getPage` factory receives `routeMatch.params`
  * with both `snapshotId` (from parent) and `clusterUid` (from this drilldown).
  */
 export const clusterDrilldown: SceneAppDrilldownView = {
-  routePath: 'cluster/:clusterUid/*',
+  routePath: 'clusters/:clusterUid/*',
   getPage: (routeMatch: SceneRouteMatch<{ snapshotId: string; clusterUid: string }>, parent: SceneAppPageLike) => {
     return buildClusterDrilldownPage(routeMatch.params.snapshotId, routeMatch.params.clusterUid, parent);
   },
@@ -55,7 +55,7 @@ function buildClusterDrilldownPage(snapshotId: string, clusterUid: string, paren
   const page = new SceneAppPage({
     title: `Cluster ${clusterUid}`,
     url: clusterDrilldownUrl(snapshotId, clusterUid),
-    routePath: `cluster/:clusterUid/*`,
+    routePath: `clusters/:clusterUid/*`,
     getParentPage: () => parent,
     getScene: () => new EmbeddedScene({
       body: new SceneFlexLayout({
@@ -101,7 +101,7 @@ function buildClusterDrilldownPage(snapshotId: string, clusterUid: string, paren
           services: metadata.services,
           mode: 'single',
           routePrefix: ROUTES.CBMonitor,
-          urlBase: `${ROUTES.CBMonitor}/${encodeURIComponent(snapshotId)}/cluster/${encodeURIComponent(clusterUid)}`,
+          urlBase: `${ROUTES.CBMonitor}/${encodeURIComponent(snapshotId)}/clusters/${encodeURIComponent(clusterUid)}`,
         });
 
         page.setState({
@@ -110,6 +110,10 @@ function buildClusterDrilldownPage(snapshotId: string, clusterUid: string, paren
           $timeRange: timeRange,
           tabs,
           getScene: undefined,
+          renderTitle: () => React.createElement(ClusterHeader, {
+            clusterName,
+            clusterUid,
+          }),
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to load cluster';
@@ -130,4 +134,31 @@ function buildClusterDrilldownPage(snapshotId: string, clusterUid: string, paren
   });
 
   return page;
+}
+
+interface ClusterHeaderProps {
+  clusterName: string;
+  clusterUid: string;
+}
+
+// Header for the cluster drilldown. Node discovery has moved to legend
+// DataLinks on each panel + the Nodes section in `SnapshotDetailsDrawer`, so
+// this header just identifies the cluster.
+function ClusterHeader({ clusterName, clusterUid }: ClusterHeaderProps) {
+  return React.createElement(
+    'div',
+    { style: { display: 'flex', flexDirection: 'column', gap: '4px' } },
+    React.createElement(
+      'h2',
+      { style: { margin: 0, fontSize: '20px' } },
+      `Cluster: ${clusterName}`
+    ),
+    clusterName !== clusterUid
+      ? React.createElement(
+          'div',
+          { style: { fontSize: '12px', opacity: 0.7 } },
+          `UUID: ${clusterUid}`
+        )
+      : null
+  );
 }

@@ -15,6 +15,7 @@ import { ExploreButton } from '../components/DashboardHeader/actions/ExploreButt
 import { MetricsDrilldownButton } from '../components/DashboardHeader/actions/MetricsDrilldownButton';
 import { createNoUrlSyncTimeRange, initializeTimeRange } from '../utils/timeRange';
 import { clusterDrilldown } from './clusterDrilldownPage';
+import { nodeDrilldown } from './nodeDrilldownPage';
 import { loadSnapshot } from '../services/snapshotLoader';
 import { sceneCacheService } from '../services/sceneCache';
 import { clusterFilterService } from '../services/clusterFilterService';
@@ -93,7 +94,7 @@ export const snapshotViewPage = new SceneAppPage({
       ],
     }),
   }),
-  drilldowns: [clusterDrilldown],
+  drilldowns: [clusterDrilldown, nodeDrilldown],
 });
 
 // Activation handler — loads the snapshot for the id in the URL path.

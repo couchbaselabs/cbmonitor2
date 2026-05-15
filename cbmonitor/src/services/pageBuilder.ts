@@ -3,6 +3,7 @@ import { prefixRoute } from '../utils/utils.routing';
 import { getServiceConfigs, getServiceConfig } from '../config/services';
 import { sceneCacheService } from './sceneCache';
 import { clusterFilterService } from './clusterFilterService';
+import { instanceFilterService } from './instanceFilterService';
 import { layoutService } from './layoutService';
 import { SnapshotPhaseRegionsLayer } from '../layers/SnapshotPhaseRegionsLayer';
 import { StatusScene } from '../components/SceneComponents/StatusScene';
@@ -23,7 +24,7 @@ export interface PageBuilderOptions {
      * Optional base URL for single-snapshot tabs. Defaults to
      * `${routePrefix}/${snapshotId}`. Set this when tabs live underneath a
      * deeper path (e.g. a cluster drilldown at
-     * `/snapshots/<id>/cluster/<uid>`) so each tab's URL stays under the
+     * `/snapshots/<id>/clusters/<uid>`) so each tab's URL stays under the
      * drilldown route.
      */
     urlBase?: string;
@@ -116,14 +117,18 @@ function buildSingleSnapshotPage(
         url: prefixRoute(urlPath),
         routePath,
         getScene: () => {
-            // Include cluster filter and hideEmpty in cache key so scenes are recreated when settings change
+            // Include cluster + instance filters and hideEmpty in cache key so
+            // scenes are rebuilt whenever these settings change (drilldown
+            // pages activate filters that the parent doesn't, so the cache
+            // must distinguish those variants).
             const currentCluster = clusterFilterService.getCurrentCluster();
+            const currentInstance = instanceFilterService.getCurrentInstance();
             const hideEmpty = layoutService.getHideEmptyPanels();
             const cacheKey = {
                 snapshotId,
                 serviceKey,
                 dashboardType: config.segment || 'system',
-                additional: `cluster:${currentCluster ?? 'all'}_hideEmpty:${hideEmpty}`
+                additional: `cluster:${currentCluster ?? 'all'}_instance:${currentInstance ?? 'all'}_hideEmpty:${hideEmpty}`
             };
 
             // Check cache first
