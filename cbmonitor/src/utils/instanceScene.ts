@@ -3,6 +3,8 @@ import { getInstancesFromMetricRunner, getInstancesFromProxyPromMetricRunner, pa
 import { layoutService } from '../services/layoutService';
 import { SnapshotPhaseRegionsLayer } from '../layers/SnapshotPhaseRegionsLayer';
 import { createOverlapMetricPanel } from './utils.panelOverlap';
+import { createMetricPanel } from './utils.panel';
+import type { BuilderBranch, MetricContext, ServiceBuilder } from '../dashboards/types';
 
 type OverlapMetricPanelFactoryOptions = Omit<Parameters<typeof createOverlapMetricPanel>[2], 'overlapEndTimeSeconds'>;
 
@@ -105,6 +107,109 @@ export function createInstanceAwareScene(
   });
 
   return new EmbeddedScene({ body: layout, $data: globalLayers });
+}
+
+// -----------------------------------------------------------------------------
+// Unified `ServiceBuilder` bridges
+// -----------------------------------------------------------------------------
+// These adapters let a single per-service `ServiceBuilder` drive both
+// single-snapshot and overlap dashboards. They wrap the existing scene
+// drivers and synthesize the appropriate `MetricContext` for each pass.
+// The per-mode factories (`createMetricPanel` / `createOverlapMetricPanel`)
+// and the underlying drivers stay unchanged.
+
+function makeSingleContext(snapshotId: string, branch: BuilderBranch, instance?: string): MetricContext {
+  return {
+    mode: 'single',
+    branch,
+    jobSelector: `job="${snapshotId}"`,
+    // Single base panels don't inject an instance selector; per-instance
+    // panels inline `instance="<i>"` directly in their PromQL.
+    instanceFilter: '',
+    titleSuffix: '',
+    perInstance: instance,
+    sumBy: (...extras) => ['instance', ...extras].join(', '),
+    // Single legend separator is " , " (matches makeLegendTemplate in utils.panel.ts).
+    legend: (...labels) => ['{{instance}}', ...labels.map((l) => `{{${l}}}`)].join(' , '),
+    panel: (metricName, title, spec) => createMetricPanel(metricName, title, {
+      ...spec,
+      snapshotId,
+    }),
+    modeOnly: (modes, items) => (modes.includes('single') ? items : []),
+  };
+}
+
+function makeOverlapContext(
+  snapshotIds: string,
+  overlapCtx: OverlapPanelBuildContext,
+): MetricContext {
+  const instance = overlapCtx.instance;
+  return {
+    mode: 'overlap',
+    // Overlap reuses the 'base' branch for both with-instance and
+    // without-instance passes; instance shape varies via instanceFilter/sumBy.
+    branch: 'base',
+    jobSelector: `job=~"${snapshotIds}"`,
+    instanceFilter: overlapCtx.instanceFilter,
+    titleSuffix: overlapCtx.titleSuffix,
+    perInstance: instance,
+    sumBy: (...extras) => {
+      const dims = ['job'];
+      if (!instance) {
+        dims.push('instance');
+      }
+      return [...dims, ...extras].join(', ');
+    },
+    // Overlap legend separator is ", " (matches the literal strings used
+    // throughout dashboards/overlap/*).
+    legend: (...labels) => ['{{job}}', '{{instance}}', ...labels.map((l) => `{{${l}}}`)].join(', '),
+    panel: (metricName, title, spec) => overlapCtx.createOverlapMetricPanel(metricName, title, {
+      expr: spec.expr,
+      legendFormat: spec.legendFormat,
+      unit: spec.unit,
+      width: spec.width,
+      height: spec.height,
+    }),
+    modeOnly: (modes, items) => (modes.includes('overlap') ? items : []),
+  };
+}
+
+/**
+ * Single-snapshot scene driver for unified `ServiceBuilder`s. Calls the
+ * builder three ways (base, perInstance for each discovered instance,
+ * or fallback if no instances) and wires the existing
+ * `createInstanceAwareScene` for layout / phase-regions / subscriptions.
+ */
+export function createInstanceAwareSceneFromBuilder(
+  snapshotId: string,
+  builder: ServiceBuilder,
+  options: { instanceMetric: string }
+): EmbeddedScene {
+  return createInstanceAwareScene(
+    snapshotId,
+    options.instanceMetric,
+    () => builder(makeSingleContext(snapshotId, 'base')),
+    (i: string) => builder(makeSingleContext(snapshotId, 'perInstance', i)),
+    () => builder(makeSingleContext(snapshotId, 'fallback')),
+  );
+}
+
+/**
+ * Overlap scene driver for unified `ServiceBuilder`s. Bridges to the
+ * existing `createInstanceAwareOverlapScene` by wrapping its
+ * `OverlapPanelBuildContext` in a `MetricContext` before invoking the
+ * builder.
+ */
+export function createInstanceAwareOverlapSceneFromBuilder(
+  snapshotIds: string,
+  builder: ServiceBuilder,
+  options: InstanceAwareOverlapSceneOptions = {}
+): EmbeddedScene {
+  return createInstanceAwareOverlapScene(
+    snapshotIds,
+    (overlapCtx) => builder(makeOverlapContext(snapshotIds, overlapCtx)),
+    options,
+  );
 }
 
 export function createInstanceAwareOverlapScene(

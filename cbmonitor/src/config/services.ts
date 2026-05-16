@@ -1,5 +1,7 @@
 import { EmbeddedScene } from '@grafana/scenes';
-import { systemMetricsDashboard } from '../dashboards/single/system';
+// `system` uses the unified ServiceBuilder pattern (POC). The remaining 9
+// services still ship dual single/overlap files until migrated.
+import { systemMetricsDashboard, systemOverlapMetricsDashboard } from '../dashboards/system';
 import { clusterManagerMetricsDashboard } from '../dashboards/single/clusterManager';
 import { kvMetricsDashboard } from '../dashboards/single/kv';
 import { indexMetricsDashboard } from '../dashboards/single/index';
@@ -9,7 +11,6 @@ import { xdcrMetricsDashboard } from '../dashboards/single/xdcr';
 import { sgwMetricsDashboard } from '../dashboards/single/sgw';
 import { eventingMetricsDashboard } from '../dashboards/single/eventing';
 import { analyticsMetricsDashboard } from '../dashboards/single/analytics';
-import { systemOverlapMetricsDashboard } from '../dashboards/overlap/systemOverlap';
 import { clusterManagerOverlapMetricsDashboard } from '../dashboards/overlap/clusterManagerOverlap';
 import { kvOverlapMetricsDashboard } from '../dashboards/overlap/kvOverlap';
 import { indexOverlapMetricsDashboard } from '../dashboards/overlap/indexOverlap';

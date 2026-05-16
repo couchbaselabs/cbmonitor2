@@ -97,7 +97,7 @@ type PanelOptions = {
 
     // Shared display options
     unit?: string;
-    width?: string;
+    width?: string | number;
     height?: number;
 };
 
