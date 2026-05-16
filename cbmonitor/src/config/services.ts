@@ -1,45 +1,17 @@
-import { EmbeddedScene } from '@grafana/scenes';
-// All 10 services migrated to the unified ServiceBuilder pattern.
-import { systemMetricsDashboard, systemOverlapMetricsDashboard } from '../dashboards/system';
-import {
-    clusterManagerMetricsDashboard,
-    clusterManagerOverlapMetricsDashboard,
-} from '../dashboards/clusterManager';
-import {
-    eventingMetricsDashboard,
-    eventingOverlapMetricsDashboard,
-} from '../dashboards/eventing';
-import {
-    xdcrMetricsDashboard,
-    xdcrOverlapMetricsDashboard,
-} from '../dashboards/xdcr';
-import {
-    queryMetricsDashboard,
-    queryOverlapMetricsDashboard,
-} from '../dashboards/query';
-import {
-    ftsMetricsDashboard,
-    ftsOverlapMetricsDashboard,
-} from '../dashboards/fts';
-import {
-    analyticsMetricsDashboard,
-    analyticsOverlapMetricsDashboard,
-} from '../dashboards/analytics';
-import {
-    kvMetricsDashboard,
-    kvOverlapMetricsDashboard,
-} from '../dashboards/kv';
-import {
-    indexMetricsDashboard,
-    indexOverlapMetricsDashboard,
-} from '../dashboards/index';
-import {
-    sgwMetricsDashboard,
-    sgwOverlapMetricsDashboard,
-} from '../dashboards/sgw';
+import type { ServiceBuilder } from '../dashboards/types';
+import { systemBuilder } from '../dashboards/system';
+import { clusterManagerBuilder } from '../dashboards/clusterManager';
+import { eventingBuilder } from '../dashboards/eventing';
+import { xdcrBuilder } from '../dashboards/xdcr';
+import { queryBuilder } from '../dashboards/query';
+import { ftsBuilder } from '../dashboards/fts';
+import { analyticsBuilder } from '../dashboards/analytics';
+import { kvBuilder } from '../dashboards/kv';
+import { indexBuilder } from '../dashboards/index';
+import { sgwBuilder } from '../dashboards/sgw';
 
 /**
- * Configuration for a Couchbase service with all metadata needed for UI rendering
+ * Configuration for a Couchbase service.
  */
 export interface ServiceConfig {
     /** Canonical service key (lowercase, no spaces) */
@@ -50,10 +22,21 @@ export interface ServiceConfig {
     segment: string;
     /** Alternative names/aliases for this service */
     aliases: string[];
-    /** Dashboard builder function */
-    dashboardBuilder: (snapshotId: string) => EmbeddedScene;
-    /** Overlap dashboard builder function */
-    overlapDashboardBuilder?: (snapshotIds: string, overlapEndTimeSeconds?: number) => EmbeddedScene;
+    /** Panel emitter; consumed by the scene driver in `pageBuilder.ts`. */
+    builder: ServiceBuilder;
+    /**
+     * Prometheus metric used to discover the set of `instance` values
+     * — drives the per-instance / fallback split in single-mode and
+     * the per-instance rendering pass in overlap-mode.
+     */
+    instanceMetric: string;
+    /**
+     * Optional overlap-mode override. If unset, `instanceMetric` is
+     * used for both modes. Distinct values are usually only needed
+     * when a snapshot-scoped service metric isn't reliably present
+     * in proxy-Prometheus's broader scope.
+     */
+    overlapInstanceMetric?: string;
     /** Always include this service even if not in snapshot */
     alwaysInclude?: boolean;
 }
@@ -68,8 +51,9 @@ export const SERVICE_CONFIGS: ServiceConfig[] = [
         title: 'System Metrics',
         segment: '',
         aliases: [],
-        dashboardBuilder: systemMetricsDashboard,
-        overlapDashboardBuilder: systemOverlapMetricsDashboard,
+        builder: systemBuilder,
+        instanceMetric: 'sys_disk_read_bytes',
+        overlapInstanceMetric: 'sys_cpu_utilization_rate',
         alwaysInclude: true,
     },
     {
@@ -77,72 +61,74 @@ export const SERVICE_CONFIGS: ServiceConfig[] = [
         title: 'KV Metrics',
         segment: 'kv',
         aliases: [],
-        dashboardBuilder: kvMetricsDashboard,
-        overlapDashboardBuilder: kvOverlapMetricsDashboard,
+        builder: kvBuilder,
+        instanceMetric: 'kv_ops',
     },
     {
         key: 'index',
         title: 'Index Metrics',
         segment: 'index',
         aliases: [],
-        dashboardBuilder: indexMetricsDashboard,
-        overlapDashboardBuilder: indexOverlapMetricsDashboard,
+        builder: indexBuilder,
+        instanceMetric: 'index_avg_scan_latency',
+        overlapInstanceMetric: 'index_total_data_size',
     },
     {
         key: 'query',
         title: 'Query Engine Metrics',
         segment: 'query',
         aliases: ['n1ql'],
-        dashboardBuilder: queryMetricsDashboard,
-        overlapDashboardBuilder: queryOverlapMetricsDashboard,
+        builder: queryBuilder,
+        instanceMetric: 'n1ql_requests',
     },
     {
         key: 'fts',
         title: 'FTS Metrics',
         segment: 'fts',
         aliases: [],
-        dashboardBuilder: ftsMetricsDashboard,
-        overlapDashboardBuilder: ftsOverlapMetricsDashboard,
+        builder: ftsBuilder,
+        instanceMetric: 'fts_total_queries',
     },
     {
         key: 'eventing',
         title: 'Eventing Metrics',
         segment: 'eventing',
         aliases: [],
-        dashboardBuilder: eventingMetricsDashboard,
-        overlapDashboardBuilder: eventingOverlapMetricsDashboard,
+        builder: eventingBuilder,
+        instanceMetric: 'eventing_worker_restart_count',
     },
     {
         key: 'sgw',
         title: 'Sync Gateway Metrics',
         segment: 'sgw',
         aliases: ['sync-gateway'],
-        dashboardBuilder: sgwMetricsDashboard,
-        overlapDashboardBuilder: sgwOverlapMetricsDashboard,
+        builder: sgwBuilder,
+        instanceMetric: 'sgw_resource_utilization_system_memory_total',
     },
     {
         key: 'xdcr',
         title: 'XDCR Metrics',
         segment: 'xdcr',
         aliases: [],
-        dashboardBuilder: xdcrMetricsDashboard,
-        overlapDashboardBuilder: xdcrOverlapMetricsDashboard,
+        builder: xdcrBuilder,
+        instanceMetric: 'xdcr_changes_left_total',
     },
     {
         key: 'analytics',
         title: 'Analytics Metrics',
         segment: 'analytics',
         aliases: ['cbas'],
-        dashboardBuilder: analyticsMetricsDashboard,
-        overlapDashboardBuilder: analyticsOverlapMetricsDashboard,
+        builder: analyticsBuilder,
+        instanceMetric: 'cbas_io_writes_total',
     },
     {
         key: 'cluster_manager',
         title: 'Cluster Manager Metrics',
         segment: 'cluster-manager',
         aliases: [],
-        dashboardBuilder: clusterManagerMetricsDashboard,
-        overlapDashboardBuilder: clusterManagerOverlapMetricsDashboard,
+        builder: clusterManagerBuilder,
+        instanceMetric: 'cm_http_requests_total',
+        overlapInstanceMetric: 'sys_cpu_utilization_rate',
         alwaysInclude: true,
     },
 ];

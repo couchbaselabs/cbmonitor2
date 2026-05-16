@@ -1,8 +1,4 @@
-import { EmbeddedScene, SceneFlexItem } from '@grafana/scenes';
-import {
-    createInstanceAwareOverlapSceneFromBuilder,
-    createInstanceAwareSceneFromBuilder,
-} from 'utils/instanceScene';
+import { SceneFlexItem } from '@grafana/scenes';
 import type { MetricContext, ServiceBuilder } from './types';
 
 /**
@@ -56,18 +52,3 @@ function simpleFtsPanel(ctx: MetricContext, metric: string, title: string, unit:
     });
 }
 
-export function ftsMetricsDashboard(snapshotId: string): EmbeddedScene {
-    return createInstanceAwareSceneFromBuilder(snapshotId, ftsBuilder, {
-        instanceMetric: 'fts_total_queries',
-    });
-}
-
-export function ftsOverlapMetricsDashboard(
-    snapshotIds: string,
-    overlapEndTimeSeconds?: number,
-): EmbeddedScene {
-    return createInstanceAwareOverlapSceneFromBuilder(snapshotIds, ftsBuilder, {
-        instanceMetric: 'fts_total_queries',
-        overlapEndTimeSeconds,
-    });
-}

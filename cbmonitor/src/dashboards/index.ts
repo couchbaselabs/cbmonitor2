@@ -1,8 +1,4 @@
-import { EmbeddedScene, SceneFlexItem } from '@grafana/scenes';
-import {
-    createInstanceAwareOverlapSceneFromBuilder,
-    createInstanceAwareSceneFromBuilder,
-} from 'utils/instanceScene';
+import { SceneFlexItem } from '@grafana/scenes';
 import type { MetricContext, ServiceBuilder } from './types';
 
 // TODO: add a way to select which indexes you want to compare
@@ -141,18 +137,3 @@ function singleDetailPanelAggregated(ctx: MetricContext, metric: string, title: 
     });
 }
 
-export function indexMetricsDashboard(snapshotId: string): EmbeddedScene {
-    return createInstanceAwareSceneFromBuilder(snapshotId, indexBuilder, {
-        instanceMetric: 'index_avg_scan_latency',
-    });
-}
-
-export function indexOverlapMetricsDashboard(
-    snapshotIds: string,
-    overlapEndTimeSeconds?: number,
-): EmbeddedScene {
-    return createInstanceAwareOverlapSceneFromBuilder(snapshotIds, indexBuilder, {
-        instanceMetric: 'index_total_data_size',
-        overlapEndTimeSeconds,
-    });
-}

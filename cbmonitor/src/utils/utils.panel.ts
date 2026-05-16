@@ -2,7 +2,7 @@
 // SQL++ queries are still generated from parameters via CBQueryBuilder when that datasource is active.
 // In the future, SQL++ queries will be derived from the PromQL expressions.
 
-import { PanelBuilders, SceneDataTransformer, SceneFlexItem, SceneFlexLayout, SceneQueryRunner, SceneDataState } from '@grafana/scenes';
+import { PanelBuilders, SceneDataTransformer, SceneFlexItem, SceneQueryRunner, SceneDataState } from '@grafana/scenes';
 import { TooltipDisplayMode, LegendDisplayMode } from '@grafana/schema';
 import { CBQueryBuilder, AggregationQueryBuilder } from './utils.cbquery';
 import { layoutService } from '../services/layoutService';
@@ -47,25 +47,6 @@ export function hasDataValues(dataState: SceneDataState | undefined): boolean {
     }
     
     return false;
-}
-
-/**
- * Create a SceneFlexLayout - simple wrapper for consistency.
- */
-export function createFlexLayout(options: {
-    direction?: 'row' | 'column';
-    wrap?: 'wrap' | 'nowrap';
-    minHeight?: number;
-    children: SceneFlexItem[];
-}): SceneFlexLayout {
-    const { direction = 'row', wrap = 'wrap', minHeight = 50, children } = options;
-    
-    return new SceneFlexLayout({
-        direction,
-        wrap,
-        minHeight,
-        children,
-    });
 }
 
 export function getNewTimeSeriesDataTransformer(queryRunner: SceneQueryRunner) {

@@ -1,8 +1,3 @@
-import { EmbeddedScene } from '@grafana/scenes';
-import {
-    createInstanceAwareOverlapSceneFromBuilder,
-    createInstanceAwareSceneFromBuilder,
-} from 'utils/instanceScene';
 import type { ServiceBuilder } from './types';
 
 /**
@@ -108,22 +103,3 @@ export const systemBuilder: ServiceBuilder = (ctx) => {
     ];
 };
 
-// Thin adapters that match the existing service-config signatures.
-// Once all 10 services are migrated, services.ts can collapse to a
-// single `builder: ServiceBuilder` field and these adapters become
-// unnecessary.
-
-export function systemMetricsDashboard(snapshotId: string): EmbeddedScene {
-    return createInstanceAwareSceneFromBuilder(snapshotId, systemBuilder, {
-        instanceMetric: 'sys_disk_read_bytes',
-    });
-}
-
-export function systemOverlapMetricsDashboard(
-    snapshotIds: string,
-    overlapEndTimeSeconds?: number,
-): EmbeddedScene {
-    return createInstanceAwareOverlapSceneFromBuilder(snapshotIds, systemBuilder, {
-        overlapEndTimeSeconds,
-    });
-}

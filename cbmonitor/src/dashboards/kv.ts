@@ -1,8 +1,4 @@
-import { EmbeddedScene, SceneFlexItem } from '@grafana/scenes';
-import {
-    createInstanceAwareOverlapSceneFromBuilder,
-    createInstanceAwareSceneFromBuilder,
-} from 'utils/instanceScene';
+import { SceneFlexItem } from '@grafana/scenes';
 import type { MetricContext, ServiceBuilder } from './types';
 
 /**
@@ -154,18 +150,3 @@ function dcpPanel(ctx: MetricContext, metric: string, title: string, unit: strin
     });
 }
 
-export function kvMetricsDashboard(snapshotId: string): EmbeddedScene {
-    return createInstanceAwareSceneFromBuilder(snapshotId, kvBuilder, {
-        instanceMetric: 'kv_ops',
-    });
-}
-
-export function kvOverlapMetricsDashboard(
-    snapshotIds: string,
-    overlapEndTimeSeconds?: number,
-): EmbeddedScene {
-    return createInstanceAwareOverlapSceneFromBuilder(snapshotIds, kvBuilder, {
-        instanceMetric: 'kv_ops',
-        overlapEndTimeSeconds,
-    });
-}

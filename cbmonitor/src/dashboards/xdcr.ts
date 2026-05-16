@@ -1,8 +1,3 @@
-import { EmbeddedScene } from '@grafana/scenes';
-import {
-    createInstanceAwareOverlapSceneFromBuilder,
-    createInstanceAwareSceneFromBuilder,
-} from 'utils/instanceScene';
 import type { ServiceBuilder } from './types';
 
 /**
@@ -79,18 +74,3 @@ export const xdcrBuilder: ServiceBuilder = (ctx) => {
     ];
 };
 
-export function xdcrMetricsDashboard(snapshotId: string): EmbeddedScene {
-    return createInstanceAwareSceneFromBuilder(snapshotId, xdcrBuilder, {
-        instanceMetric: 'xdcr_changes_left_total',
-    });
-}
-
-export function xdcrOverlapMetricsDashboard(
-    snapshotIds: string,
-    overlapEndTimeSeconds?: number,
-): EmbeddedScene {
-    return createInstanceAwareOverlapSceneFromBuilder(snapshotIds, xdcrBuilder, {
-        instanceMetric: 'xdcr_changes_left_total',
-        overlapEndTimeSeconds,
-    });
-}

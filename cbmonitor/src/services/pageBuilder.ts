@@ -1,13 +1,16 @@
 import { SceneAppPage, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneTimeRange, SceneDataLayerSet } from '@grafana/scenes';
 import { prefixRoute } from '../utils/utils.routing';
-import { getServiceConfigs, getServiceConfig } from '../config/services';
+import { getServiceConfigs, getServiceConfig, type ServiceConfig } from '../config/services';
 import { sceneCacheService } from './sceneCache';
 import { clusterFilterService } from './clusterFilterService';
 import { instanceFilterService } from './instanceFilterService';
 import { layoutService } from './layoutService';
 import { SnapshotPhaseRegionsLayer } from '../layers/SnapshotPhaseRegionsLayer';
 import { StatusScene } from '../components/SceneComponents/StatusScene';
-import { PlaceholderScene } from '../components/SceneComponents/PlaceholderScene';
+import {
+    createInstanceAwareScene,
+    createInstanceAwareOverlapScene,
+} from '../utils/instanceScene';
 
 /**
  * Options for building service tabs/pages
@@ -86,6 +89,17 @@ export function buildServiceTabs(options: PageBuilderOptions): SceneAppPage[] {
 }
 
 /**
+ * Drive a service's panel builder through the single-mode scene driver.
+ * Single shared helper used by both the single-snapshot view and the
+ * side-by-side comparison view (one scene per snapshot).
+ */
+function buildSingleScene(config: ServiceConfig, snapshotId: string): EmbeddedScene {
+    return createInstanceAwareScene(snapshotId, config.builder, {
+        instanceMetric: config.instanceMetric,
+    });
+}
+
+/**
  * Build a page for a single snapshot and service.
  * Uses caching to avoid recreating scenes on tab switches.
  */
@@ -134,7 +148,7 @@ function buildSingleSnapshotPage(
             // Check cache first
             if (!sceneCacheService.hasScene(cacheKey)) {
                 // Create and cache the scene
-                const scene = config.dashboardBuilder(snapshotId);
+                const scene = buildSingleScene(config, snapshotId);
                 sceneCacheService.setScene(cacheKey, scene);
 
                 // Attach global phase regions layer
@@ -211,18 +225,9 @@ function buildComparisonPage(
             // If overlap mode is enabled
             if (overlapMode) {
                 const overlapSnapshotIds = snapshotIds.join('|');
-                if (config.overlapDashboardBuilder) {
-                    return config.overlapDashboardBuilder(overlapSnapshotIds, overlapEndTimeSeconds);
-                }
-                return new EmbeddedScene({
-                    body: new SceneFlexLayout({
-                        direction: 'row',
-                        children: [
-                            new SceneFlexItem({
-                                body: new PlaceholderScene({ text: 'Overlap view coming soon' }) as any
-                            })
-                        ],
-                    }),
+                return createInstanceAwareOverlapScene(overlapSnapshotIds, config.builder, {
+                    instanceMetric: config.overlapInstanceMetric ?? config.instanceMetric,
+                    overlapEndTimeSeconds,
                 });
             }
 
@@ -240,7 +245,7 @@ function buildComparisonPage(
                 // Check cache first
                 let scene = sceneCacheService.getScene(cacheKey);
                 if (!scene) {
-                    scene = config.dashboardBuilder(sid);
+                    scene = buildSingleScene(config, sid);
 
                     // Match single-snapshot behavior: attach phase annotations
                     // unless the dashboard scene already provides its own data layer.

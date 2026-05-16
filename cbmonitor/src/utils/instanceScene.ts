@@ -6,258 +6,195 @@ import { createOverlapMetricPanel } from './utils.panelOverlap';
 import { createMetricPanel } from './utils.panel';
 import type { BuilderBranch, MetricContext, ServiceBuilder } from '../dashboards/types';
 
-type OverlapMetricPanelFactoryOptions = Omit<Parameters<typeof createOverlapMetricPanel>[2], 'overlapEndTimeSeconds'>;
+export interface InstanceAwareSceneOptions {
+    instanceMetric: string;
+}
 
-export type OverlapPanelBuildContext = {
-  instance?: string;
-  titleSuffix: string;
-  instanceFilter: string;
-  instanceSumBySuffix: string;
-  overlapEndTimeSeconds?: number;
-  createOverlapMetricPanel: (
-    metricName: string,
-    title: string,
-    options: OverlapMetricPanelFactoryOptions
-  ) => SceneFlexItem;
-};
-
-export type InstanceAwareOverlapSceneOptions = {
-  instanceMetric?: string;
-  overlapEndTimeSeconds?: number;
-};
-
-function createOverlapPanelBuildContext(instance?: string, overlapEndTimeSeconds?: number): OverlapPanelBuildContext {
-  return {
-    instance,
-    titleSuffix: instance ? ` - ${instance}` : '',
-    instanceFilter: instance ? `, instance="${instance}"` : '',
-    instanceSumBySuffix: instance ? '' : ', instance',
-    overlapEndTimeSeconds,
-    createOverlapMetricPanel: (metricName, title, options) => createOverlapMetricPanel(metricName, title, {
-      ...options,
-      overlapEndTimeSeconds,
-    }),
-  };
+export interface InstanceAwareOverlapSceneOptions {
+    instanceMetric: string;
+    overlapEndTimeSeconds?: number;
 }
 
 /**
- * Build an EmbeddedScene with base panels and dynamic per-instance panels.
- * - Reads optional ?layout=rows|grid from URL and syncs to layoutService
- * - Rebuilds panels when instances or layout mode change
- * - Sets flex direction to column when in rows mode
+ * Single-mode `MetricContext`. The single panel factory injects
+ * `instance="<i>"` selectors directly in per-instance / fallback PromQL,
+ * so `instanceFilter` is always empty here; per-instance variants pull
+ * the instance value from `perInstance`.
+ */
+function makeSingleContext(snapshotId: string, branch: BuilderBranch, instance?: string): MetricContext {
+    return {
+        mode: 'single',
+        branch,
+        jobSelector: `job="${snapshotId}"`,
+        instanceFilter: '',
+        titleSuffix: '',
+        perInstance: instance,
+        sumBy: (...extras) => ['instance', ...extras].join(', '),
+        // Matches makeLegendTemplate() in utils.panel.ts — " , " separator.
+        legend: (...labels) => ['{{instance}}', ...labels.map((l) => `{{${l}}}`)].join(' , '),
+        panel: (metricName, title, spec) => createMetricPanel(metricName, title, {
+            ...spec,
+            snapshotId,
+        }),
+        modeOnly: (modes, items) => (modes.includes('single') ? items : []),
+    };
+}
+
+/**
+ * Overlap-mode `MetricContext`. Used for both with-instance and
+ * without-instance passes — shape variations are expressed via
+ * `instanceFilter` / `sumBy()`. Always uses `branch: 'base'` since
+ * overlap doesn't have separate perInstance / fallback branches.
+ */
+function makeOverlapContext(
+    snapshotIds: string,
+    instance: string | undefined,
+    overlapEndTimeSeconds: number | undefined,
+): MetricContext {
+    return {
+        mode: 'overlap',
+        branch: 'base',
+        jobSelector: `job=~"${snapshotIds}"`,
+        instanceFilter: instance ? `, instance="${instance}"` : '',
+        titleSuffix: instance ? ` - ${instance}` : '',
+        perInstance: instance,
+        sumBy: (...extras) => {
+            const dims = ['job'];
+            if (!instance) {
+                dims.push('instance');
+            }
+            return [...dims, ...extras].join(', ');
+        },
+        legend: (...labels) => ['{{job}}', '{{instance}}', ...labels.map((l) => `{{${l}}}`)].join(', '),
+        panel: (metricName, title, spec) => createOverlapMetricPanel(metricName, title, {
+            expr: spec.expr,
+            legendFormat: spec.legendFormat,
+            unit: spec.unit,
+            width: spec.width,
+            height: spec.height,
+            overlapEndTimeSeconds,
+        }),
+        modeOnly: (modes, items) => (modes.includes('overlap') ? items : []),
+    };
+}
+
+/**
+ * Single-snapshot scene driver. Calls `builder` once with `branch: 'base'`
+ * for the always-emitted aggregated panels, then either once per
+ * discovered instance with `branch: 'perInstance'`, or once with
+ * `branch: 'fallback'` when no instances are reported. Wires layout-mode
+ * reactivity and a `SnapshotPhaseRegionsLayer` data layer so all panels
+ * inherit phase annotations.
  */
 export function createInstanceAwareScene(
-  snapshotId: string,
-  instanceMetric: string,
-  buildBaseChildren: () => SceneFlexItem[],
-  buildPerInstancePanels: (instance: string) => SceneFlexItem[],
-  buildFallbackPanels: () => SceneFlexItem[]
+    snapshotId: string,
+    builder: ServiceBuilder,
+    options: InstanceAwareSceneOptions,
 ): EmbeddedScene {
-  // Sync URL layout param to layoutService (if present)
-  if (typeof window !== 'undefined') {
-    const params = new URLSearchParams(window.location.search);
-    const p = params.get('layout');
-    if (p === 'rows' || p === 'grid') {
-      layoutService.setLayout(p as 'rows' | 'grid');
+    // Sync URL ?layout=rows|grid to layoutService at mount time.
+    if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const p = params.get('layout');
+        if (p === 'rows' || p === 'grid') {
+            layoutService.setLayout(p);
+        }
     }
-  }
 
-  const layout = new SceneFlexLayout({
-    minHeight: 55,
-    direction: layoutService.getLayout() === 'rows' ? 'column' : 'row',
-    wrap: 'wrap',
-    children: buildBaseChildren(),
-  });
+    const layout = new SceneFlexLayout({
+        minHeight: 55,
+        direction: layoutService.getLayout() === 'rows' ? 'column' : 'row',
+        wrap: 'wrap',
+        children: builder(makeSingleContext(snapshotId, 'base')),
+    });
 
-  const instancesRunner = getInstancesFromMetricRunner(snapshotId, instanceMetric);
-  layout.setState({ $data: instancesRunner });
-  (instancesRunner as any).run?.();
+    const instancesRunner = getInstancesFromMetricRunner(snapshotId, options.instanceMetric);
+    layout.setState({ $data: instancesRunner });
+    (instancesRunner as any).run?.();
 
-  let currentInstances: string[] = [];
+    let currentInstances: string[] = [];
 
-  const rebuild = () => {
-    const base = buildBaseChildren();
-    let perInstancePanels: SceneFlexItem[] = [];
-    if (currentInstances && currentInstances.length > 0) {
-      for (const i of currentInstances) {
-        perInstancePanels.push(...buildPerInstancePanels(i));
-      }
-    } else {
-      perInstancePanels = buildFallbackPanels();
-    }
-    layout.setState({ children: [...base, ...perInstancePanels] });
-  };
+    const rebuild = () => {
+        const base = builder(makeSingleContext(snapshotId, 'base'));
+        let perInstancePanels: SceneFlexItem[] = [];
+        if (currentInstances.length > 0) {
+            for (const i of currentInstances) {
+                perInstancePanels.push(...builder(makeSingleContext(snapshotId, 'perInstance', i)));
+            }
+        } else {
+            perInstancePanels = builder(makeSingleContext(snapshotId, 'fallback'));
+        }
+        layout.setState({ children: [...base, ...perInstancePanels] });
+    };
 
-  instancesRunner.subscribeToState((state: any) => {
-    const frames = state?.data?.series ?? [];
-    currentInstances = parseInstancesFromFrames(frames);
+    instancesRunner.subscribeToState((state: any) => {
+        const frames = state?.data?.series ?? [];
+        currentInstances = parseInstancesFromFrames(frames);
+        rebuild();
+    });
+
+    layoutService.subscribe((mode) => {
+        layout.setState({ direction: mode === 'rows' ? 'column' : 'row' });
+        rebuild();
+    });
+
     rebuild();
-  });
 
-  layoutService.subscribe((mode) => {
-    layout.setState({ direction: mode === 'rows' ? 'column' : 'row' });
-    rebuild();
-  });
+    const globalLayers = new SceneDataLayerSet({
+        layers: [new SnapshotPhaseRegionsLayer({ isEnabled: true, snapshotId, name: 'Snapshot Phases' })],
+    });
 
-  rebuild();
-
-  // Attach global snapshot phase regions as a data layer so all panels inherit annotations
-  const globalLayers = new SceneDataLayerSet({
-    layers: [new SnapshotPhaseRegionsLayer({ isEnabled: true, snapshotId, name: 'Snapshot Phases' })],
-  });
-
-  return new EmbeddedScene({ body: layout, $data: globalLayers });
-}
-
-// -----------------------------------------------------------------------------
-// Unified `ServiceBuilder` bridges
-// -----------------------------------------------------------------------------
-// These adapters let a single per-service `ServiceBuilder` drive both
-// single-snapshot and overlap dashboards. They wrap the existing scene
-// drivers and synthesize the appropriate `MetricContext` for each pass.
-// The per-mode factories (`createMetricPanel` / `createOverlapMetricPanel`)
-// and the underlying drivers stay unchanged.
-
-function makeSingleContext(snapshotId: string, branch: BuilderBranch, instance?: string): MetricContext {
-  return {
-    mode: 'single',
-    branch,
-    jobSelector: `job="${snapshotId}"`,
-    // Single base panels don't inject an instance selector; per-instance
-    // panels inline `instance="<i>"` directly in their PromQL.
-    instanceFilter: '',
-    titleSuffix: '',
-    perInstance: instance,
-    sumBy: (...extras) => ['instance', ...extras].join(', '),
-    // Single legend separator is " , " (matches makeLegendTemplate in utils.panel.ts).
-    legend: (...labels) => ['{{instance}}', ...labels.map((l) => `{{${l}}}`)].join(' , '),
-    panel: (metricName, title, spec) => createMetricPanel(metricName, title, {
-      ...spec,
-      snapshotId,
-    }),
-    modeOnly: (modes, items) => (modes.includes('single') ? items : []),
-  };
-}
-
-function makeOverlapContext(
-  snapshotIds: string,
-  overlapCtx: OverlapPanelBuildContext,
-): MetricContext {
-  const instance = overlapCtx.instance;
-  return {
-    mode: 'overlap',
-    // Overlap reuses the 'base' branch for both with-instance and
-    // without-instance passes; instance shape varies via instanceFilter/sumBy.
-    branch: 'base',
-    jobSelector: `job=~"${snapshotIds}"`,
-    instanceFilter: overlapCtx.instanceFilter,
-    titleSuffix: overlapCtx.titleSuffix,
-    perInstance: instance,
-    sumBy: (...extras) => {
-      const dims = ['job'];
-      if (!instance) {
-        dims.push('instance');
-      }
-      return [...dims, ...extras].join(', ');
-    },
-    // Overlap legend separator is ", " (matches the literal strings used
-    // throughout dashboards/overlap/*).
-    legend: (...labels) => ['{{job}}', '{{instance}}', ...labels.map((l) => `{{${l}}}`)].join(', '),
-    panel: (metricName, title, spec) => overlapCtx.createOverlapMetricPanel(metricName, title, {
-      expr: spec.expr,
-      legendFormat: spec.legendFormat,
-      unit: spec.unit,
-      width: spec.width,
-      height: spec.height,
-    }),
-    modeOnly: (modes, items) => (modes.includes('overlap') ? items : []),
-  };
+    return new EmbeddedScene({ body: layout, $data: globalLayers });
 }
 
 /**
- * Single-snapshot scene driver for unified `ServiceBuilder`s. Calls the
- * builder three ways (base, perInstance for each discovered instance,
- * or fallback if no instances) and wires the existing
- * `createInstanceAwareScene` for layout / phase-regions / subscriptions.
+ * Overlap (multi-snapshot) scene driver. Calls `builder` once per
+ * discovered instance group (with `instance` set so the context filters
+ * to that instance), or once with `instance` unset when no instances are
+ * reported. Always uses `branch: 'base'` — overlap doesn't distinguish
+ * perInstance / fallback the way single does.
  */
-export function createInstanceAwareSceneFromBuilder(
-  snapshotId: string,
-  builder: ServiceBuilder,
-  options: { instanceMetric: string }
-): EmbeddedScene {
-  return createInstanceAwareScene(
-    snapshotId,
-    options.instanceMetric,
-    () => builder(makeSingleContext(snapshotId, 'base')),
-    (i: string) => builder(makeSingleContext(snapshotId, 'perInstance', i)),
-    () => builder(makeSingleContext(snapshotId, 'fallback')),
-  );
-}
-
-/**
- * Overlap scene driver for unified `ServiceBuilder`s. Bridges to the
- * existing `createInstanceAwareOverlapScene` by wrapping its
- * `OverlapPanelBuildContext` in a `MetricContext` before invoking the
- * builder.
- */
-export function createInstanceAwareOverlapSceneFromBuilder(
-  snapshotIds: string,
-  builder: ServiceBuilder,
-  options: InstanceAwareOverlapSceneOptions = {}
-): EmbeddedScene {
-  return createInstanceAwareOverlapScene(
-    snapshotIds,
-    (overlapCtx) => builder(makeOverlapContext(snapshotIds, overlapCtx)),
-    options,
-  );
-}
-
 export function createInstanceAwareOverlapScene(
-  snapshotIds: string,
-  buildPanels: (context: OverlapPanelBuildContext) => SceneFlexItem[],
-  options: InstanceAwareOverlapSceneOptions = {}
+    snapshotIds: string,
+    builder: ServiceBuilder,
+    options: InstanceAwareOverlapSceneOptions,
 ): EmbeddedScene {
-  const instanceMetric = options.instanceMetric ?? 'sys_cpu_utilization_rate';
-  const resolvedOverlapEndTimeSeconds = options.overlapEndTimeSeconds;
+    const layout = new SceneFlexLayout({
+        minHeight: 55,
+        direction: layoutService.getLayout() === 'rows' ? 'column' : 'row',
+        wrap: 'wrap',
+        children: [],
+    });
 
-  const initialLayout = layoutService.getLayout();
-  const layout = new SceneFlexLayout({
-    minHeight: 55,
-    direction: initialLayout === 'rows' ? 'column' : 'row',
-    wrap: 'wrap',
-    children: [],
-  });
+    const instancesRunner = getInstancesFromProxyPromMetricRunner(snapshotIds, options.instanceMetric);
+    layout.setState({ $data: instancesRunner });
+    (instancesRunner as any).run?.();
 
-  const instancesRunner = getInstancesFromProxyPromMetricRunner(snapshotIds, instanceMetric);
-  layout.setState({ $data: instancesRunner });
-  (instancesRunner as any).run?.();
+    let currentInstances: string[] = [];
 
-  let currentInstances: string[] = [];
+    const rebuild = () => {
+        let perInstancePanels: SceneFlexItem[] = [];
+        if (currentInstances.length > 0) {
+            for (const i of currentInstances) {
+                perInstancePanels.push(...builder(makeOverlapContext(snapshotIds, i, options.overlapEndTimeSeconds)));
+            }
+        } else {
+            perInstancePanels = builder(makeOverlapContext(snapshotIds, undefined, options.overlapEndTimeSeconds));
+        }
+        layout.setState({ children: perInstancePanels });
+    };
 
-  const rebuild = () => {
-    let perInstancePanels: SceneFlexItem[] = [];
-    if (currentInstances && currentInstances.length > 0) {
-      for (const i of currentInstances) {
-        perInstancePanels.push(...buildPanels(createOverlapPanelBuildContext(i, resolvedOverlapEndTimeSeconds)));
-      }
-    } else {
-      perInstancePanels = buildPanels(createOverlapPanelBuildContext(undefined, resolvedOverlapEndTimeSeconds));
-    }
-    layout.setState({ children: [...perInstancePanels] });
-  };
+    instancesRunner.subscribeToState((state: any) => {
+        const frames = state?.data?.series ?? [];
+        currentInstances = parseInstancesFromFrames(frames);
+        rebuild();
+    });
 
-  instancesRunner.subscribeToState((state: any) => {
-    const frames = state?.data?.series ?? [];
-    currentInstances = parseInstancesFromFrames(frames);
+    layoutService.subscribe((mode) => {
+        layout.setState({ direction: mode === 'rows' ? 'column' : 'row' });
+        rebuild();
+    });
+
     rebuild();
-  });
 
-  layoutService.subscribe((mode) => {
-    layout.setState({ direction: mode === 'rows' ? 'column' : 'row' });
-    rebuild();
-  });
-
-  rebuild();
-
-  return new EmbeddedScene({ body: layout });
+    return new EmbeddedScene({ body: layout });
 }

@@ -1,8 +1,4 @@
-import { EmbeddedScene, SceneFlexItem } from '@grafana/scenes';
-import {
-    createInstanceAwareOverlapSceneFromBuilder,
-    createInstanceAwareSceneFromBuilder,
-} from 'utils/instanceScene';
+import { SceneFlexItem } from '@grafana/scenes';
 import type { MetricContext, ServiceBuilder } from './types';
 
 /**
@@ -86,18 +82,3 @@ function simpleN1qlPanel(ctx: MetricContext, metric: string, title: string, unit
     });
 }
 
-export function queryMetricsDashboard(snapshotId: string): EmbeddedScene {
-    return createInstanceAwareSceneFromBuilder(snapshotId, queryBuilder, {
-        instanceMetric: 'n1ql_requests',
-    });
-}
-
-export function queryOverlapMetricsDashboard(
-    snapshotIds: string,
-    overlapEndTimeSeconds?: number,
-): EmbeddedScene {
-    return createInstanceAwareOverlapSceneFromBuilder(snapshotIds, queryBuilder, {
-        instanceMetric: 'n1ql_requests',
-        overlapEndTimeSeconds,
-    });
-}

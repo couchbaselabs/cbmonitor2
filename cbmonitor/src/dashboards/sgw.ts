@@ -1,8 +1,4 @@
-import { EmbeddedScene, SceneFlexItem } from '@grafana/scenes';
-import {
-    createInstanceAwareOverlapSceneFromBuilder,
-    createInstanceAwareSceneFromBuilder,
-} from 'utils/instanceScene';
+import { SceneFlexItem } from '@grafana/scenes';
 import type { MetricContext, ServiceBuilder } from './types';
 
 // Tuple shape used by every SGW metric table: [metric, title, unit, rate?]
@@ -14,7 +10,7 @@ type SgwMetric = readonly [metric: string, title: string, unit: string, rate: bo
  * Overlap mode aggregates with `sum by (job)` (no `instance`), which
  * collapses series across instances for snapshot-to-snapshot comparison.
  */
-const SGW_RESOURCE_METRICS: ReadonlyArray<SgwMetric> = [
+const SGW_RESOURCE_METRICS: readonly SgwMetric[] = [
     ['sgw_resource_utilization_process_memory_resident',    'Process Memory Resident',          'bytes', false],
     ['sgw_resource_utilization_system_memory_total',        'System Memory Total',              'bytes', false],
     ['sgw_resource_utilization_pub_net_bytes_sent',         'Public Network Bytes Sent/Sec',    'Bps',   true],
@@ -39,7 +35,7 @@ const SGW_RESOURCE_METRICS: ReadonlyArray<SgwMetric> = [
  * Cache metrics — all share the database-scoped shape:
  * single: `sum by (instance, database)`, overlap: `sum by (job, database)`.
  */
-const SGW_CACHE_METRICS: ReadonlyArray<SgwMetric> = [
+const SGW_CACHE_METRICS: readonly SgwMetric[] = [
     ['sgw_cache_chan_cache_max_entries',                  'Channel Cache Max Entries',                       'short', false],
     ['sgw_cache_chan_cache_hits',                         'Channel Cache Hits/Sec',                          'short', true],
     ['sgw_cache_chan_cache_misses',                       'Channel Cache Misses/Sec',                        'short', true],
@@ -62,7 +58,7 @@ const SGW_CACHE_METRICS: ReadonlyArray<SgwMetric> = [
     ['sgw_cache_current_skipped_seq_count',               'Cache Current Skipped Sequences/Sec',             'short', true],
 ];
 
-const SGW_DATABASE_METRICS: ReadonlyArray<SgwMetric> = [
+const SGW_DATABASE_METRICS: readonly SgwMetric[] = [
     ['sgw_database_sequence_get_count',          'Database Sequence Gets/Sec',                  'short', true],
     ['sgw_database_sequence_incr_count',         'Database Sequence Increments/Sec',            'short', true],
     ['sgw_database_sequence_reserved_count',     'Database Sequence Reservations/Sec',          'short', true],
@@ -92,7 +88,7 @@ const SGW_DATABASE_METRICS: ReadonlyArray<SgwMetric> = [
     ['sgw_database_conflict_write_count',        'Database Conflict Writes/Sec',                'short', true],
 ];
 
-const SGW_REPLICATION_PUSH_METRICS: ReadonlyArray<SgwMetric> = [
+const SGW_REPLICATION_PUSH_METRICS: readonly SgwMetric[] = [
     ['sgw_replication_push_doc_push_count',          'Replication Push Document Count',                       'short', false],
     ['sgw_replication_push_write_processing_time',   'Replication Push Write Processing Time',                'ms',    false],
     ['sgw_replication_push_propose_change_time',     'Replication Push Propose Change Time Rate (ns/sec)',    'short', true],
@@ -101,7 +97,7 @@ const SGW_REPLICATION_PUSH_METRICS: ReadonlyArray<SgwMetric> = [
     ['sgw_replication_push_attachment_push_bytes',   'Replication Push Attachment Bytes/Sec',                 'Bps',   true],
 ];
 
-const SGW_REPLICATION_PULL_METRICS: ReadonlyArray<SgwMetric> = [
+const SGW_REPLICATION_PULL_METRICS: readonly SgwMetric[] = [
     ['sgw_replication_pull_num_pull_repl_active_one_shot',    'Replication Pull Active One-Shot',                        'short', false],
     ['sgw_replication_pull_num_pull_repl_active_continuous',  'Replication Pull Active Continuous',                      'short', false],
     ['sgw_replication_pull_num_pull_repl_total_one_shot',     'Replication Pull Total One-Shot',                         'short', false],
@@ -118,7 +114,7 @@ const SGW_REPLICATION_PULL_METRICS: ReadonlyArray<SgwMetric> = [
     ['sgw_replication_pull_attachment_pull_bytes',            'Replication Pull Attachment Bytes/Sec',                   'Bps',   true],
 ];
 
-const SGW_SECURITY_METRICS: ReadonlyArray<SgwMetric> = [
+const SGW_SECURITY_METRICS: readonly SgwMetric[] = [
     ['sgw_security_num_docs_rejected',   'Security Documents Rejected/Sec',  'short', true],
     ['sgw_security_num_access_errors',   'Security Access Errors/Sec',       'short', true],
     ['sgw_security_auth_success_count',  'Security Auth Successes/Sec',      'short', true],
@@ -203,18 +199,3 @@ function sgwDatabasePanel(ctx: MetricContext, [metric, title, unit, rate]: SgwMe
     });
 }
 
-export function sgwMetricsDashboard(snapshotId: string): EmbeddedScene {
-    return createInstanceAwareSceneFromBuilder(snapshotId, sgwBuilder, {
-        instanceMetric: 'sgw_resource_utilization_system_memory_total',
-    });
-}
-
-export function sgwOverlapMetricsDashboard(
-    snapshotIds: string,
-    overlapEndTimeSeconds?: number,
-): EmbeddedScene {
-    return createInstanceAwareOverlapSceneFromBuilder(snapshotIds, sgwBuilder, {
-        instanceMetric: 'sgw_resource_utilization_system_memory_total',
-        overlapEndTimeSeconds,
-    });
-}

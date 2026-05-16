@@ -1,8 +1,3 @@
-import { EmbeddedScene } from '@grafana/scenes';
-import {
-    createInstanceAwareOverlapSceneFromBuilder,
-    createInstanceAwareSceneFromBuilder,
-} from 'utils/instanceScene';
 import type { ServiceBuilder } from './types';
 
 // TODO: Revisit this dashboard to make it more useful.
@@ -90,17 +85,3 @@ export const clusterManagerBuilder: ServiceBuilder = (ctx) => {
     ];
 };
 
-export function clusterManagerMetricsDashboard(snapshotId: string): EmbeddedScene {
-    return createInstanceAwareSceneFromBuilder(snapshotId, clusterManagerBuilder, {
-        instanceMetric: 'cm_http_requests_total',
-    });
-}
-
-export function clusterManagerOverlapMetricsDashboard(
-    snapshotIds: string,
-    overlapEndTimeSeconds?: number,
-): EmbeddedScene {
-    return createInstanceAwareOverlapSceneFromBuilder(snapshotIds, clusterManagerBuilder, {
-        overlapEndTimeSeconds,
-    });
-}

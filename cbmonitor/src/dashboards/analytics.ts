@@ -1,8 +1,4 @@
-import { EmbeddedScene, SceneFlexItem } from '@grafana/scenes';
-import {
-    createInstanceAwareOverlapSceneFromBuilder,
-    createInstanceAwareSceneFromBuilder,
-} from 'utils/instanceScene';
+import { SceneFlexItem } from '@grafana/scenes';
 import type { MetricContext, ServiceBuilder } from './types';
 
 /**
@@ -70,18 +66,3 @@ function simpleCbasPanel(ctx: MetricContext, metric: string, title: string, unit
     });
 }
 
-export function analyticsMetricsDashboard(snapshotId: string): EmbeddedScene {
-    return createInstanceAwareSceneFromBuilder(snapshotId, analyticsBuilder, {
-        instanceMetric: 'cbas_io_writes_total',
-    });
-}
-
-export function analyticsOverlapMetricsDashboard(
-    snapshotIds: string,
-    overlapEndTimeSeconds?: number,
-): EmbeddedScene {
-    return createInstanceAwareOverlapSceneFromBuilder(snapshotIds, analyticsBuilder, {
-        instanceMetric: 'cbas_io_writes_total',
-        overlapEndTimeSeconds,
-    });
-}
