@@ -1,8 +1,11 @@
 import { EmbeddedScene } from '@grafana/scenes';
-// `system` uses the unified ServiceBuilder pattern (POC). The remaining 9
-// services still ship dual single/overlap files until migrated.
+// Migrated to the unified ServiceBuilder pattern: system, clusterManager.
+// The remaining 8 services still ship dual single/overlap files.
 import { systemMetricsDashboard, systemOverlapMetricsDashboard } from '../dashboards/system';
-import { clusterManagerMetricsDashboard } from '../dashboards/single/clusterManager';
+import {
+    clusterManagerMetricsDashboard,
+    clusterManagerOverlapMetricsDashboard,
+} from '../dashboards/clusterManager';
 import { kvMetricsDashboard } from '../dashboards/single/kv';
 import { indexMetricsDashboard } from '../dashboards/single/index';
 import { queryMetricsDashboard } from '../dashboards/single/query';
@@ -11,7 +14,6 @@ import { xdcrMetricsDashboard } from '../dashboards/single/xdcr';
 import { sgwMetricsDashboard } from '../dashboards/single/sgw';
 import { eventingMetricsDashboard } from '../dashboards/single/eventing';
 import { analyticsMetricsDashboard } from '../dashboards/single/analytics';
-import { clusterManagerOverlapMetricsDashboard } from '../dashboards/overlap/clusterManagerOverlap';
 import { kvOverlapMetricsDashboard } from '../dashboards/overlap/kvOverlap';
 import { indexOverlapMetricsDashboard } from '../dashboards/overlap/indexOverlap';
 import { queryOverlapMetricsDashboard } from '../dashboards/overlap/queryOverlap';
