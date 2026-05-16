@@ -1,6 +1,6 @@
 import { EmbeddedScene } from '@grafana/scenes';
-// Migrated to the unified ServiceBuilder pattern: system, clusterManager, eventing, xdcr, query, fts.
-// The remaining 4 services still ship dual single/overlap files.
+// Migrated to the unified ServiceBuilder pattern: system, clusterManager, eventing, xdcr, query, fts, analytics.
+// The remaining 3 services still ship dual single/overlap files.
 import { systemMetricsDashboard, systemOverlapMetricsDashboard } from '../dashboards/system';
 import {
     clusterManagerMetricsDashboard,
@@ -22,14 +22,16 @@ import {
     ftsMetricsDashboard,
     ftsOverlapMetricsDashboard,
 } from '../dashboards/fts';
+import {
+    analyticsMetricsDashboard,
+    analyticsOverlapMetricsDashboard,
+} from '../dashboards/analytics';
 import { kvMetricsDashboard } from '../dashboards/single/kv';
 import { indexMetricsDashboard } from '../dashboards/single/index';
 import { sgwMetricsDashboard } from '../dashboards/single/sgw';
-import { analyticsMetricsDashboard } from '../dashboards/single/analytics';
 import { kvOverlapMetricsDashboard } from '../dashboards/overlap/kvOverlap';
 import { indexOverlapMetricsDashboard } from '../dashboards/overlap/indexOverlap';
 import { sgwOverlapMetricsDashboard } from '../dashboards/overlap/sgwOverlap';
-import { analyticsOverlapMetricsDashboard } from '../dashboards/overlap/analyticsOverlap';
 
 /**
  * Configuration for a Couchbase service with all metadata needed for UI rendering
