@@ -1,6 +1,5 @@
 import { EmbeddedScene } from '@grafana/scenes';
-// Migrated to the unified ServiceBuilder pattern: system, clusterManager, eventing, xdcr, query, fts, analytics, kv, index.
-// SGW is the last remaining dual-file service.
+// All 10 services migrated to the unified ServiceBuilder pattern.
 import { systemMetricsDashboard, systemOverlapMetricsDashboard } from '../dashboards/system';
 import {
     clusterManagerMetricsDashboard,
@@ -34,8 +33,10 @@ import {
     indexMetricsDashboard,
     indexOverlapMetricsDashboard,
 } from '../dashboards/index';
-import { sgwMetricsDashboard } from '../dashboards/single/sgw';
-import { sgwOverlapMetricsDashboard } from '../dashboards/overlap/sgwOverlap';
+import {
+    sgwMetricsDashboard,
+    sgwOverlapMetricsDashboard,
+} from '../dashboards/sgw';
 
 /**
  * Configuration for a Couchbase service with all metadata needed for UI rendering
