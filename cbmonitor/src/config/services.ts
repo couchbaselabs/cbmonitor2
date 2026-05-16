@@ -1,6 +1,6 @@
 import { EmbeddedScene } from '@grafana/scenes';
-// Migrated to the unified ServiceBuilder pattern: system, clusterManager, eventing, xdcr.
-// The remaining 6 services still ship dual single/overlap files.
+// Migrated to the unified ServiceBuilder pattern: system, clusterManager, eventing, xdcr, query.
+// The remaining 5 services still ship dual single/overlap files.
 import { systemMetricsDashboard, systemOverlapMetricsDashboard } from '../dashboards/system';
 import {
     clusterManagerMetricsDashboard,
@@ -14,15 +14,17 @@ import {
     xdcrMetricsDashboard,
     xdcrOverlapMetricsDashboard,
 } from '../dashboards/xdcr';
+import {
+    queryMetricsDashboard,
+    queryOverlapMetricsDashboard,
+} from '../dashboards/query';
 import { kvMetricsDashboard } from '../dashboards/single/kv';
 import { indexMetricsDashboard } from '../dashboards/single/index';
-import { queryMetricsDashboard } from '../dashboards/single/query';
 import { ftsMetricsDashboard } from '../dashboards/single/fts';
 import { sgwMetricsDashboard } from '../dashboards/single/sgw';
 import { analyticsMetricsDashboard } from '../dashboards/single/analytics';
 import { kvOverlapMetricsDashboard } from '../dashboards/overlap/kvOverlap';
 import { indexOverlapMetricsDashboard } from '../dashboards/overlap/indexOverlap';
-import { queryOverlapMetricsDashboard } from '../dashboards/overlap/queryOverlap';
 import { ftsOverlapMetricsDashboard } from '../dashboards/overlap/ftsOverlap';
 import { sgwOverlapMetricsDashboard } from '../dashboards/overlap/sgwOverlap';
 import { analyticsOverlapMetricsDashboard } from '../dashboards/overlap/analyticsOverlap';
