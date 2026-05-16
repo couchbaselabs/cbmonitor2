@@ -120,7 +120,13 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 // Snapshots (metadata) bucket. Only called when Snapshots.Enabled is true.
 // Services are owned by App.initServices / App.Dispose.
 func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
-	snapshotHandler := handlers.NewSnapshotHandler(a.snapshotService, a.couchbaseService, a.settings.Snapshots.Bucket)
+	snapshotHandler := handlers.NewSnapshotHandler(
+		a.snapshotService,
+		a.couchbaseService,
+		a.prometheusService,
+		a.settings.DefaultDataSource,
+		a.settings.Snapshots.Bucket,
+	)
 
 	mux.HandleFunc("/snapshots/", func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/snapshots/")

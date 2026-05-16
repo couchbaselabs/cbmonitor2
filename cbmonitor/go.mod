@@ -5,6 +5,7 @@ go 1.24.6
 require (
 	github.com/couchbase/gocb/v2 v2.9.3
 	github.com/grafana/grafana-plugin-sdk-go v0.281.0
+	github.com/prometheus/common v0.67.1
 	github.com/prometheus/prometheus v0.307.3
 )
 
@@ -59,7 +60,6 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.67.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect

@@ -1,6 +1,6 @@
 # CBMonitor API Reference
 
-This document describes the available API endpoints for querying Couchbase monitoring data. 
+This document describes the available API endpoints for querying Couchbase monitoring data.
 
 If you are using the Grafana plugin, you can access the API at `http://localhost:3000/api/plugins/cbmonitor/resources/`. For the used setup, all endpoints are accessible via `/api/v1/` prefix through the Nginx reverse proxy.
 
@@ -115,13 +115,16 @@ GET /api/v1/snapshots/faa940df-70a5-46fa-aeee-2f02747a903d/metrics/kv_ops/summar
     "avg": 1250.5,
     "min": 800.2,
     "max": 2000.8,
-    "p50": 1240.3,
-    "p80": 1500.7,
-    "p95": 1800.2,
-    "p99": 1950.5
+    "percentiles": {
+      "0.5": 1240.3,
+      "0.9": 1800.2,
+      "0.99": 1950.5
+    }
   }
 }
 ```
+
+The `percentiles` map always includes the defaults `0.5`, `0.9`, `0.99`. Any custom percentiles requested via `?percentiles=` are merged into the same map.
 </details>
 
 ### GET /api/v1/snapshots/{id}/metrics/{metric_name}/phases/{phase_name}
@@ -189,10 +192,11 @@ GET /api/v1/snapshots/faa940df-70a5-46fa-aeee-2f02747a903d/metrics/kv_ops/phases
     "avg": 1250.5,
     "min": 800.2,
     "max": 2000.8,
-    "p50": 1240.3,
-    "p80": 1500.7,
-    "p95": 1800.2,
-    "p99": 1950.5
+    "percentiles": {
+      "0.5": 1240.3,
+      "0.9": 1800.2,
+      "0.99": 1950.5
+    }
   }
 }
 ```
@@ -203,8 +207,11 @@ GET /api/v1/snapshots/faa940df-70a5-46fa-aeee-2f02747a903d/metrics/kv_ops/phases
 All endpoints support label filters. The label filters are specified as query parameters. The label filters are applied to the metric data.
 
 **Query Parameters:**
-- `percentiles` (`p`) (optional): Comma-separated list of percentile values (0.0-1.0). Defaults to `0.5,0.8,0.95,0.99`.
-- `key=value` (optional): Label filter. Can be specified multiple times.
+- `percentiles` (`p`) (optional): Comma-separated list of percentile values (0.0-1.0) to compute in addition to the defaults `0.5`, `0.9`, `0.99`. Custom values are merged into the same `summary.percentiles` map.
+- `step` (optional, Mimir backend only): Query resolution step (e.g. `15s`, `1m`). Defaults to `15s`. Ignored on the Couchbase backend.
+- `key=value` (optional): Label filter. Can be specified multiple times. Each entry is applied as a plain label match against the stored metric labels.
+
+The active metrics backend (Couchbase or Mimir) is determined by the plugin configuration (`PrometheusDatasource.IsDefault`) and is transparent to API consumers; response shapes are identical across backends.
 
 **Example Request:**
 ```

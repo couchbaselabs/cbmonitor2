@@ -37,8 +37,9 @@ type App struct {
 	// Long-lived services owned by this App instance. nil when the
 	// corresponding feature toggle is off or initialization failed. Closed
 	// in Dispose().
-	snapshotService  *services.SnapshotService
-	couchbaseService *services.CouchbaseService
+	snapshotService   *services.SnapshotService
+	couchbaseService  *services.CouchbaseService
+	prometheusService *services.PrometheusService
 
 	reconcileOnce  sync.Once
 	reconcileMu    sync.RWMutex
@@ -115,6 +116,17 @@ func (a *App) initServices() {
 			sdklog.DefaultLogger.Error("initServices: CouchbaseService init failed", "error", err.Error())
 		} else {
 			a.couchbaseService = c
+		}
+	}
+
+	if a.settings.PrometheusDatasource.Enabled && a.settings.PrometheusDatasource.URL != "" {
+		prom := a.settings.PrometheusDatasource
+		sdklog.DefaultLogger.Info("initServices: opening Prometheus metrics service", "url", prom.URL)
+		p, err := services.NewPrometheusService(prom.URL, nil)
+		if err != nil {
+			sdklog.DefaultLogger.Error("initServices: PrometheusService init failed", "error", err.Error())
+		} else {
+			a.prometheusService = p
 		}
 	}
 }
@@ -204,6 +216,12 @@ func (a *App) Dispose() {
 			sdklog.DefaultLogger.Warn("Dispose: CouchbaseService.Close error", "error", err.Error())
 		}
 		a.couchbaseService = nil
+	}
+	if a.prometheusService != nil {
+		if err := a.prometheusService.Close(); err != nil {
+			sdklog.DefaultLogger.Warn("Dispose: PrometheusService.Close error", "error", err.Error())
+		}
+		a.prometheusService = nil
 	}
 }
 
