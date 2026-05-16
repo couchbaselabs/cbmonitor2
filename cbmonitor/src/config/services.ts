@@ -1,6 +1,6 @@
 import { EmbeddedScene } from '@grafana/scenes';
-// Migrated to the unified ServiceBuilder pattern: system, clusterManager, eventing, xdcr, query, fts, analytics, kv.
-// The remaining 2 services still ship dual single/overlap files.
+// Migrated to the unified ServiceBuilder pattern: system, clusterManager, eventing, xdcr, query, fts, analytics, kv, index.
+// SGW is the last remaining dual-file service.
 import { systemMetricsDashboard, systemOverlapMetricsDashboard } from '../dashboards/system';
 import {
     clusterManagerMetricsDashboard,
@@ -30,9 +30,11 @@ import {
     kvMetricsDashboard,
     kvOverlapMetricsDashboard,
 } from '../dashboards/kv';
-import { indexMetricsDashboard } from '../dashboards/single/index';
+import {
+    indexMetricsDashboard,
+    indexOverlapMetricsDashboard,
+} from '../dashboards/index';
 import { sgwMetricsDashboard } from '../dashboards/single/sgw';
-import { indexOverlapMetricsDashboard } from '../dashboards/overlap/indexOverlap';
 import { sgwOverlapMetricsDashboard } from '../dashboards/overlap/sgwOverlap';
 
 /**
