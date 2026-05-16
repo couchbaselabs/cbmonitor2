@@ -17,6 +17,11 @@ import (
 	"github.com/couchbase/cbmonitor/pkg/services"
 )
 
+// defaultFallbackWindow is the time window used when snapshot metadata
+// is unavailable (snapshots service disabled, transient fetch error,
+// or unparseable ts_start/ts_end). The window ends at time.Now().
+const defaultFallbackWindow = 15 * time.Minute
+
 // metricSource is the per-backend fetcher used by the snapshot metric handlers.
 // Two implementations exist: one against Couchbase and one against a Prometheus-compatible HTTP API.
 // The handler picks one per request based on plugin settings; the choice is transparent to callers.
@@ -311,29 +316,37 @@ func (h *SnapshotHandler) buildMetricRequest(req *http.Request, snapshotID, metr
 	return mr, http.StatusOK, nil
 }
 
-// resolveTimeRange fetches snapshot metadata and returns the relevant
-// time window. For the full-snapshot path it returns the metadata's
-// ts_start/ts_end. For a phase request it returns that phase's
-// ts_start/ts_end if the phase exists; otherwise the snapshot window
-// (matching the Couchbase path's "no rows" behaviour for unknown
-// phases, but giving Mimir a valid range to query).
+// resolveTimeRange returns the time window for a metric query. When
+// snapshot metadata is available it returns the snapshot or phase
+// ts_start/ts_end. When metadata is unavailable (service disabled,
+// transient fetch error, or unparseable timestamps) it falls back to
+// time.Now() minus defaultFallbackWindow so the caller can still serve
+// timeseries data instead of erroring out. A "not found" error from the
+// snapshot service stays strict and surfaces as HTTP 404 — we don't
+// want to mask typo'd snapshot IDs by silently returning live data.
 func (h *SnapshotHandler) resolveTimeRange(ctx context.Context, snapshotID, phaseName string) (time.Time, time.Time, int, error) {
+	fallback := func() (time.Time, time.Time, int, error) {
+		now := time.Now().UTC()
+		return now.Add(-defaultFallbackWindow), now, http.StatusOK, nil
+	}
+
 	if h.snapshotService == nil {
-		return time.Time{}, time.Time{}, http.StatusServiceUnavailable,
-			fmt.Errorf("snapshot service is not available")
+		log.Printf("snapshot service unavailable; serving metric %s with fallback %s window", snapshotID, defaultFallbackWindow)
+		return fallback()
 	}
 	snapshotData, err := h.snapshotService.GetSnapshotByID(ctx, snapshotID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return time.Time{}, time.Time{}, http.StatusNotFound, fmt.Errorf("snapshot not found: %s", snapshotID)
 		}
-		return time.Time{}, time.Time{}, http.StatusInternalServerError, fmt.Errorf("fetch snapshot metadata: %w", err)
+		log.Printf("snapshot metadata fetch failed for %s (%v); serving fallback %s window", snapshotID, err, defaultFallbackWindow)
+		return fallback()
 	}
 
 	start, end, ok := parseSnapshotWindow(snapshotData.Metadata.TSStart, snapshotData.Metadata.TSEnd)
 	if !ok {
-		return time.Time{}, time.Time{}, http.StatusInternalServerError,
-			fmt.Errorf("snapshot %s has invalid ts_start/ts_end", snapshotID)
+		log.Printf("snapshot %s has unparseable ts_start/ts_end; serving fallback %s window", snapshotID, defaultFallbackWindow)
+		return fallback()
 	}
 
 	if phaseName == "" {
@@ -344,15 +357,13 @@ func (h *SnapshotHandler) resolveTimeRange(ctx context.Context, snapshotID, phas
 		if phase.Label == phaseName {
 			pStart, pEnd, ok := parseSnapshotWindow(phase.TSStart, phase.TSEnd)
 			if !ok {
-				return time.Time{}, time.Time{}, http.StatusInternalServerError,
-					fmt.Errorf("phase %q has invalid ts_start/ts_end", phaseName)
+				log.Printf("phase %q in snapshot %s has unparseable ts_start/ts_end; falling back to snapshot window", phaseName, snapshotID)
+				return start, end, http.StatusOK, nil
 			}
 			return pStart, pEnd, http.StatusOK, nil
 		}
 	}
 
-	// Unknown phase: fall back to the full snapshot window so the
-	// caller gets an empty result rather than an error.
 	log.Printf("phase %q not found in snapshot %s metadata; using full snapshot window", phaseName, snapshotID)
 	return start, end, http.StatusOK, nil
 }

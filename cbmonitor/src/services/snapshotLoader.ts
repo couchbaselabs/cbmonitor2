@@ -1,6 +1,33 @@
 import { snapshotService } from './snapshotService';
-import { SnapshotMetadata } from '../types/snapshot';
-import { findCommonServices } from '../config/services';
+import { SnapshotData, SnapshotMetadata } from '../types/snapshot';
+import { findCommonServices, SERVICE_CONFIGS } from '../config/services';
+
+const FALLBACK_WINDOW_MS = 15 * 60 * 1000;
+
+function isSnapshotNotFoundError(err: unknown): boolean {
+    if (err instanceof Error) {
+        const msg = err.message.toLowerCase();
+        return msg.includes('http 404') || msg.includes('not found');
+    }
+    return false;
+}
+
+function buildFallbackSnapshot(snapshotId: string): SnapshotData {
+    const end = new Date();
+    const start = new Date(end.getTime() - FALLBACK_WINDOW_MS);
+    const services = SERVICE_CONFIGS.map((c) => c.key);
+    return {
+        metadata: {
+            snapshotId,
+            services,
+            version: '',
+            ts_start: start.toISOString(),
+            ts_end: end.toISOString(),
+            phases: [],
+        },
+        data: {},
+    };
+}
 
 /**
  * A snapshot with its metadata exposed for convenience
@@ -26,8 +53,23 @@ export async function loadSnapshot(snapshotId: string): Promise<LoadedSnapshot> 
     let snapshot = snapshotService.getStoredSnapshotData(snapshotId);
 
     if (!snapshot) {
-        snapshot = await snapshotService.getSnapshot(snapshotId);
-        snapshotService.storeSnapshotData(snapshotId, snapshot);
+        try {
+            snapshot = await snapshotService.getSnapshot(snapshotId);
+            snapshotService.storeSnapshotData(snapshotId, snapshot);
+        } catch (err) {
+            if (isSnapshotNotFoundError(err)) {
+                throw err;
+            }
+            // Metadata unavailable (snapshots feature disabled or transient
+            // fetch error). Synthesize a fallback window so panels can still
+            // render — the backend honors the same convention on its side.
+            // Do not persist the fallback so a later navigation will retry.
+            console.warn(
+                `Snapshot metadata unavailable for ${snapshotId}; using a ${FALLBACK_WINDOW_MS / 60000}-minute fallback window.`,
+                err
+            );
+            snapshot = buildFallbackSnapshot(snapshotId);
+        }
     }
 
     return {

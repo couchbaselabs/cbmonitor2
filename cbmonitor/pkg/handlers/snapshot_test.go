@@ -313,6 +313,115 @@ func TestHandleGetMetric_invalidPath(t *testing.T) {
 	}
 }
 
+func TestHandleGetMetric_prometheusNilSnapshotServiceFallsBackToDefaultWindow(t *testing.T) {
+	fakeProm := &fakeMetricSource{}
+	h := newTestHandler(t, "prometheus", nil, nil, fakeProm)
+	h.snapshotService = nil
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/snapshots/snap-1/metrics/kv_ops", nil)
+	before := time.Now().UTC()
+	h.HandleGetMetric(rec, req)
+	after := time.Now().UTC()
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	if !fakeProm.called {
+		t.Fatal("expected prometheus source to be called with fallback window")
+	}
+	assertFallbackWindow(t, fakeProm.gotReq.Start, fakeProm.gotReq.End, before, after)
+}
+
+func TestHandleGetMetric_prometheusMetadataTransientErrorFallsBack(t *testing.T) {
+	snap := &fakeSnapshotService{err: fmt.Errorf("couchbase: connection refused")}
+	fakeProm := &fakeMetricSource{}
+	h := newTestHandler(t, "prometheus", snap, nil, fakeProm)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/snapshots/snap-1/metrics/kv_ops", nil)
+	before := time.Now().UTC()
+	h.HandleGetMetric(rec, req)
+	after := time.Now().UTC()
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	if !fakeProm.called {
+		t.Fatal("expected prometheus source to be called on transient metadata failure")
+	}
+	assertFallbackWindow(t, fakeProm.gotReq.Start, fakeProm.gotReq.End, before, after)
+}
+
+func TestHandleGetMetric_prometheusUnparseableTimestampsFallBack(t *testing.T) {
+	bad := &models.SnapshotData{
+		Metadata: models.SnapshotMetadata{
+			SnapshotID: "snap-1",
+			TSStart:    "not-a-timestamp",
+			TSEnd:      "also-bad",
+		},
+	}
+	snap := &fakeSnapshotService{byID: map[string]*models.SnapshotData{"snap-1": bad}}
+	fakeProm := &fakeMetricSource{}
+	h := newTestHandler(t, "prometheus", snap, nil, fakeProm)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/snapshots/snap-1/metrics/kv_ops", nil)
+	before := time.Now().UTC()
+	h.HandleGetMetric(rec, req)
+	after := time.Now().UTC()
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	assertFallbackWindow(t, fakeProm.gotReq.Start, fakeProm.gotReq.End, before, after)
+}
+
+func TestHandleGetMetricPhase_unparseablePhaseTimestampsFallBackToSnapshotWindow(t *testing.T) {
+	data := &models.SnapshotData{
+		Metadata: models.SnapshotMetadata{
+			SnapshotID: "snap-1",
+			TSStart:    "2025-01-01T00:00:00Z",
+			TSEnd:      "2025-01-01T01:00:00Z",
+			Phases: []models.Phase{
+				{Label: "access", TSStart: "bogus", TSEnd: "also-bogus"},
+			},
+		},
+	}
+	snap := &fakeSnapshotService{byID: map[string]*models.SnapshotData{"snap-1": data}}
+	fakeProm := &fakeMetricSource{}
+	h := newTestHandler(t, "prometheus", snap, nil, fakeProm)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/snapshots/snap-1/metrics/kv_ops/phases/access", nil)
+	h.HandleGetMetricPhase(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	wantStart, _ := time.Parse(time.RFC3339, "2025-01-01T00:00:00Z")
+	wantEnd, _ := time.Parse(time.RFC3339, "2025-01-01T01:00:00Z")
+	if !fakeProm.gotReq.Start.Equal(wantStart) || !fakeProm.gotReq.End.Equal(wantEnd) {
+		t.Errorf("expected snapshot-window fallback for bad phase; got %v..%v", fakeProm.gotReq.Start, fakeProm.gotReq.End)
+	}
+}
+
+// assertFallbackWindow checks that [start,end] looks like a
+// defaultFallbackWindow-wide range ending at "now". Allows a small slop
+// to absorb the time elapsed between the handler call and the test
+// reading wall clock.
+func assertFallbackWindow(t *testing.T, start, end, before, after time.Time) {
+	t.Helper()
+	const slop = 2 * time.Second
+	if end.Before(before.Add(-slop)) || end.After(after.Add(slop)) {
+		t.Errorf("fallback end = %v, want within [%v, %v]", end, before, after)
+	}
+	got := end.Sub(start)
+	if got < defaultFallbackWindow-slop || got > defaultFallbackWindow+slop {
+		t.Errorf("fallback window = %v, want ~%v", got, defaultFallbackWindow)
+	}
+}
+
 func mustDecode(t *testing.T, body string, v interface{}) {
 	t.Helper()
 	if err := json.NewDecoder(strings.NewReader(body)).Decode(v); err != nil {

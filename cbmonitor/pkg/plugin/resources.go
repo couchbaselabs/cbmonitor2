@@ -111,13 +111,15 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 		a.setupPrometheusRoutes(mux)
 	}
 
-	if a.settings.Snapshots.Enabled {
+	if a.settings.Snapshots.Enabled || a.settings.PrometheusDatasource.Enabled {
 		a.setupSnapshotRoutes(mux)
 	}
 }
 
-// setupSnapshotRoutes registers the snapshot API routes against the
-// Snapshots (metadata) bucket. Only called when Snapshots.Enabled is true.
+// setupSnapshotRoutes registers the snapshot API routes. Called when
+// Snapshots.Enabled is true (full path) OR when only Prometheus is enabled
+// (metric routes work with a synthesized fallback time window when
+// snapshotService is nil; the metadata route still 503s in that mode).
 // Services are owned by App.initServices / App.Dispose.
 func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
 	snapshotHandler := handlers.NewSnapshotHandler(

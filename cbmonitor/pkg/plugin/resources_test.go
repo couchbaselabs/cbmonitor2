@@ -202,11 +202,45 @@ func TestCallResource_SettingsValidWhenAccepted(t *testing.T) {
 }
 
 func TestCallResource_SnapshotRoutesGatedByToggle(t *testing.T) {
-	// Snapshots OFF → /snapshots/foo should 404.
-	app := newAppWithSettings(t, defaultSettings())
+	// Snapshots OFF and Prometheus OFF → /snapshots/foo should 404 (no route registered).
+	settings := &PluginSettings{
+		Snapshots:            SnapshotsSettings{Enabled: false},
+		CouchbaseDatasource:  CouchbaseDatasourceSettings{Enabled: false},
+		PrometheusDatasource: PrometheusDatasourceSettings{Enabled: false},
+	}
+	app := newAppWithSettings(t, settings)
 	resp := call(t, app, http.MethodGet, "snapshots/foo", nil)
 	if resp.Status != http.StatusNotFound {
-		t.Errorf("snapshots route with Snapshots off: status = %d, want 404", resp.Status)
+		t.Errorf("snapshots route with both features off: status = %d, want 404", resp.Status)
+	}
+}
+
+func TestCallResource_SnapshotMetricRoutesRegisteredWhenPrometheusEnabled(t *testing.T) {
+	// With Snapshots OFF but Prometheus enabled, the snapshot metric routes
+	// must still register so panels can fall back to a default time window.
+	// The Prometheus service itself is nil in this test (no URL configured),
+	// so the actual fetch returns 503 — but the key signal is "route exists,
+	// not 404".
+	settings := &PluginSettings{
+		Snapshots:            SnapshotsSettings{Enabled: false},
+		CouchbaseDatasource:  CouchbaseDatasourceSettings{Enabled: false},
+		PrometheusDatasource: PrometheusDatasourceSettings{Enabled: true, IsDefault: true},
+	}
+	app := newAppWithSettings(t, settings)
+
+	// Metric route: registered, prometheus service nil → 503 (not 404).
+	resp := call(t, app, http.MethodGet, "snapshots/foo/metrics/kv_ops", nil)
+	if resp.Status == http.StatusNotFound {
+		t.Errorf("metric route should be registered when Prometheus enabled; got 404")
+	}
+	if resp.Status != http.StatusServiceUnavailable {
+		t.Errorf("metric route with no Prometheus URL: status = %d, want 503", resp.Status)
+	}
+
+	// Metadata route: snapshot service nil → 503 (snapshots disabled).
+	resp = call(t, app, http.MethodGet, "snapshots/foo", nil)
+	if resp.Status != http.StatusServiceUnavailable {
+		t.Errorf("metadata route with snapshots off: status = %d, want 503", resp.Status)
 	}
 }
 
