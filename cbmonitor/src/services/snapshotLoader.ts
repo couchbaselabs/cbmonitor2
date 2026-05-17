@@ -55,7 +55,7 @@ export async function loadSnapshot(snapshotId: string): Promise<LoadedSnapshot> 
     if (!snapshot) {
         try {
             snapshot = await snapshotService.getSnapshot(snapshotId);
-            snapshotService.storeSnapshotData(snapshotId, snapshot);
+            await snapshotService.storeSnapshotData(snapshotId, snapshot);
         } catch (err) {
             if (isSnapshotNotFoundError(err)) {
                 throw err;

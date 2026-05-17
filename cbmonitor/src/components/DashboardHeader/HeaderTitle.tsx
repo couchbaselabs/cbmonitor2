@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { css } from '@emotion/css';
 import { GrafanaTheme2 } from '@grafana/data';
 import { IconButton, useStyles2 } from '@grafana/ui';
 import { SnapshotMetadata } from 'types/snapshot';
 import { SnapshotDetailsDrawer } from './SnapshotDetailsDrawer';
+import { snapshotService } from '../../services/snapshotService';
 
 interface HeaderTitleProps {
     metadata: SnapshotMetadata;
@@ -24,18 +25,36 @@ function isValidURL(str?: string): boolean {
 export function HeaderTitle({ metadata }: HeaderTitleProps) {
     const styles = useStyles2(getStyles);
     const [drawerOpen, setDrawerOpen] = useState(false);
+    const [liveMetadata, setLiveMetadata] = useState<SnapshotMetadata>(metadata);
 
-    const labelText = metadata.label;
+    useEffect(() => {
+        setLiveMetadata(metadata);
+    }, [metadata]);
+
+    useEffect(() => {
+        const unsubscribe = snapshotService.onSnapshotRefreshed((id) => {
+            if (id !== liveMetadata.snapshotId) {
+                return;
+            }
+            const fresh = snapshotService.getStoredSnapshotData(id);
+            if (fresh?.metadata) {
+                setLiveMetadata(fresh.metadata);
+            }
+        });
+        return unsubscribe;
+    }, [liveMetadata.snapshotId]);
+
+    const labelText = liveMetadata.label;
     const labelIsUrl = isValidURL(labelText);
 
     return (
         <>
             <div className={styles.root}>
-                <span className={styles.id} title={metadata.snapshotId}>
-                    {metadata.snapshotId}
+                <span className={styles.id} title={liveMetadata.snapshotId}>
+                    {liveMetadata.snapshotId}
                 </span>
                 <span className={styles.sep}>·</span>
-                <span className={styles.version}>{metadata.version}</span>
+                <span className={styles.version}>{liveMetadata.version}</span>
                 {labelText && (
                     <>
                         <span className={styles.sep}>·</span>
@@ -66,7 +85,7 @@ export function HeaderTitle({ metadata }: HeaderTitleProps) {
             </div>
             {drawerOpen && (
                 <SnapshotDetailsDrawer
-                    metadata={metadata}
+                    metadata={liveMetadata}
                     onClose={() => setDrawerOpen(false)}
                 />
             )}

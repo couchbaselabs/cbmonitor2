@@ -1,8 +1,20 @@
 import { SnapshotData, SnapshotApiResponse } from '../types/snapshot';
 import { API_BASE_URL } from '../constants';
+import { snapshotCacheStore, SnapshotCacheStore, SnapshotCacheEntry } from './snapshotCache';
+
+type RefreshListener = (snapshotId: string) => void;
+
+const CURRENT_ID_KEY = 'cbmonitor_current_snapshot';
 
 class SnapshotService {
   private readonly maxSnapshotFetchAttempts = 3;
+  private cache: SnapshotCacheStore = snapshotCacheStore;
+  private listeners = new Set<RefreshListener>();
+
+  /** Override the cache backend. Used in tests. */
+  _setCacheForTests(store: SnapshotCacheStore): void {
+    this.cache = store;
+  }
 
   private async wait(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -71,29 +83,79 @@ class SnapshotService {
   }
 
   /**
-   * Store snapshot data in browser storage for access by dashboards
+   * Re-fetch the snapshot's metadata, replacing any cached copy, and notify
+   * subscribers so the UI can re-render in place.
    */
-  storeSnapshotData(snapshotId: string, data: SnapshotData): void {
+  async refresh(snapshotId: string): Promise<SnapshotData> {
+    await this.cache.delete(snapshotId);
+    const fresh = await this.getSnapshot(snapshotId);
+    await this.storeSnapshotData(snapshotId, fresh);
+    this.emitRefresh(snapshotId);
+    return fresh;
+  }
+
+  /** Subscribe to refresh events. Returns the unsubscribe function. */
+  onSnapshotRefreshed(fn: RefreshListener): () => void {
+    this.listeners.add(fn);
+    return () => {
+      this.listeners.delete(fn);
+    };
+  }
+
+  private emitRefresh(snapshotId: string): void {
+    this.listeners.forEach((fn) => {
+      try {
+        fn(snapshotId);
+      } catch (err) {
+        console.error('snapshot refresh listener threw:', err);
+      }
+    });
+  }
+
+  /**
+   * Persist snapshot data to the local cache and mark it as the current
+   * snapshot for this tab. Existing pin state is preserved.
+   */
+  async storeSnapshotData(snapshotId: string, data: SnapshotData): Promise<void> {
     try {
-      // Store in sessionStorage so it's available across dashboard navigation
-      sessionStorage.setItem(`cbmonitor_snapshot_${snapshotId}`, JSON.stringify(data));
-      // Also store the current snapshot ID
-      sessionStorage.setItem('cbmonitor_current_snapshot', snapshotId);
+      const now = Date.now();
+      const existing = this.cache.peekSync(snapshotId);
+      const entry: SnapshotCacheEntry = {
+        snapshotId,
+        metadata: data.metadata,
+        metrics: existing?.metrics,
+        cachedAt: existing?.cachedAt ?? now,
+        lastAccessedAt: now,
+        pinned: existing?.pinned ?? false,
+        sizeBytes: 0,
+      };
+      await this.cache.put(entry);
+      try {
+        sessionStorage.setItem(CURRENT_ID_KEY, snapshotId);
+      } catch {
+        // Non-fatal.
+      }
     } catch (error) {
       console.error('Error storing snapshot data:', error);
     }
   }
 
   /**
-   * Retrieve snapshot data from browser storage
+   * Synchronous read of the cached snapshot for the given id. Returns null
+   * if the snapshot is not cached. As a side effect, the entry's
+   * `lastAccessedAt` is bumped (fire-and-forget) for LRU tracking.
    */
   getStoredSnapshotData(snapshotId: string): SnapshotData | null {
     try {
-      const data = sessionStorage.getItem(`cbmonitor_snapshot_${snapshotId}`);
-      if (data) {
-        return JSON.parse(data);
+      const entry = this.cache.peekSync(snapshotId);
+      if (!entry) {
+        return null;
       }
-      return null;
+      void this.cache.touch(snapshotId);
+      return {
+        metadata: entry.metadata,
+        data: {},
+      };
     } catch (error) {
       console.error('Error retrieving stored snapshot data:', error);
       return null;
@@ -104,23 +166,28 @@ class SnapshotService {
    * Get the current active snapshot ID
    */
   getCurrentSnapshotId(): string | null {
-    return sessionStorage.getItem('cbmonitor_current_snapshot');
+    try {
+      return sessionStorage.getItem(CURRENT_ID_KEY);
+    } catch {
+      return null;
+    }
   }
 
   /**
-   * Clear stored snapshot data
+   * Clear stored snapshot data. With no argument clears every cached
+   * snapshot; otherwise clears the single entry.
    */
-  clearSnapshotData(snapshotId?: string): void {
+  async clearSnapshotData(snapshotId?: string): Promise<void> {
     try {
       if (snapshotId) {
-        sessionStorage.removeItem(`cbmonitor_snapshot_${snapshotId}`);
+        await this.cache.delete(snapshotId);
       } else {
-        // Clear all snapshot data
-        const currentId = this.getCurrentSnapshotId();
-        if (currentId) {
-          sessionStorage.removeItem(`cbmonitor_snapshot_${currentId}`);
+        await this.cache.clearAll();
+        try {
+          sessionStorage.removeItem(CURRENT_ID_KEY);
+        } catch {
+          // ignore
         }
-        sessionStorage.removeItem('cbmonitor_current_snapshot');
       }
     } catch (error) {
       console.error('Error clearing snapshot data:', error);

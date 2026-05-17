@@ -2,9 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { css } from '@emotion/css';
 import { dateTime, GrafanaTheme2 } from '@grafana/data';
 import { locationService } from '@grafana/runtime';
-import { Drawer, Icon, IconButton, useStyles2 } from '@grafana/ui';
+import { Alert, Button, Drawer, Icon, IconButton, useStyles2 } from '@grafana/ui';
 import { SnapshotMetadata } from 'types/snapshot';
 import { nodeDrilldownUrl } from '../../pages/nodeDrilldownPage';
+import { snapshotService } from '../../services/snapshotService';
 
 interface SnapshotDetailsDrawerProps {
     metadata: SnapshotMetadata;
@@ -37,6 +38,8 @@ function formatTs(ts?: string): string {
 export function SnapshotDetailsDrawer({ metadata, onClose }: SnapshotDetailsDrawerProps) {
     const styles = useStyles2(getStyles);
     const [copied, setCopied] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+    const [refreshError, setRefreshError] = useState<string | null>(null);
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
@@ -60,12 +63,44 @@ export function SnapshotDetailsDrawer({ metadata, onClose }: SnapshotDetailsDraw
         }
     };
 
+    const onRefresh = async () => {
+        setRefreshing(true);
+        setRefreshError(null);
+        try {
+            await snapshotService.refresh(metadata.snapshotId);
+        } catch (err) {
+            setRefreshError(err instanceof Error ? err.message : 'Refresh failed');
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
     const label = metadata.label;
     const labelIsUrl = isValidURL(label);
 
     return (
         <Drawer title="Snapshot details" onClose={onClose} size="md">
             <div className={styles.body}>
+                <div className={styles.actions}>
+                    <Button
+                        icon={refreshing ? 'fa fa-spinner' : 'sync'}
+                        variant="secondary"
+                        size="sm"
+                        onClick={onRefresh}
+                        disabled={refreshing}
+                    >
+                        {refreshing ? 'Refreshing…' : 'Refresh metadata'}
+                    </Button>
+                </div>
+                {refreshError && (
+                    <Alert
+                        severity="warning"
+                        title="Refresh failed"
+                        onRemove={() => setRefreshError(null)}
+                    >
+                        {refreshError}
+                    </Alert>
+                )}
                 <Section label="ID">
                     <div className={styles.idRow}>
                         <span className={styles.idText}>{metadata.snapshotId}</span>
@@ -205,6 +240,10 @@ const getStyles = (theme: GrafanaTheme2) => ({
         display: flex;
         flex-direction: column;
         gap: ${theme.spacing(2)};
+    `,
+    actions: css`
+        display: flex;
+        justify-content: flex-end;
     `,
     section: css`
         display: flex;

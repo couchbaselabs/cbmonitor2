@@ -15,12 +15,17 @@
 
 const KIOSK_KEY = 'cbmonitor.kiosk';
 const THEME_KEY = 'cbmonitor.theme';
+const MAX_CACHED_SNAPSHOTS_KEY = 'cbmonitor.snapshotCache.maxEntries';
 
 const KIOSK_DEFAULT_ON = true;
 
 export type ThemePref = 'system' | 'light' | 'dark';
 const THEME_DEFAULT: ThemePref = 'system';
 const THEME_VALUES: readonly ThemePref[] = ['system', 'light', 'dark'];
+
+export const MAX_CACHED_SNAPSHOTS_DEFAULT = 10;
+export const MAX_CACHED_SNAPSHOTS_MIN = 0;
+export const MAX_CACHED_SNAPSHOTS_MAX = 50;
 
 // localStorage may throw in private/incognito modes or with strict cookie
 // policies. Wrap reads/writes so a storage failure never breaks page load.
@@ -90,6 +95,42 @@ export function getThemePref(): ThemePref {
 
 export function setThemePref(theme: ThemePref): void {
   safeSet(THEME_KEY, theme);
+}
+
+// ---------------------------------------------------------------------------
+// Snapshot cache: max-entries knob
+// ---------------------------------------------------------------------------
+
+function clampMaxCachedSnapshots(n: number): number {
+  if (!Number.isFinite(n)) {
+    return MAX_CACHED_SNAPSHOTS_DEFAULT;
+  }
+  const rounded = Math.trunc(n);
+  if (rounded < MAX_CACHED_SNAPSHOTS_MIN) {
+    return MAX_CACHED_SNAPSHOTS_MIN;
+  }
+  if (rounded > MAX_CACHED_SNAPSHOTS_MAX) {
+    return MAX_CACHED_SNAPSHOTS_MAX;
+  }
+  return rounded;
+}
+
+export function getMaxCachedSnapshotsPref(): number {
+  const raw = safeGet(MAX_CACHED_SNAPSHOTS_KEY);
+  if (raw === null) {
+    return MAX_CACHED_SNAPSHOTS_DEFAULT;
+  }
+  const parsed = Number(raw);
+  if (Number.isNaN(parsed)) {
+    return MAX_CACHED_SNAPSHOTS_DEFAULT;
+  }
+  return clampMaxCachedSnapshots(parsed);
+}
+
+export function setMaxCachedSnapshotsPref(n: number): number {
+  const clamped = clampMaxCachedSnapshots(n);
+  safeSet(MAX_CACHED_SNAPSHOTS_KEY, String(clamped));
+  return clamped;
 }
 
 // ---------------------------------------------------------------------------

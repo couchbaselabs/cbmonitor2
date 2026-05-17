@@ -17,6 +17,7 @@ import { createNoUrlSyncTimeRange, initializeTimeRange } from '../utils/timeRang
 import { clusterDrilldown } from './clusterDrilldownPage';
 import { nodeDrilldown } from './nodeDrilldownPage';
 import { loadSnapshot } from '../services/snapshotLoader';
+import { snapshotService } from '../services/snapshotService';
 import { sceneCacheService } from '../services/sceneCache';
 import { clusterFilterService } from '../services/clusterFilterService';
 import { Spinner } from '@grafana/ui';
@@ -294,8 +295,22 @@ snapshotViewPage.addActivationHandler(() => {
     }
   });
 
+  // When the user clicks "Refresh metadata" in the details drawer, the
+  // snapshotService re-fetches and emits a refresh event. Rebuild the page
+  // scene against the fresh metadata so panels, phases, and the time
+  // picker pick up newly-landed phases without a full reload.
+  const unsubscribeRefresh = snapshotService.onSnapshotRefreshed((refreshedId) => {
+    if (refreshedId !== currentLoadedSnapshotId) {
+      return;
+    }
+    sceneCacheService.clearForSnapshot(refreshedId);
+    currentLoadedSnapshotId = null;
+    loadSnapshotFromUrl();
+  });
+
   return () => {
     urlSubscription();
+    unsubscribeRefresh();
     if (timeRangeSubscription) {
       timeRangeSubscription.unsubscribe();
     }
