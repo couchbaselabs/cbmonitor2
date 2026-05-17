@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { css } from '@emotion/css';
 import { SceneComponentProps, SceneObjectBase, SceneObjectState } from '@grafana/scenes';
 import { GrafanaTheme2 } from '@grafana/data';
@@ -6,6 +6,8 @@ import { useStyles2, Button, Input, Icon, Alert } from '@grafana/ui';
 import { locationService } from '@grafana/runtime';
 import { prefixRoute, ROUTE_PATHS } from '../utils/utils.routing';
 import { getVersionInfo } from '../utils/utils.version';
+import { snapshotCacheStore } from '../services/snapshotCache';
+import { snapshotService } from '../services/snapshotService';
 
 interface SnapshotSearchSceneState extends SceneObjectState {
   errorMessage?: string;
@@ -25,7 +27,26 @@ function SnapshotSearchRenderer({ model }: SceneComponentProps<SnapshotSearchSce
   const { errorMessage } = model.useState();
   const s = useStyles2(getStyles);
   const [searchQuery, setSearchQuery] = useState('');
+  const [cachedCount, setCachedCount] = useState(0);
   const versionInfo = getVersionInfo();
+
+  useEffect(() => {
+    let active = true;
+    const refreshCount = async () => {
+      const list = await snapshotCacheStore.list();
+      if (active) {
+        setCachedCount(list.length);
+      }
+    };
+    void refreshCount();
+    const unsubscribe = snapshotService.onSnapshotRefreshed(() => {
+      void refreshCount();
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
 
   /**
    * Handles search action by navigating to the snapshot view page with the snapshotId query parameter.
@@ -86,6 +107,17 @@ function SnapshotSearchRenderer({ model }: SceneComponentProps<SnapshotSearchSce
         <div className={s.infoText}>
           Enter a snapshot ID to view performance metrics and dashboards
         </div>
+
+        {cachedCount > 0 && (
+          <button
+            type="button"
+            className={s.cacheLink}
+            onClick={() => locationService.push(prefixRoute(ROUTE_PATHS.preferences()))}
+          >
+            <Icon name="history" size="sm" />
+            View {cachedCount} cached snapshot{cachedCount === 1 ? '' : 's'}
+          </button>
+        )}
 
         {/* Version Information */}
         <div className={s.versionInfo}>
@@ -180,6 +212,23 @@ const getStyles = (theme: GrafanaTheme2) => ({
     font-size: 14px;
     color: ${theme.colors.text.secondary};
     margin-top: 8px;
+  `,
+  cacheLink: css`
+    background: none;
+    border: none;
+    margin-top: 16px;
+    padding: 6px 12px;
+    color: ${theme.colors.text.link};
+    font-size: 14px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: ${theme.shape.radius.default};
+    &:hover {
+      background: ${theme.colors.background.secondary};
+      text-decoration: underline;
+    }
   `,
   versionInfo: css`
     margin-top: 48px;
