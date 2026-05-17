@@ -228,6 +228,7 @@ interface CacheRowProps {
 function CacheRow({ entry, onOpen, onTogglePin, onDelete }: CacheRowProps) {
     const styles = useStyles2(getStyles);
     const label = entry.metadata.label;
+    const labelIsUrl = isValidURL(label);
     return (
         <div className={styles.row}>
             <span className={entry.pinned ? styles.pinned : styles.unpinned}>
@@ -242,7 +243,16 @@ function CacheRow({ entry, onOpen, onTogglePin, onDelete }: CacheRowProps) {
             <button type="button" className={styles.idButton} onClick={onOpen} title={`Open ${entry.snapshotId}`}>
                 {entry.snapshotId}
             </button>
-            <span className={styles.label}>{label || '—'}</span>
+            {label ? (
+                <span
+                    className={labelIsUrl ? `${styles.label} ${styles.truncateStart}` : styles.label}
+                    title={label}
+                >
+                    <bdi>{label}</bdi>
+                </span>
+            ) : (
+                <span className={styles.label}>—</span>
+            )}
             <span className={styles.size}>{formatBytes(entry.sizeBytes)}</span>
             <span className={styles.lastAccessed} title={new Date(entry.lastAccessedAt).toISOString()}>
                 {formatRelative(entry.lastAccessedAt)}
@@ -256,6 +266,18 @@ function CacheRow({ entry, onOpen, onTogglePin, onDelete }: CacheRowProps) {
             />
         </div>
     );
+}
+
+function isValidURL(str?: string): boolean {
+    if (!str) {
+        return false;
+    }
+    try {
+        const url = new URL(str);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+        return false;
+    }
 }
 
 function formatBytes(n: number): string {
@@ -363,6 +385,12 @@ const getStyles = (theme: GrafanaTheme2) => ({
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+    `,
+    // Truncate URL labels from the start (the meaningful path/query lives at
+    // the end). The inner <bdi> keeps the URL reading left-to-right.
+    truncateStart: css`
+        direction: rtl;
+        text-align: left;
     `,
     size: css`
         font-family: ${theme.typography.fontFamilyMonospace};

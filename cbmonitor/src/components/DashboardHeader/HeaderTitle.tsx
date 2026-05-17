@@ -60,13 +60,13 @@ export function HeaderTitle({ metadata }: HeaderTitleProps) {
                         <span className={styles.sep}>·</span>
                         {labelIsUrl ? (
                             <a
-                                className={styles.labelLink}
+                                className={`${styles.labelLink} ${styles.truncateStart}`}
                                 href={labelText}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 title={labelText}
                             >
-                                {labelText}
+                                <bdi>{labelText}</bdi>
                             </a>
                         ) : (
                             <span className={styles.label} title={labelText}>
@@ -141,5 +141,14 @@ const getStyles = (theme: GrafanaTheme2) => ({
         &:hover {
             text-decoration: underline;
         }
+    `,
+    // Truncate from the START of the string instead of the end. Useful for
+    // URLs where the meaningful part (path, query) sits at the right edge.
+    // The `direction: rtl` flips where the ellipsis lands; the inner <bdi>
+    // (and the strong-LTR characters of an http URL) keep the visible text
+    // reading left-to-right.
+    truncateStart: css`
+        direction: rtl;
+        text-align: left;
     `,
 });
