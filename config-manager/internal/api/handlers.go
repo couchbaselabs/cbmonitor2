@@ -110,7 +110,26 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 				}
 
 				for _, cluster := range metadata.Clusters {
-					clusterSet[cluster.UID+"|"+cluster.Name] = cluster
+					clusterKey := cluster.UID
+					if clusterKey == "" {
+						clusterKey = "name|" + cluster.Name
+					}
+					if clusterKey == "" {
+						continue
+					}
+
+					if existing, ok := clusterSet[clusterKey]; ok {
+						if existing.Name == "" && cluster.Name != "" {
+							existing.Name = cluster.Name
+						}
+						if len(existing.Targets) == 0 && len(cluster.Targets) > 0 {
+							existing.Targets = append([]string(nil), cluster.Targets...)
+						}
+						clusterSet[clusterKey] = existing
+						continue
+					}
+
+					clusterSet[clusterKey] = cluster
 				}
 
 				if metadataRecord.Server == "" && metadata.Server != "" {

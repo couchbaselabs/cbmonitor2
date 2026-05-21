@@ -107,7 +107,7 @@ func (ms *MetadataService) GetClusters(baseURL, username, password string) ([]mo
 	}
 
 	query := endpoint.Query()
-	query.Set("clusterLabels", "uuidOnly")
+	query.Set("clusterLabels", "uuidAndName")
 	endpoint.RawQuery = query.Encode()
 
 	req, err := http.NewRequest("GET", endpoint.String(), nil)
