@@ -10,6 +10,7 @@ import (
 	"github.com/couchbase/config-manager/internal/logger"
 	"github.com/couchbase/config-manager/internal/metrics"
 	"github.com/couchbase/config-manager/internal/models"
+	"github.com/couchbase/config-manager/internal/presets"
 	"github.com/couchbase/config-manager/internal/services"
 	"github.com/couchbase/config-manager/internal/storage"
 )
@@ -82,10 +83,11 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 	serviceSet := make(map[string]struct{})
 	clusterSet := make(map[string]models.Cluster)
 	metadataRecord := &models.SnapshotMetadata{
-		SnapshotID: id,
-		TsStart:    time.Now(),
-		TsEnd:      "now",
-		Label:      req.Label,
+		SnapshotID:   id,
+		TsStart:      time.Now(),
+		TsEnd:        "now",
+		Label:        req.Label,
+		CustomPanels: presets.BuildCustomPanels(&req),
 	}
 	hasMetadata := false
 
@@ -156,11 +158,17 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 				metadataRecord.Clusters[i].Name = fmt.Sprintf("cluster%d", i+1)
 			}
 		}
+	}
 
+	// Persist the metadata document when we have anything for cbmonitor
+	// to render: collected cluster metadata, or just custom-panels
+	// presets. With presets-only, services/clusters stay empty and the
+	// frontend falls back to its alwaysInclude builtins for that snapshot.
+	if hasMetadata || len(metadataRecord.CustomPanels) > 0 {
 		if err := h.metadataStorage.SaveMetadata(metadataRecord); err != nil {
 			logger.Warn("Warning: Failed to save metadata", "error", err)
 		} else {
-			logger.Info("Successfully collected and saved metadata for snapshot", "id", id)
+			logger.Info("Successfully saved metadata for snapshot", "id", id, "hasClusterMetadata", hasMetadata, "customPanels", len(metadataRecord.CustomPanels))
 		}
 	}
 

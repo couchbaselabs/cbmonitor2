@@ -10,6 +10,12 @@ type SnapshotRequest struct {
 	Scheme      string         `json:"scheme,omitempty"`
 	TimeStamp   time.Time      `json:"timestamp,omitempty"`
 	Label       string         `json:"label,omitempty"`
+
+	// Boolean opt-ins for the canned custom-panel presets owned by
+	// config-manager. Each `true` flag expands into one entry in the
+	// snapshot's `custom_panels` field via presets.BuildCustomPanels.
+	Cbagent bool `json:"cbagent,omitempty"`
+	Capella bool `json:"capella,omitempty"`
 }
 
 // Credentials for cluster authentication
