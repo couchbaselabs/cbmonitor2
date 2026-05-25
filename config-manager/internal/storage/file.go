@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/couchbase/config-manager/internal/models"
+	"github.com/couchbase/config-manager/internal/products"
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
 )
@@ -94,10 +95,6 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 		scheme = "http"
 	}
 
-	portType := "insecure"
-	if scheme == "https" {
-		portType = "secure"
-	}
 	// Generate UUID for job_name
 	jobName := id
 
@@ -118,9 +115,21 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 
 		switch configType := config["type"].(string); configType {
 		case "sd":
+			product, _ := config["product"].(string)
+			sdPath, _ := config["sd_path"].(string)
+			// Caller-supplied sd_path wins; otherwise fall back to the
+			// product registry's default. The validator has already
+			// ensured one of the two is non-empty by this point.
+			path := sdPath
+			if path == "" {
+				if p := products.Get(product); p != nil && p.ResolveSDPath != nil {
+					path = p.ResolveSDPath(scheme)
+				}
+			}
 			for _, hostname := range hostnames {
+				sdURL := fmt.Sprintf("%s://%s:%d%s", scheme, hostname, port, path)
 				httpSDConfigs = append(httpSDConfigs, map[string]interface{}{
-					"url": fmt.Sprintf("%s://%s:%d/prometheus_sd_config?port=%s&clusterLabels=uuidAndName", scheme, hostname, port, portType),
+					"url": sdURL,
 					"basic_auth": map[string]interface{}{
 						"username": username,
 						"password": password,

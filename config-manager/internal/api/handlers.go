@@ -11,7 +11,7 @@ import (
 	"github.com/couchbase/config-manager/internal/metrics"
 	"github.com/couchbase/config-manager/internal/models"
 	"github.com/couchbase/config-manager/internal/presets"
-	"github.com/couchbase/config-manager/internal/services"
+	"github.com/couchbase/config-manager/internal/products"
 	"github.com/couchbase/config-manager/internal/storage"
 )
 
@@ -58,6 +58,8 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 			"hostnames": config.Hostnames,
 			"type":      config.Type,
 			"port":      config.Port,
+			"product":   config.Product,
+			"sd_path":   config.SDPath,
 		}
 	}
 
@@ -78,8 +80,10 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 	metrics.SnapshotsCreated.Inc()
 
-	// Collect cluster metadata
-	metadataService := services.NewMetadataService()
+	// Collect per-product metadata via the registry. Configs whose
+	// product is unknown (or has no GetMetadata) are skipped quietly —
+	// non-Couchbase SD targets and static lists shouldn't generate
+	// warning logs from doomed HTTP calls.
 	serviceSet := make(map[string]struct{})
 	clusterSet := make(map[string]models.Cluster)
 	metadataRecord := &models.SnapshotMetadata{
@@ -92,50 +96,67 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 	hasMetadata := false
 
 	for _, config := range req.Configs {
+		product := products.Get(config.Product)
+		if product == nil || product.GetMetadata == nil {
+			continue
+		}
 		for _, hostname := range config.Hostnames {
-			metadata, err := metadataService.CollectClusterMetadata(
+			metadata, err := product.GetMetadata(
+				req.Scheme,
 				hostname,
 				config.Port,
 				req.Credentials.Username,
 				req.Credentials.Password,
-				req.Scheme,
 			)
-
 			if err != nil {
-				logger.Warn("Warning: Failed to collect cluster metadata", "error", err)
-				// Continue without metadata - don't fail the snapshot creation
-			} else {
-				hasMetadata = true
+				logger.Warn("Warning: Failed to collect product metadata", "product", config.Product, "error", err)
+				continue
+			}
+			if metadata == nil {
+				continue
+			}
+			hasMetadata = true
 
-				for _, service := range metadata.Services {
-					serviceSet[service] = struct{}{}
+			for _, service := range metadata.Services {
+				serviceSet[service] = struct{}{}
+			}
+
+			for _, cluster := range metadata.Clusters {
+				clusterKey := cluster.UID
+				if clusterKey == "" {
+					clusterKey = "name|" + cluster.Name
+				}
+				if clusterKey == "" {
+					continue
 				}
 
-				for _, cluster := range metadata.Clusters {
-					clusterKey := cluster.UID
-					if clusterKey == "" {
-						clusterKey = "name|" + cluster.Name
+				if existing, ok := clusterSet[clusterKey]; ok {
+					if existing.Name == "" && cluster.Name != "" {
+						existing.Name = cluster.Name
 					}
-					if clusterKey == "" {
-						continue
+					if len(existing.Targets) == 0 && len(cluster.Targets) > 0 {
+						existing.Targets = append([]string(nil), cluster.Targets...)
 					}
-
-					if existing, ok := clusterSet[clusterKey]; ok {
-						if existing.Name == "" && cluster.Name != "" {
-							existing.Name = cluster.Name
-						}
-						if len(existing.Targets) == 0 && len(cluster.Targets) > 0 {
-							existing.Targets = append([]string(nil), cluster.Targets...)
-						}
-						clusterSet[clusterKey] = existing
-						continue
-					}
-
-					clusterSet[clusterKey] = cluster
+					clusterSet[clusterKey] = existing
+					continue
 				}
 
-				if metadataRecord.Server == "" && metadata.Server != "" {
-					metadataRecord.Server = metadata.Server
+				clusterSet[clusterKey] = cluster
+			}
+
+			if metadataRecord.Server == "" && metadata.Server != "" {
+				metadataRecord.Server = metadata.Server
+			}
+
+			// Free-form per-product blob. Last-write-wins per key; the
+			// convention is to namespace keys (e.g. `couchbase_version`,
+			// `sgw_version`) so distinct products don't collide.
+			if len(metadata.Extras) > 0 {
+				if metadataRecord.Extras == nil {
+					metadataRecord.Extras = make(map[string]interface{}, len(metadata.Extras))
+				}
+				for k, v := range metadata.Extras {
+					metadataRecord.Extras[k] = v
 				}
 			}
 		}
@@ -191,15 +212,36 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 // validateSnapshotRequest validates the snapshot request
 func (h *Handler) validateSnapshotRequest(req *models.SnapshotRequest) error {
 	for i := range req.Configs {
-		if len(req.Configs[i].Hostnames) == 0 {
+		cfg := &req.Configs[i]
+
+		if len(cfg.Hostnames) == 0 {
 			return &ValidationError{Field: "configs.hostnames", Message: "at least one cluster/hostname is required"}
 		}
 		// TO DO: add validation to check against non existent Types
-		if req.Configs[i].Type == "" {
-			req.Configs[i].Type = "sd"
+		if cfg.Type == "" {
+			cfg.Type = "sd"
 		}
-		if req.Configs[i].Port == 0 {
+		if cfg.Port == 0 {
 			return &ValidationError{Field: "configs.port", Message: "port is required"}
+		}
+
+		// SD targets without an explicit product default to couchbase.
+		// We need *some* path: either caller-supplied (sd_path) or
+		// provided by the product registry. Reject when neither is set.
+		if cfg.Type == "sd" {
+			cfg.SDPath = strings.TrimSpace(cfg.SDPath)
+			if cfg.Product == "" {
+				cfg.Product = "couchbase"
+			}
+			if cfg.SDPath != "" && !strings.HasPrefix(cfg.SDPath, "/") {
+				return &ValidationError{Field: "configs.sd_path", Message: "sd_path must start with '/'"}
+			}
+			if cfg.SDPath == "" {
+				p := products.Get(cfg.Product)
+				if p == nil || p.ResolveSDPath == nil {
+					return &ValidationError{Field: "configs.sd_path", Message: fmt.Sprintf("sd_path is required (product %q has no default SD path)", cfg.Product)}
+				}
+			}
 		}
 	}
 

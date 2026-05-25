@@ -2,17 +2,23 @@ package models
 
 import "time"
 
-// SnapshotMetadata represents the collected metadata from a snapshot
+// SnapshotMetadata represents the collected metadata from a snapshot.
+//
+// Extras is a free-form per-snapshot blob populated from each known
+// product's GetMetadata() return value. It rides on the same document
+// for now; a future iteration may split product metadata into per-
+// product sub-documents.
 type SnapshotMetadata struct {
-	SnapshotID   string               `json:"id"`
-	Services     []string             `json:"services"` // same thing for buckets and nodes for services
-	Clusters     []Cluster            `json:"clusters,omitempty"`
-	Server       string               `json:"server,omitempty"`
-	TsStart      time.Time            `json:"ts_start,omitempty"`
-	TsEnd        string               `json:"ts_end,omitempty"`
-	Phases       []Phase              `json:"phases,omitempty"`
-	Label        string               `json:"label,omitempty"`
-	CustomPanels []CustomPanelsConfig `json:"custom_panels,omitempty"`
+	SnapshotID   string                 `json:"id"`
+	Services     []string               `json:"services"` // same thing for buckets and nodes for services
+	Clusters     []Cluster              `json:"clusters,omitempty"`
+	Server       string                 `json:"server,omitempty"`
+	TsStart      time.Time              `json:"ts_start,omitempty"`
+	TsEnd        string                 `json:"ts_end,omitempty"`
+	Phases       []Phase                `json:"phases,omitempty"`
+	Label        string                 `json:"label,omitempty"`
+	CustomPanels []CustomPanelsConfig   `json:"custom_panels,omitempty"`
+	Extras       map[string]interface{} `json:"extras,omitempty"`
 }
 
 // CustomPanelsConfig matches the shape cbmonitor's snapshot service

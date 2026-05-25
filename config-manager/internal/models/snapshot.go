@@ -30,11 +30,23 @@ type SnapshotResponse struct {
 	ID string `json:"id"`
 }
 
-// ConfigObject represents the configuration for each different config object type
+// ConfigObject represents the configuration for each different config object type.
+//
+// `Product` identifies what's at the target so config-manager can decide how
+// to scrape it. Only the literal value "couchbase" triggers the Couchbase-
+// specific code paths (default SD URL pattern, /pools/nodes metadata
+// collection); any other value (or blank, on a static target) is treated as
+// "generic". The product itself is NOT propagated as a scrape label.
+//
+// `SDPath` is the discovery endpoint path appended to {scheme}://{host}:{port}
+// when Type=="sd" AND Product != "couchbase" (e.g. "/sd/targets"). It must
+// begin with "/" and may include a query string.
 type ConfigObject struct {
 	Hostnames []string `json:"hostnames"`
 	Type      string   `json:"type,omitempty"`
 	Port      int      `json:"port"`
+	Product   string   `json:"product,omitempty"`
+	SDPath    string   `json:"sd_path,omitempty"`
 }
 
 // DisplaySnapshot represents the snapshot structure for GET responses or display purposes
