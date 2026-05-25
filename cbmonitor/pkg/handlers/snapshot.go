@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,6 +17,11 @@ import (
 	"github.com/couchbase/cbmonitor/pkg/promqlbuilder"
 	"github.com/couchbase/cbmonitor/pkg/services"
 )
+
+// maxMetricNamesPerRequest caps the result size of the metric-names
+// discovery endpoint. A misconfigured `custom_panels.match` would
+// otherwise spawn one panel per match — capping protects the UI.
+const maxMetricNamesPerRequest = 200
 
 // defaultFallbackWindow is the time window used when snapshot metadata
 // is unavailable (snapshots service disabled, transient fetch error,
@@ -27,6 +33,13 @@ const defaultFallbackWindow = 15 * time.Minute
 // The handler picks one per request based on plugin settings; the choice is transparent to callers.
 type metricSource interface {
 	Fetch(ctx context.Context, req metricRequest) ([]models.MetricDataPoint, error)
+}
+
+// metricNamesSource is the per-backend lister used by the metric-names
+// discovery endpoint. The handler picks one per request based on plugin
+// settings — same dispatch shape as metricSource.
+type metricNamesSource interface {
+	ListNames(ctx context.Context, snapshotID, nameRegex string) ([]string, error)
 }
 
 // metricRequest carries everything either backend needs.
@@ -62,6 +75,9 @@ type SnapshotHandler struct {
 
 	couchbaseSource  metricSource
 	prometheusSource metricSource
+
+	couchbaseNamesSource  metricNamesSource
+	prometheusNamesSource metricNamesSource
 }
 
 // NewSnapshotHandler creates a new snapshot handler. defaultDataSource
@@ -98,6 +114,13 @@ func NewSnapshotHandler(
 		prometheusSource: &prometheusMetricSource{
 			prometheus: prometheusService,
 		},
+		couchbaseNamesSource: &couchbaseMetricNamesSource{
+			couchbase: couchbaseService,
+		},
+		prometheusNamesSource: &prometheusMetricNamesSource{
+			prometheus:      prometheusService,
+			snapshotService: sf,
+		},
 	}
 }
 
@@ -108,6 +131,14 @@ func (h *SnapshotHandler) pickSource() (metricSource, string) {
 		return h.prometheusSource, "prometheus"
 	}
 	return h.couchbaseSource, "couchbase"
+}
+
+// pickNamesSource is the metric-names equivalent of pickSource.
+func (h *SnapshotHandler) pickNamesSource() (metricNamesSource, string) {
+	if h.defaultDataSource() == "prometheus" {
+		return h.prometheusNamesSource, "prometheus"
+	}
+	return h.couchbaseNamesSource, "couchbase"
 }
 
 // HandleGetSnapshot handles GET /snapshots/{snapshotId}
@@ -146,6 +177,62 @@ func (h *SnapshotHandler) HandleGetSnapshot(w http.ResponseWriter, req *http.Req
 	h.sendJSONResponse(w, models.SnapshotResponse{Success: true, Data: *snapshotData}, http.StatusOK)
 	log.Printf("Successfully returned snapshot: %s with %d services",
 		snapshotID, len(snapshotData.Metadata.Services))
+}
+
+// HandleListMetricNames handles GET /snapshots/{id}/metric-names?match=<regex>
+// Returns metric names visible to the active backend, scoped to the
+// snapshot's job. The optional match regex is validated server-side
+// (Go RE2). Results are capped at maxMetricNamesPerRequest; a
+// truncated flag is included in the response when the cap is hit.
+func (h *SnapshotHandler) HandleListMetricNames(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	parts := strings.Split(strings.Trim(req.URL.Path, "/"), "/")
+	if len(parts) < 2 {
+		h.sendMetricNamesErrorResponse(w, "Snapshot ID is required", http.StatusBadRequest)
+		return
+	}
+	snapshotID := parts[1]
+
+	match := req.URL.Query().Get("match")
+	if match != "" {
+		if _, err := regexp.Compile(match); err != nil {
+			h.sendMetricNamesErrorResponse(w, fmt.Sprintf("invalid match regex: %v", err), http.StatusBadRequest)
+			return
+		}
+	}
+
+	source, sourceName := h.pickNamesSource()
+	log.Printf("Listing metric names via %s: snapshot=%s, match=%q", sourceName, snapshotID, match)
+
+	names, err := source.ListNames(req.Context(), snapshotID, match)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		var unavail *metricSourceUnavailableError
+		if errors.As(err, &unavail) {
+			statusCode = http.StatusServiceUnavailable
+		}
+		log.Printf("metric-names fetch error: %v", err)
+		h.sendMetricNamesErrorResponse(w, err.Error(), statusCode)
+		return
+	}
+
+	truncated := false
+	if len(names) > maxMetricNamesPerRequest {
+		truncated = true
+		names = names[:maxMetricNamesPerRequest]
+	}
+	sort.Strings(names)
+
+	h.sendJSONResponse(w, models.MetricNamesResponse{
+		Success:   true,
+		Snapshot:  snapshotID,
+		Names:     names,
+		Truncated: truncated,
+	}, http.StatusOK)
 }
 
 // HandleGetMetric handles GET /snapshots/{id}/metrics/{metric_name}
@@ -414,6 +501,10 @@ func (h *SnapshotHandler) sendMetricErrorResponse(w http.ResponseWriter, message
 
 func (h *SnapshotHandler) sendSummaryErrorResponse(w http.ResponseWriter, message string, statusCode int) {
 	h.sendJSONResponse(w, models.MetricSummaryResponse{Success: false, Error: message}, statusCode)
+}
+
+func (h *SnapshotHandler) sendMetricNamesErrorResponse(w http.ResponseWriter, message string, statusCode int) {
+	h.sendJSONResponse(w, models.MetricNamesResponse{Success: false, Error: message}, statusCode)
 }
 
 // formatPercentileKey renders a percentile fraction as a map key.

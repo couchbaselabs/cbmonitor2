@@ -136,6 +136,8 @@ func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
 
 		if len(pathParts) == 1 && pathParts[0] != "" {
 			snapshotHandler.HandleGetSnapshot(w, r)
+		} else if len(pathParts) == 2 && pathParts[1] == "metric-names" {
+			snapshotHandler.HandleListMetricNames(w, r)
 		} else if len(pathParts) >= 3 && pathParts[1] == "metrics" {
 			if len(pathParts) == 3 {
 				snapshotHandler.HandleGetMetric(w, r)
@@ -159,7 +161,7 @@ func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
 		}
 	})
 
-	log.Printf("Snapshot routes registered: /snapshots/{id}, /snapshots/{id}/metrics/{metric}, /snapshots/{id}/metrics/{metric}/phases/{phase}")
+	log.Printf("Snapshot routes registered: /snapshots/{id}, /snapshots/{id}/metric-names, /snapshots/{id}/metrics/{metric}, /snapshots/{id}/metrics/{metric}/phases/{phase}")
 }
 
 // setupPrometheusRoutes registers the Prometheus Query API routes backed

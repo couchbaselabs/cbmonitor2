@@ -134,6 +134,47 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 		metadata.Label = label
 	}
 
+	// Extract optional custom_panels config (perfrunner / other workloads
+	// declare a regex to auto-render an extra "Custom" tab).
+	if raw, ok := rawData["custom_panels"].(map[string]interface{}); ok {
+		cp := &models.CustomPanelsConfig{}
+		if v, ok := raw["title"].(string); ok {
+			cp.Title = v
+		}
+		if v, ok := raw["match"].(string); ok {
+			cp.Match = v
+		}
+		if v, ok := raw["rate_match"].(string); ok {
+			cp.RateMatch = v
+		}
+		if ovs, ok := raw["overrides"].(map[string]interface{}); ok {
+			cp.Overrides = make(map[string]models.CustomPanelOverride, len(ovs))
+			for name, val := range ovs {
+				om, ok := val.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				ov := models.CustomPanelOverride{}
+				if s, ok := om["title"].(string); ok {
+					ov.Title = s
+				}
+				if s, ok := om["unit"].(string); ok {
+					ov.Unit = s
+				}
+				if s, ok := om["transformFunction"].(string); ok {
+					ov.TransformFunction = s
+				}
+				if s, ok := om["legendFormat"].(string); ok {
+					ov.LegendFormat = s
+				}
+				cp.Overrides[name] = ov
+			}
+		}
+		if cp.Match != "" {
+			metadata.CustomPanels = cp
+		}
+	}
+
 	// Extract clusters if present
 	if clusters, ok := rawData["clusters"].([]interface{}); ok {
 		metadata.Clusters = make([]models.Cluster, 0, len(clusters))
@@ -166,15 +207,16 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 	// Create a copy of rawData without metadata fields to avoid duplication
 	dataWithoutMetadata := make(map[string]interface{})
 	metadataFields := map[string]bool{
-		"id":       true,
-		"services": true,
-		"server":   true,
-		"version":  true,
-		"ts_start": true,
-		"ts_end":   true,
-		"phases":   true,
-		"label":    true,
-		"clusters": true,
+		"id":            true,
+		"services":      true,
+		"server":        true,
+		"version":       true,
+		"ts_start":      true,
+		"ts_end":        true,
+		"phases":        true,
+		"label":         true,
+		"clusters":      true,
+		"custom_panels": true,
 	}
 	for k, v := range rawData {
 		if !metadataFields[k] {

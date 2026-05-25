@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/couchbase/gocb/v2"
@@ -74,6 +75,55 @@ func (cs *CouchbaseService) ExecuteQuery(ctx context.Context, query string) ([]m
 	}
 
 	return rows, nil
+}
+
+// ListMetricNames returns distinct metric_name values stored in the
+// configured scope for the given snapshot/job. If nameRegex is non-empty,
+// only metric names matching that POSIX regex are returned. Results are
+// returned alphabetically.
+func (cs *CouchbaseService) ListMetricNames(ctx context.Context, snapshotID, nameRegex string) ([]string, error) {
+	if snapshotID == "" {
+		return nil, fmt.Errorf("snapshotID is required")
+	}
+
+	// SQL++ string literal escape: double single-quotes.
+	escapedJob := strings.ReplaceAll(snapshotID, "'", "''")
+	where := fmt.Sprintf("d.labels.job = '%s'", escapedJob)
+	if nameRegex != "" {
+		escapedRegex := strings.ReplaceAll(nameRegex, "'", "''")
+		where = fmt.Sprintf("%s AND REGEXP_MATCHES(d.metric_name, '%s')", where, escapedRegex)
+	}
+
+	query := fmt.Sprintf(
+		"SELECT DISTINCT RAW d.metric_name FROM cbmonitor._default._default AS d WHERE %s ORDER BY d.metric_name",
+		where,
+	)
+
+	results, err := cs.scope.Query(query, &gocb.QueryOptions{
+		Context: ctx,
+		Timeout: 30 * time.Second,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute query: %w", err)
+	}
+	defer results.Close()
+
+	var names []string
+	for results.Next() {
+		var name string
+		if err := results.Row(&name); err != nil {
+			log.Printf("Error parsing metric name row: %v", err)
+			continue
+		}
+		if name != "" {
+			names = append(names, name)
+		}
+	}
+	if err := results.Err(); err != nil {
+		return nil, fmt.Errorf("query execution error: %w", err)
+	}
+
+	return names, nil
 }
 
 // Close closes the Couchbase connection

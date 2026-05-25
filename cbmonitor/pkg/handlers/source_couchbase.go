@@ -74,6 +74,24 @@ func (s *couchbaseMetricSource) applyClusterFilter(ctx context.Context, snapshot
 	return whereClause + " AND " + instanceClause
 }
 
+// couchbaseMetricNamesSource discovers metric names by querying the
+// Couchbase metrics scope for DISTINCT metric_name values scoped to the
+// snapshot's job.
+type couchbaseMetricNamesSource struct {
+	couchbase *services.CouchbaseService
+}
+
+func (s *couchbaseMetricNamesSource) ListNames(ctx context.Context, snapshotID, nameRegex string) ([]string, error) {
+	if s.couchbase == nil {
+		return nil, errMetricSourceUnavailable("couchbase metrics service is not available")
+	}
+	names, err := s.couchbase.ListMetricNames(ctx, snapshotID, nameRegex)
+	if err != nil {
+		return nil, fmt.Errorf("execute couchbase metric-names query: %w", err)
+	}
+	return names, nil
+}
+
 // rowsToPoints converts Couchbase result rows (each a map with `time`
 // and `value` fields, optionally wrapped in a `data` envelope) into a
 // flat MetricDataPoint slice.

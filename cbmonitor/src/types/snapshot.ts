@@ -38,6 +38,20 @@ export interface Cluster {
   targets?: string[];
 }
 
+export interface CustomPanelOverride {
+  title?: string;
+  unit?: string;
+  transformFunction?: string;
+  legendFormat?: string;
+}
+
+export interface CustomPanelsConfig {
+  title?: string;
+  match: string;
+  rate_match?: string;
+  overrides?: Record<string, CustomPanelOverride>;
+}
+
 export interface SnapshotMetadata {
   snapshotId: string;
   services: string[];
@@ -47,6 +61,7 @@ export interface SnapshotMetadata {
   ts_end: string;
   phases?: Phase[];
   label?: string;
+  custom_panels?: CustomPanelsConfig;
 }
 
 export interface SnapshotData {

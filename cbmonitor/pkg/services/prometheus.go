@@ -140,6 +140,94 @@ func (p *PrometheusService) QueryRange(ctx context.Context, query string, start,
 	return points, nil
 }
 
+// labelValuesResponse mirrors /api/v1/label/__name__/values.
+type labelValuesResponse struct {
+	Status    string   `json:"status"`
+	ErrorType string   `json:"errorType,omitempty"`
+	Error     string   `json:"error,omitempty"`
+	Data      []string `json:"data"`
+}
+
+// ListMetricNames returns the metric names visible to the configured
+// Prometheus endpoint, restricted to a single job (snapshot id) and
+// optionally further constrained by a name regex. Empty nameRegex
+// returns every metric name for the job.
+func (p *PrometheusService) ListMetricNames(ctx context.Context, snapshotID, nameRegex string, start, end time.Time) ([]string, error) {
+	if snapshotID == "" {
+		return nil, fmt.Errorf("snapshotID is required")
+	}
+
+	matcher := fmt.Sprintf(`{job=%s}`, promQuote(snapshotID))
+	if nameRegex != "" {
+		matcher = fmt.Sprintf(`{job=%s,__name__=~%s}`, promQuote(snapshotID), promQuote(nameRegex))
+	}
+
+	endpoint := p.baseURL + "/api/v1/label/__name__/values"
+	params := url.Values{}
+	params.Set("match[]", matcher)
+	if !start.IsZero() {
+		params.Set("start", formatUnixFloat(start))
+	}
+	if !end.IsZero() {
+		params.Set("end", formatUnixFloat(end))
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint+"?"+params.Encode(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("build prometheus request: %w", err)
+	}
+
+	resp, err := p.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("prometheus request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read prometheus response: %w", err)
+	}
+
+	var decoded labelValuesResponse
+	if jerr := json.Unmarshal(body, &decoded); jerr != nil {
+		if resp.StatusCode >= 400 {
+			return nil, fmt.Errorf("prometheus HTTP %d: %s", resp.StatusCode, truncate(string(body), 200))
+		}
+		return nil, fmt.Errorf("decode prometheus response: %w", jerr)
+	}
+
+	if decoded.Status != "success" {
+		msg := decoded.Error
+		if msg == "" {
+			msg = string(body)
+		}
+		return nil, fmt.Errorf("prometheus error (%s): %s", decoded.ErrorType, msg)
+	}
+
+	return decoded.Data, nil
+}
+
+// promQuote wraps a value in double quotes, escaping backslashes and
+// double-quotes per the PromQL grammar. Kept here (vs. pkg/promqlbuilder)
+// to avoid importing that package from the services layer.
+func promQuote(v string) string {
+	var b strings.Builder
+	b.Grow(len(v) + 2)
+	b.WriteByte('"')
+	for _, r := range v {
+		switch r {
+		case '\\':
+			b.WriteString(`\\`)
+		case '"':
+			b.WriteString(`\"`)
+		default:
+			b.WriteRune(r)
+		}
+	}
+	b.WriteByte('"')
+	return b.String()
+}
+
 // sampleTimestamp converts a Prometheus sample timestamp (a JSON number,
 // decoded as float64) to a time.Time. Returns ok=false on a value we
 // can't interpret so the caller can skip the sample.

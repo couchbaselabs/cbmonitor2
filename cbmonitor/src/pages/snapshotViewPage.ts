@@ -20,6 +20,10 @@ import { loadSnapshot } from '../services/snapshotLoader';
 import { snapshotService } from '../services/snapshotService';
 import { sceneCacheService } from '../services/sceneCache';
 import { clusterFilterService } from '../services/clusterFilterService';
+import {
+    discoverCustomMetricNames,
+    clearCustomMetricNamesCache,
+} from '../services/customMetricsDiscovery';
 import { Spinner } from '@grafana/ui';
 
 // Simple loading scene to show while snapshot is being loaded
@@ -138,6 +142,18 @@ snapshotViewPage.addActivationHandler(() => {
         const loaded = await loadSnapshot(snapshotId);
         const { metadata } = loaded;
 
+        // Pre-resolve the snapshot's custom-panels regex (if any) so the
+        // synchronous page builder finds the metric list in cache. A
+        // failure here doesn't block tab rendering — we just skip the
+        // custom tab and warn.
+        if (metadata.custom_panels && metadata.custom_panels.match) {
+            try {
+                await discoverCustomMetricNames(snapshotId, metadata.custom_panels.match);
+            } catch (err) {
+                console.warn(`custom_panels discovery failed for ${snapshotId}; skipping custom tab.`, err);
+            }
+        }
+
         const urlPhase = params.phase as string;
         initializeTimeRange(timeRange, metadata, urlPhase);
 
@@ -199,14 +215,14 @@ snapshotViewPage.addActivationHandler(() => {
         const handleLayoutChange = () => {
           sceneCacheService.clearAll();
           snapshotViewPage.setState({
-            tabs: getDashboardsForServices(metadata.services, snapshotId),
+            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels),
           });
         };
 
         const handleDataSourceChange = () => {
           sceneCacheService.clearAll();
           snapshotViewPage.setState({
-            tabs: getDashboardsForServices(metadata.services, snapshotId),
+            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels),
           });
         };
 
@@ -214,14 +230,14 @@ snapshotViewPage.addActivationHandler(() => {
           clusterFilterService.setCurrentCluster(clusterId);
           sceneCacheService.clearAll();
           snapshotViewPage.setState({
-            tabs: getDashboardsForServices(metadata.services, snapshotId),
+            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels),
           });
         };
 
         const handleHideEmptyChange = () => {
           sceneCacheService.clearAll();
           snapshotViewPage.setState({
-            tabs: getDashboardsForServices(metadata.services, snapshotId),
+            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels),
           });
         };
 
@@ -251,7 +267,7 @@ snapshotViewPage.addActivationHandler(() => {
 
         snapshotViewPage.setState({
           title: "",
-          tabs: getDashboardsForServices(metadata.services, snapshotId),
+          tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels),
           $timeRange: timeRange,
           controls: controls,
           renderTitle: () => {
@@ -304,6 +320,7 @@ snapshotViewPage.addActivationHandler(() => {
       return;
     }
     sceneCacheService.clearForSnapshot(refreshedId);
+    clearCustomMetricNamesCache(refreshedId);
     currentLoadedSnapshotId = null;
     loadSnapshotFromUrl();
   });

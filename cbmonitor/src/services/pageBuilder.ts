@@ -11,6 +11,9 @@ import {
     createInstanceAwareScene,
     createInstanceAwareOverlapScene,
 } from '../utils/instanceScene';
+import type { CustomPanelsConfig } from '../types/snapshot';
+import { makeCustomBuilder } from '../dashboards/custom';
+import { getCachedCustomMetricNames } from './customMetricsDiscovery';
 
 /**
  * Options for building service tabs/pages
@@ -31,6 +34,13 @@ export interface PageBuilderOptions {
      * drilldown route.
      */
     urlBase?: string;
+    /**
+     * Optional snapshot-declared custom panels. When set on a single-mode
+     * build, an extra "Custom" tab is appended after the regular services.
+     * Ignored in comparison mode (the custom-metric set may differ between
+     * snapshots, so we don't attempt to render it side-by-side).
+     */
+    customPanels?: CustomPanelsConfig;
 }
 
 /**
@@ -60,7 +70,7 @@ export interface PageBuilderOptions {
  * });
  */
 export function buildServiceTabs(options: PageBuilderOptions): SceneAppPage[] {
-    const { snapshotIds, services, mode, routePrefix, timeRanges, overlapMode, overlapEndTimeSeconds, urlBase } = options;
+    const { snapshotIds, services, mode, routePrefix, timeRanges, overlapMode, overlapEndTimeSeconds, urlBase, customPanels } = options;
 
     if (mode === 'single' && snapshotIds.length !== 1) {
         throw new Error('Single mode requires exactly one snapshot ID');
@@ -82,6 +92,13 @@ export function buildServiceTabs(options: PageBuilderOptions): SceneAppPage[] {
             pages.push(buildSingleSnapshotPage(config.key, snapshotIds[0], routePrefix, urlBase));
         } else {
             pages.push(buildComparisonPage(config.key, snapshotIds, routePrefix, timeRanges, overlapMode, overlapEndTimeSeconds));
+        }
+    }
+
+    if (mode === 'single' && customPanels) {
+        const customTab = buildCustomPanelsPage(snapshotIds[0], routePrefix, customPanels, urlBase);
+        if (customTab) {
+            pages.push(customTab);
         }
     }
 
@@ -163,6 +180,70 @@ function buildSingleSnapshotPage(
                 });
 
                 // If the scene doesn't already have a $data provider, set the global layer set
+                const currentState: any = (scene as any).state || {};
+                if (!currentState.$data) {
+                    scene.setState({ $data: globalLayers });
+                }
+            }
+
+            return sceneCacheService.getScene(cacheKey)!;
+        },
+    });
+}
+
+/**
+ * Build the optional "Custom" tab from a snapshot's custom_panels config.
+ * Returns null when no metric names have been resolved yet (snapshot
+ * viewer pre-fetches them before the first build, so this guards against
+ * a misordered call rather than expecting a real cache miss).
+ */
+function buildCustomPanelsPage(
+    snapshotId: string,
+    routePrefix: string,
+    customPanels: CustomPanelsConfig,
+    urlBase?: string,
+): SceneAppPage | null {
+    const discovered = getCachedCustomMetricNames(snapshotId, customPanels.match);
+    if (!discovered || discovered.names.length === 0) {
+        return null;
+    }
+
+    const title = customPanels.title?.trim() || 'Custom';
+    const segment = 'custom';
+    const builder = makeCustomBuilder(snapshotId, customPanels);
+    const instanceMetric = discovered.names[0];
+
+    const base = urlBase ?? `${routePrefix}/${encodeURIComponent(snapshotId)}`;
+    const urlPath = `${base}/${segment}`;
+
+    return new SceneAppPage({
+        title,
+        url: prefixRoute(urlPath),
+        routePath: `/${segment}`,
+        getScene: () => {
+            const currentCluster = clusterFilterService.getCurrentCluster();
+            const currentInstance = instanceFilterService.getCurrentInstance();
+            const hideEmpty = layoutService.getHideEmptyPanels();
+            const cacheKey = {
+                snapshotId,
+                serviceKey: 'custom',
+                dashboardType: segment,
+                additional: `cluster:${currentCluster ?? 'all'}_instance:${currentInstance ?? 'all'}_hideEmpty:${hideEmpty}_match:${customPanels.match}`,
+            };
+
+            if (!sceneCacheService.hasScene(cacheKey)) {
+                const scene = createInstanceAwareScene(snapshotId, builder, { instanceMetric });
+                sceneCacheService.setScene(cacheKey, scene);
+
+                const globalLayers = new SceneDataLayerSet({
+                    layers: [
+                        new SnapshotPhaseRegionsLayer({
+                            isEnabled: true,
+                            snapshotId,
+                            name: 'Snapshot Phases',
+                        }),
+                    ],
+                });
                 const currentState: any = (scene as any).state || {};
                 if (!currentState.$data) {
                     scene.setState({ $data: globalLayers });

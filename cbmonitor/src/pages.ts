@@ -4,11 +4,16 @@ import { SceneAppPage } from '@grafana/scenes';
 import { ROUTES } from './utils/utils.routing';
 import { sceneCacheService } from './services/sceneCache';
 import { buildServiceTabs } from './services/pageBuilder';
+import type { CustomPanelsConfig } from './types/snapshot';
 
 /**
  * Factory functions to create dashboard pages for a provided list of services in a snapshot
  */
-export function getDashboardsForServices(services: string[], snapshotId: string): SceneAppPage[] {
+export function getDashboardsForServices(
+    services: string[],
+    snapshotId: string,
+    customPanels?: CustomPanelsConfig,
+): SceneAppPage[] {
     // Check if we already have tabs cached for this snapshot
     if (sceneCacheService.hasTabs(snapshotId)) {
         return sceneCacheService.getTabs(snapshotId)!;
@@ -19,7 +24,8 @@ export function getDashboardsForServices(services: string[], snapshotId: string)
         snapshotIds: [snapshotId],
         services,
         mode: 'single',
-        routePrefix: ROUTES.CBMonitor
+        routePrefix: ROUTES.CBMonitor,
+        customPanels,
     });
 
     // Cache the tabs before returning

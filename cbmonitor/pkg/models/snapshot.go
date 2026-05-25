@@ -16,14 +16,36 @@ type Cluster struct {
 
 // SnapshotMetadata represents the snapshot metadata structure from Couchbase
 type SnapshotMetadata struct {
-	SnapshotID string    `json:"snapshotId" couchbase:"id"`
-	Services   []string  `json:"services" couchbase:"services"`
-	Clusters   []Cluster `json:"clusters,omitempty" couchbase:"clusters"`
-	Version    string    `json:"version" couchbase:"server"`
-	TSStart    string    `json:"ts_start" couchbase:"ts_start"`
-	TSEnd      string    `json:"ts_end" couchbase:"ts_end"`
-	Phases     []Phase   `json:"phases,omitempty"`
-	Label      string    `json:"label,omitempty"`
+	SnapshotID   string              `json:"snapshotId" couchbase:"id"`
+	Services     []string            `json:"services" couchbase:"services"`
+	Clusters     []Cluster           `json:"clusters,omitempty" couchbase:"clusters"`
+	Version      string              `json:"version" couchbase:"server"`
+	TSStart      string              `json:"ts_start" couchbase:"ts_start"`
+	TSEnd        string              `json:"ts_end" couchbase:"ts_end"`
+	Phases       []Phase             `json:"phases,omitempty"`
+	Label        string              `json:"label,omitempty"`
+	CustomPanels *CustomPanelsConfig `json:"custom_panels,omitempty"`
+}
+
+// CustomPanelOverride lets a snapshot tweak how a single discovered
+// metric is rendered without listing every metric explicitly.
+type CustomPanelOverride struct {
+	Title             string `json:"title,omitempty"`
+	Unit              string `json:"unit,omitempty"`
+	TransformFunction string `json:"transformFunction,omitempty"`
+	LegendFormat      string `json:"legendFormat,omitempty"`
+}
+
+// CustomPanelsConfig declares an opt-in "Custom" tab for a snapshot.
+// The frontend resolves Match against the snapshot's metric names and
+// emits one panel per matching series; Overrides[name] customizes a
+// specific panel; RateMatch flags counter-style metrics that should be
+// wrapped in rate().
+type CustomPanelsConfig struct {
+	Title     string                         `json:"title,omitempty"`
+	Match     string                         `json:"match"`
+	RateMatch string                         `json:"rate_match,omitempty"`
+	Overrides map[string]CustomPanelOverride `json:"overrides,omitempty"`
 }
 
 // SnapshotData represents the complete snapshot data including metadata and raw data
@@ -70,6 +92,16 @@ type MetricSummary struct {
 	Min         float64            `json:"min"`
 	Max         float64            `json:"max"`
 	Percentiles map[string]float64 `json:"percentiles"` // Always includes P50, P90, P99, plus any custom percentiles
+}
+
+// MetricNamesResponse represents the list of metric names discovered for
+// a snapshot. Truncated is true when results were capped server-side.
+type MetricNamesResponse struct {
+	Success   bool     `json:"success"`
+	Snapshot  string   `json:"snapshot"`
+	Names     []string `json:"names"`
+	Truncated bool     `json:"truncated,omitempty"`
+	Error     string   `json:"error,omitempty"`
 }
 
 // MetricSummaryResponse represents summary statistics for a metric
