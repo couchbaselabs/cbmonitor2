@@ -1,6 +1,5 @@
 import { loadSnapshot } from './snapshotLoader';
 import { snapshotService } from './snapshotService';
-import { SERVICE_CONFIGS } from '../config/services';
 
 jest.mock('./snapshotService', () => ({
     snapshotService: {
@@ -30,7 +29,9 @@ describe('loadSnapshot fallback behavior', () => {
         expect(loaded.id).toBe('abc');
         expect(loaded.metadata.snapshotId).toBe('abc');
         expect(loaded.metadata.phases).toEqual([]);
-        expect(loaded.metadata.services.length).toBeGreaterThan(0);
+        // services intentionally empty in fallback — the page builder's
+        // visibility model decides which builtins show.
+        expect(loaded.metadata.services).toEqual([]);
 
         const tsStart = Date.parse(loaded.metadata.ts_start);
         const tsEnd = Date.parse(loaded.metadata.ts_end);
@@ -63,12 +64,11 @@ describe('loadSnapshot fallback behavior', () => {
         await expect(loadSnapshot('ghost')).rejects.toBe(err);
     });
 
-    it('populates services from SERVICE_CONFIGS in fallback metadata', async () => {
+    it('leaves services empty in fallback metadata (alwaysInclude builtins still render via the visibility model)', async () => {
         mockedSnapshotService.getSnapshot.mockRejectedValue(new Error('HTTP 503'));
 
         const loaded = await loadSnapshot('xyz');
-        const expected = SERVICE_CONFIGS.map((c) => c.key);
-        expect(loaded.metadata.services).toEqual(expected);
+        expect(loaded.metadata.services).toEqual([]);
     });
 
     it('returns cached snapshot data when available without calling getSnapshot', async () => {

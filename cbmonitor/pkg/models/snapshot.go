@@ -16,15 +16,15 @@ type Cluster struct {
 
 // SnapshotMetadata represents the snapshot metadata structure from Couchbase
 type SnapshotMetadata struct {
-	SnapshotID   string              `json:"snapshotId" couchbase:"id"`
-	Services     []string            `json:"services" couchbase:"services"`
-	Clusters     []Cluster           `json:"clusters,omitempty" couchbase:"clusters"`
-	Version      string              `json:"version" couchbase:"server"`
-	TSStart      string              `json:"ts_start" couchbase:"ts_start"`
-	TSEnd        string              `json:"ts_end" couchbase:"ts_end"`
-	Phases       []Phase             `json:"phases,omitempty"`
-	Label        string              `json:"label,omitempty"`
-	CustomPanels *CustomPanelsConfig `json:"custom_panels,omitempty"`
+	SnapshotID   string               `json:"snapshotId" couchbase:"id"`
+	Services     []string             `json:"services" couchbase:"services"`
+	Clusters     []Cluster            `json:"clusters,omitempty" couchbase:"clusters"`
+	Version      string               `json:"version" couchbase:"server"`
+	TSStart      string               `json:"ts_start" couchbase:"ts_start"`
+	TSEnd        string               `json:"ts_end" couchbase:"ts_end"`
+	Phases       []Phase              `json:"phases,omitempty"`
+	Label        string               `json:"label,omitempty"`
+	CustomPanels []CustomPanelsConfig `json:"custom_panels,omitempty"`
 }
 
 // CustomPanelOverride lets a snapshot tweak how a single discovered

@@ -63,6 +63,7 @@ export const SERVICE_CONFIGS: ServiceConfig[] = [
         aliases: [],
         builder: kvBuilder,
         instanceMetric: 'kv_ops',
+        alwaysInclude: true,
     },
     {
         key: 'index',

@@ -12,6 +12,12 @@ export interface SnapshotCacheEntry {
     snapshotId: string;
     metadata: SnapshotMetadata;
     metrics?: Record<string, unknown>;
+    /**
+     * Per-snapshot tab visibility overrides. Each key is a tab key
+     * (builtin service.key, or the slugged segment for a custom panel);
+     * value is the user's explicit choice. Absent = use default.
+     */
+    tabOverrides?: Record<string, boolean>;
     cachedAt: number;
     lastAccessedAt: number;
     pinned: boolean;

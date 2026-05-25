@@ -8,6 +8,7 @@ import { layoutService, LayoutMode } from '../../services/layoutService';
 import { dataSourceService } from '../../services/datasourceService';
 import { DataSourceType } from '../../types/datasource';
 import { clusterFilterService } from '../../services/clusterFilterService';
+import { AvailableTab, isTabVisible } from '../../services/pageBuilder';
 
 const ALL_CLUSTERS = '__all__';
 
@@ -18,10 +19,14 @@ interface SettingsDropdownState extends SceneObjectState {
     onDataSourceChange?: () => void;
     onClusterChange?: (clusterId: string | null) => void;
     onHideEmptyChange?: () => void;
+    availableTabs?: AvailableTab[];
+    tabOverrides?: Record<string, boolean>;
+    onTabVisibilityChange?: (next: Record<string, boolean>) => void;
     showLayoutSection?: boolean;
     showDataSourceSection?: boolean;
     showClusterSection?: boolean;
     showHideEmptySection?: boolean;
+    showTabVisibilitySection?: boolean;
 }
 
 export class SettingsDropdown extends SceneObjectBase<SettingsDropdownState> {
@@ -39,10 +44,14 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
         onDataSourceChange,
         onClusterChange,
         onHideEmptyChange,
+        availableTabs,
+        tabOverrides,
+        onTabVisibilityChange,
         showLayoutSection = true,
         showDataSourceSection = true,
         showClusterSection = true,
         showHideEmptySection = true,
+        showTabVisibilitySection = true,
     } = model.useState();
 
     const styles = useStyles2(getStyles);
@@ -148,6 +157,19 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
         onHideEmptyChange?.();
     };
 
+    const handleTabVisibilityChange = (tab: AvailableTab, nextVisible: boolean) => {
+        const current = tabOverrides ?? {};
+        const next: Record<string, boolean> = { ...current };
+        if (nextVisible === tab.defaultVisible) {
+            // Reverting to default — drop the override so future metadata
+            // changes inherit the new default cleanly.
+            delete next[tab.key];
+        } else {
+            next[tab.key] = nextVisible;
+        }
+        onTabVisibilityChange?.(next);
+    };
+
     const layoutOptions = [
         { label: 'Grid', value: 'grid' as LayoutMode, icon: 'apps' },
         { label: 'Rows', value: 'rows' as LayoutMode, icon: 'list-ul' },
@@ -227,6 +249,25 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
                             />
                         </div>
                     )}
+
+                    {showTabVisibilitySection && availableTabs && availableTabs.length > 0 && (
+                        <div className={styles.section}>
+                            <div className={styles.sectionLabel}>Visible Tabs</div>
+                            <div className={styles.tabList}>
+                                {availableTabs.map((tab) => (
+                                    <div key={tab.key} className={styles.toggleRow}>
+                                        <div className={styles.tabLabel}>{tab.title}</div>
+                                        <Switch
+                                            value={isTabVisible(tab, tabOverrides)}
+                                            onChange={(e) =>
+                                                handleTabVisibilityChange(tab, e.currentTarget.checked)
+                                            }
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
@@ -274,5 +315,17 @@ const getStyles = (theme: GrafanaTheme2) => ({
         align-items: center;
         justify-content: space-between;
         gap: ${theme.spacing(1)};
+    `,
+    tabList: css`
+        display: flex;
+        flex-direction: column;
+        gap: ${theme.spacing(0.5)};
+        max-height: 240px;
+        overflow-y: auto;
+        padding-right: ${theme.spacing(0.5)};
+    `,
+    tabLabel: css`
+        font-size: ${theme.typography.bodySmall.fontSize};
+        color: ${theme.colors.text.primary};
     `,
 });

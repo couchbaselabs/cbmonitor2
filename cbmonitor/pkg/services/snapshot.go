@@ -134,44 +134,21 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 		metadata.Label = label
 	}
 
-	// Extract optional custom_panels config (perfrunner / other workloads
-	// declare a regex to auto-render an extra "Custom" tab).
-	if raw, ok := rawData["custom_panels"].(map[string]interface{}); ok {
-		cp := &models.CustomPanelsConfig{}
-		if v, ok := raw["title"].(string); ok {
-			cp.Title = v
-		}
-		if v, ok := raw["match"].(string); ok {
-			cp.Match = v
-		}
-		if v, ok := raw["rate_match"].(string); ok {
-			cp.RateMatch = v
-		}
-		if ovs, ok := raw["overrides"].(map[string]interface{}); ok {
-			cp.Overrides = make(map[string]models.CustomPanelOverride, len(ovs))
-			for name, val := range ovs {
-				om, ok := val.(map[string]interface{})
-				if !ok {
-					continue
+	// Extract optional custom_panels config(s). Accepts either a single
+	// object (legacy single-tab form) or an array of objects (each
+	// becomes its own tab). Entries with an empty match are dropped.
+	switch raw := rawData["custom_panels"].(type) {
+	case []interface{}:
+		for _, entry := range raw {
+			if m, ok := entry.(map[string]interface{}); ok {
+				if cp, ok := parseCustomPanelsConfig(m); ok {
+					metadata.CustomPanels = append(metadata.CustomPanels, cp)
 				}
-				ov := models.CustomPanelOverride{}
-				if s, ok := om["title"].(string); ok {
-					ov.Title = s
-				}
-				if s, ok := om["unit"].(string); ok {
-					ov.Unit = s
-				}
-				if s, ok := om["transformFunction"].(string); ok {
-					ov.TransformFunction = s
-				}
-				if s, ok := om["legendFormat"].(string); ok {
-					ov.LegendFormat = s
-				}
-				cp.Overrides[name] = ov
 			}
 		}
-		if cp.Match != "" {
-			metadata.CustomPanels = cp
+	case map[string]interface{}:
+		if cp, ok := parseCustomPanelsConfig(raw); ok {
+			metadata.CustomPanels = append(metadata.CustomPanels, cp)
 		}
 	}
 
@@ -274,6 +251,49 @@ func (ss *SnapshotService) determineDashboards(services []string) []string {
 	}
 
 	return dashboards
+}
+
+// parseCustomPanelsConfig pulls a single CustomPanelsConfig out of a raw
+// JSON object. Returns ok=false when the required `match` field is empty
+// so callers can skip incomplete entries instead of rendering an empty tab.
+func parseCustomPanelsConfig(raw map[string]interface{}) (models.CustomPanelsConfig, bool) {
+	cp := models.CustomPanelsConfig{}
+	if v, ok := raw["title"].(string); ok {
+		cp.Title = v
+	}
+	if v, ok := raw["match"].(string); ok {
+		cp.Match = v
+	}
+	if v, ok := raw["rate_match"].(string); ok {
+		cp.RateMatch = v
+	}
+	if ovs, ok := raw["overrides"].(map[string]interface{}); ok {
+		cp.Overrides = make(map[string]models.CustomPanelOverride, len(ovs))
+		for name, val := range ovs {
+			om, ok := val.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			ov := models.CustomPanelOverride{}
+			if s, ok := om["title"].(string); ok {
+				ov.Title = s
+			}
+			if s, ok := om["unit"].(string); ok {
+				ov.Unit = s
+			}
+			if s, ok := om["transformFunction"].(string); ok {
+				ov.TransformFunction = s
+			}
+			if s, ok := om["legendFormat"].(string); ok {
+				ov.LegendFormat = s
+			}
+			cp.Overrides[name] = ov
+		}
+	}
+	if cp.Match == "" {
+		return models.CustomPanelsConfig{}, false
+	}
+	return cp, true
 }
 
 // Close closes the Couchbase connection

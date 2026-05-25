@@ -1,6 +1,6 @@
 import { snapshotService } from './snapshotService';
 import { SnapshotData, SnapshotMetadata } from '../types/snapshot';
-import { findCommonServices, SERVICE_CONFIGS } from '../config/services';
+import { findCommonServices } from '../config/services';
 
 const FALLBACK_WINDOW_MS = 15 * 60 * 1000;
 
@@ -15,11 +15,10 @@ function isSnapshotNotFoundError(err: unknown): boolean {
 function buildFallbackSnapshot(snapshotId: string): SnapshotData {
     const end = new Date();
     const start = new Date(end.getTime() - FALLBACK_WINDOW_MS);
-    const services = SERVICE_CONFIGS.map((c) => c.key);
     return {
         metadata: {
             snapshotId,
-            services,
+            services: [],
             version: '',
             ts_start: start.toISOString(),
             ts_end: end.toISOString(),

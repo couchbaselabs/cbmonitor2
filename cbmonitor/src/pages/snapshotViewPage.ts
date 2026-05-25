@@ -24,6 +24,7 @@ import {
     discoverCustomMetricNames,
     clearCustomMetricNamesCache,
 } from '../services/customMetricsDiscovery';
+import { getAvailableTabs, isTabVisible, type AvailableTab } from '../services/pageBuilder';
 import { Spinner } from '@grafana/ui';
 
 // Simple loading scene to show while snapshot is being loaded
@@ -142,17 +143,33 @@ snapshotViewPage.addActivationHandler(() => {
         const loaded = await loadSnapshot(snapshotId);
         const { metadata } = loaded;
 
-        // Pre-resolve the snapshot's custom-panels regex (if any) so the
-        // synchronous page builder finds the metric list in cache. A
-        // failure here doesn't block tab rendering — we just skip the
-        // custom tab and warn.
-        if (metadata.custom_panels && metadata.custom_panels.match) {
-            try {
-                await discoverCustomMetricNames(snapshotId, metadata.custom_panels.match);
-            } catch (err) {
-                console.warn(`custom_panels discovery failed for ${snapshotId}; skipping custom tab.`, err);
-            }
+        // Pre-resolve each custom-panels regex (if any) so the
+        // synchronous page builder finds the metric lists in cache. A
+        // failure on any single entry doesn't block tab rendering — the
+        // corresponding tab just won't appear.
+        if (Array.isArray(metadata.custom_panels) && metadata.custom_panels.length > 0) {
+            await Promise.all(
+                metadata.custom_panels
+                    .filter((cp) => cp && cp.match)
+                    .map(async (cp) => {
+                        try {
+                            await discoverCustomMetricNames(snapshotId, cp.match);
+                        } catch (err) {
+                            console.warn(
+                                `custom_panels discovery failed for ${snapshotId} (match=${cp.match}); skipping that tab.`,
+                                err,
+                            );
+                        }
+                    }),
+            );
         }
+
+        // Per-snapshot tab-visibility overrides. Tracked as a mutable
+        // local — flipping a switch updates this and persists via the
+        // snapshot cache. `availableTabs` is recomputed any time the
+        // tab-set changes (metadata refresh).
+        let tabOverrides = snapshotService.getTabOverrides(snapshotId);
+        let availableTabs = getAvailableTabs(metadata.services, metadata.custom_panels);
 
         const urlPhase = params.phase as string;
         initializeTimeRange(timeRange, metadata, urlPhase);
@@ -215,14 +232,14 @@ snapshotViewPage.addActivationHandler(() => {
         const handleLayoutChange = () => {
           sceneCacheService.clearAll();
           snapshotViewPage.setState({
-            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels),
+            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides),
           });
         };
 
         const handleDataSourceChange = () => {
           sceneCacheService.clearAll();
           snapshotViewPage.setState({
-            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels),
+            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides),
           });
         };
 
@@ -230,15 +247,26 @@ snapshotViewPage.addActivationHandler(() => {
           clusterFilterService.setCurrentCluster(clusterId);
           sceneCacheService.clearAll();
           snapshotViewPage.setState({
-            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels),
+            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides),
           });
         };
 
         const handleHideEmptyChange = () => {
           sceneCacheService.clearAll();
           snapshotViewPage.setState({
-            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels),
+            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides),
           });
+        };
+
+        const handleTabVisibilityChange = (next: Record<string, boolean>) => {
+          tabOverrides = next;
+          void snapshotService.setTabOverrides(snapshotId, next);
+          sceneCacheService.clearAll();
+          settingsDropdown.setState({ tabOverrides: next });
+          snapshotViewPage.setState({
+            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides),
+          });
+          redirectIfActiveTabHidden(snapshotId, availableTabs, tabOverrides);
         };
 
         const controls: any[] = [];
@@ -262,12 +290,17 @@ snapshotViewPage.addActivationHandler(() => {
           onLayoutChange: handleLayoutChange,
           onDataSourceChange: handleDataSourceChange,
           onHideEmptyChange: handleHideEmptyChange,
+          availableTabs,
+          tabOverrides,
+          onTabVisibilityChange: handleTabVisibilityChange,
           showClusterSection: false,
         });
 
+        redirectIfActiveTabHidden(snapshotId, availableTabs, tabOverrides);
+
         snapshotViewPage.setState({
           title: "",
-          tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels),
+          tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides),
           $timeRange: timeRange,
           controls: controls,
           renderTitle: () => {
@@ -333,6 +366,47 @@ snapshotViewPage.addActivationHandler(() => {
     }
   };
 });
+
+// Return the tab segment from the current pathname for the given
+// snapshot, or '' for the segment-less default tab (system). Returns
+// undefined when the URL doesn't point at this snapshot at all.
+function getActiveTabSegment(snapshotId: string): string | undefined {
+  const base = prefixRoute(`${ROUTES.CBMonitor}/${encodeURIComponent(snapshotId)}`);
+  const path = locationService.getLocation().pathname;
+  if (path === base) {
+    return '';
+  }
+  if (path.startsWith(`${base}/`)) {
+    return path.slice(base.length + 1).split('/')[0];
+  }
+  return undefined;
+}
+
+// Grafana Scenes doesn't gracefully fall back when the URL points at a
+// tab that's been removed from the tabs array — the user sees a 404.
+// Detect that case and replace the URL with the first visible tab's URL.
+// Called both on initial snapshot load and after a visibility toggle.
+function redirectIfActiveTabHidden(
+  snapshotId: string,
+  available: AvailableTab[],
+  overrides: Record<string, boolean>,
+): void {
+  const visible = available.filter((t) => isTabVisible(t, overrides));
+  if (visible.length === 0) {
+    return;
+  }
+  const active = getActiveTabSegment(snapshotId);
+  if (active === undefined) {
+    return;
+  }
+  if (visible.some((t) => t.segment === active)) {
+    return;
+  }
+  const base = prefixRoute(`${ROUTES.CBMonitor}/${encodeURIComponent(snapshotId)}`);
+  const firstSegment = visible[0].segment;
+  const target = firstSegment ? `${base}/${firstSegment}` : base;
+  locationService.replace(target);
+}
 
 // Extract snapshotId from a viewer pathname like `/a/cbmonitor/snapshots/<id>[/...]`.
 // Returns undefined for the bare `/snapshots` search path or unrelated paths.

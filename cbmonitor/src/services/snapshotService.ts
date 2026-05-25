@@ -124,6 +124,7 @@ class SnapshotService {
         snapshotId,
         metadata: data.metadata,
         metrics: existing?.metrics,
+        tabOverrides: existing?.tabOverrides,
         cachedAt: existing?.cachedAt ?? now,
         lastAccessedAt: now,
         pinned: existing?.pinned ?? false,
@@ -160,6 +161,36 @@ class SnapshotService {
       console.error('Error retrieving stored snapshot data:', error);
       return null;
     }
+  }
+
+  /**
+   * Synchronously read the persisted tab-visibility overrides for a snapshot.
+   * Returns an empty map when the cache entry is missing.
+   */
+  getTabOverrides(snapshotId: string): Record<string, boolean> {
+    const entry = this.cache.peekSync(snapshotId);
+    return entry?.tabOverrides ?? {};
+  }
+
+  /**
+   * Persist tab-visibility overrides for a snapshot. Writes back the
+   * existing cache entry with the new map; no-op when the snapshot
+   * isn't cached yet (shouldn't happen — the viewer always stores
+   * before the dropdown can fire).
+   */
+  async setTabOverrides(snapshotId: string, overrides: Record<string, boolean>): Promise<void> {
+    const existing = this.cache.peekSync(snapshotId);
+    if (!existing) {
+      return;
+    }
+    const now = Date.now();
+    const entry: SnapshotCacheEntry = {
+      ...existing,
+      tabOverrides: overrides,
+      lastAccessedAt: now,
+      sizeBytes: 0,
+    };
+    await this.cache.put(entry);
   }
 
   /**

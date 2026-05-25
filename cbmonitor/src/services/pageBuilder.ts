@@ -1,6 +1,6 @@
 import { SceneAppPage, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneTimeRange, SceneDataLayerSet } from '@grafana/scenes';
 import { prefixRoute } from '../utils/utils.routing';
-import { getServiceConfigs, getServiceConfig, type ServiceConfig } from '../config/services';
+import { SERVICE_CONFIGS, getServiceConfigs, getServiceConfig, normalizeServiceName, type ServiceConfig } from '../config/services';
 import { sceneCacheService } from './sceneCache';
 import { clusterFilterService } from './clusterFilterService';
 import { instanceFilterService } from './instanceFilterService';
@@ -14,6 +14,77 @@ import {
 import type { CustomPanelsConfig } from '../types/snapshot';
 import { makeCustomBuilder } from '../dashboards/custom';
 import { getCachedCustomMetricNames } from './customMetricsDiscovery';
+
+/**
+ * A single tab that the snapshot view *could* show. Drives both the
+ * SettingsDropdown checkbox list and `buildServiceTabs`'s filter. Each
+ * tab has a `defaultVisible` flag computed from snapshot metadata at
+ * view time; the user can override it via `tabOverrides`.
+ */
+export interface AvailableTab {
+    key: string;
+    title: string;
+    defaultVisible: boolean;
+    kind: 'builtin' | 'custom';
+    /** Present for builtin tabs only. */
+    serviceKey?: string;
+    /** Present for custom tabs only. */
+    customConfig?: CustomPanelsConfig;
+    /** URL segment. For builtins, the ServiceConfig.segment (may be ''). For custom tabs, the slugged 'custom-…'. */
+    segment: string;
+}
+
+/**
+ * Compute the full set of available tabs for a snapshot.
+ *
+ * Every builtin in SERVICE_CONFIGS is included (defaultVisible iff
+ * `alwaysInclude` or listed in `services`). Each `customPanels` entry
+ * is appended, defaultVisible=true.
+ */
+export function getAvailableTabs(
+    services: string[] | undefined,
+    customPanels?: CustomPanelsConfig[],
+): AvailableTab[] {
+    // Canonicalize the metadata's services through `normalizeServiceName`
+    // so aliases (e.g. "n1ql" → "query", "sync-gateway" → "sgw") and case
+    // variants are treated as the canonical key — matching the lookup
+    // semantics used by `getServiceConfigs`.
+    const lookup = new Set((services ?? []).map((s) => normalizeServiceName(s)));
+    const tabs: AvailableTab[] = SERVICE_CONFIGS.map((cfg) => ({
+        key: cfg.key,
+        title: cfg.title,
+        defaultVisible: Boolean(cfg.alwaysInclude) || lookup.has(cfg.key),
+        kind: 'builtin',
+        serviceKey: cfg.key,
+        segment: cfg.segment,
+    }));
+
+    if (customPanels && customPanels.length > 0) {
+        const usedSegments = new Set<string>();
+        customPanels.forEach((cp, idx) => {
+            const segment = uniqueCustomSegment(cp, idx, usedSegments);
+            tabs.push({
+                key: segment,
+                title: cp.title?.trim() || 'Custom',
+                defaultVisible: true,
+                kind: 'custom',
+                customConfig: cp,
+                segment,
+            });
+        });
+    }
+
+    return tabs;
+}
+
+/**
+ * Resolve a tab's effective visibility: explicit user override wins,
+ * else the default computed at view time.
+ */
+export function isTabVisible(tab: AvailableTab, overrides?: Record<string, boolean>): boolean {
+    const override = overrides?.[tab.key];
+    return typeof override === 'boolean' ? override : tab.defaultVisible;
+}
 
 /**
  * Options for building service tabs/pages
@@ -35,12 +106,18 @@ export interface PageBuilderOptions {
      */
     urlBase?: string;
     /**
-     * Optional snapshot-declared custom panels. When set on a single-mode
-     * build, an extra "Custom" tab is appended after the regular services.
+     * Optional snapshot-declared custom panel configs. Each entry becomes
+     * its own tab appended after the regular services in single-mode.
      * Ignored in comparison mode (the custom-metric set may differ between
      * snapshots, so we don't attempt to render it side-by-side).
      */
-    customPanels?: CustomPanelsConfig;
+    customPanels?: CustomPanelsConfig[];
+    /**
+     * Per-snapshot tab-visibility overrides. Single-mode only. Tabs with
+     * an explicit `false` are hidden; tabs that are off by default but
+     * have an explicit `true` are shown.
+     */
+    tabOverrides?: Record<string, boolean>;
 }
 
 /**
@@ -70,7 +147,7 @@ export interface PageBuilderOptions {
  * });
  */
 export function buildServiceTabs(options: PageBuilderOptions): SceneAppPage[] {
-    const { snapshotIds, services, mode, routePrefix, timeRanges, overlapMode, overlapEndTimeSeconds, urlBase, customPanels } = options;
+    const { snapshotIds, services, mode, routePrefix, timeRanges, overlapMode, overlapEndTimeSeconds, urlBase, customPanels, tabOverrides } = options;
 
     if (mode === 'single' && snapshotIds.length !== 1) {
         throw new Error('Single mode requires exactly one snapshot ID');
@@ -84,25 +161,53 @@ export function buildServiceTabs(options: PageBuilderOptions): SceneAppPage[] {
         throw new Error('Number of time ranges must match number of snapshots');
     }
 
-    const serviceConfigs = getServiceConfigs(services);
     const pages: SceneAppPage[] = [];
 
+    if (mode === 'single') {
+        const available = getAvailableTabs(services, customPanels);
+        for (const tab of available) {
+            if (!isTabVisible(tab, tabOverrides)) {
+                continue;
+            }
+            if (tab.kind === 'builtin') {
+                pages.push(buildSingleSnapshotPage(tab.serviceKey!, snapshotIds[0], routePrefix, urlBase));
+            } else {
+                const built = buildCustomPanelsPage(snapshotIds[0], routePrefix, tab.customConfig!, tab.segment, urlBase);
+                if (built) {
+                    pages.push(built);
+                }
+            }
+        }
+        return pages;
+    }
+
+    // Comparison mode: visibility filter is not applied (the union of
+    // services between snapshots is what `getServiceConfigs` already
+    // returns).
+    const serviceConfigs = getServiceConfigs(services);
     for (const config of serviceConfigs) {
-        if (mode === 'single') {
-            pages.push(buildSingleSnapshotPage(config.key, snapshotIds[0], routePrefix, urlBase));
-        } else {
-            pages.push(buildComparisonPage(config.key, snapshotIds, routePrefix, timeRanges, overlapMode, overlapEndTimeSeconds));
-        }
+        pages.push(buildComparisonPage(config.key, snapshotIds, routePrefix, timeRanges, overlapMode, overlapEndTimeSeconds));
     }
-
-    if (mode === 'single' && customPanels) {
-        const customTab = buildCustomPanelsPage(snapshotIds[0], routePrefix, customPanels, urlBase);
-        if (customTab) {
-            pages.push(customTab);
-        }
-    }
-
     return pages;
+}
+
+/**
+ * Slugify a custom-panels title into a URL-safe segment, deduping
+ * collisions by appending a numeric suffix. Falls back to
+ * `custom-<idx>` when the title is empty / non-alphanumeric.
+ */
+function uniqueCustomSegment(cp: CustomPanelsConfig, idx: number, used: Set<string>): string {
+    const base = (cp.title ?? '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    let candidate = base ? `custom-${base}` : `custom-${idx}`;
+    let n = 2;
+    while (used.has(candidate)) {
+        candidate = (base ? `custom-${base}` : `custom-${idx}`) + `-${n++}`;
+    }
+    used.add(candidate);
+    return candidate;
 }
 
 /**
@@ -192,15 +297,16 @@ function buildSingleSnapshotPage(
 }
 
 /**
- * Build the optional "Custom" tab from a snapshot's custom_panels config.
- * Returns null when no metric names have been resolved yet (snapshot
- * viewer pre-fetches them before the first build, so this guards against
- * a misordered call rather than expecting a real cache miss).
+ * Build a single optional custom tab from one custom_panels entry.
+ * Returns null when no metric names have been resolved (viewer
+ * pre-fetches them before the first build, so this guards against an
+ * empty result rather than expecting a real cache miss).
  */
 function buildCustomPanelsPage(
     snapshotId: string,
     routePrefix: string,
     customPanels: CustomPanelsConfig,
+    segment: string,
     urlBase?: string,
 ): SceneAppPage | null {
     const discovered = getCachedCustomMetricNames(snapshotId, customPanels.match);
@@ -209,7 +315,6 @@ function buildCustomPanelsPage(
     }
 
     const title = customPanels.title?.trim() || 'Custom';
-    const segment = 'custom';
     const builder = makeCustomBuilder(snapshotId, customPanels);
     const instanceMetric = discovered.names[0];
 
@@ -226,7 +331,7 @@ function buildCustomPanelsPage(
             const hideEmpty = layoutService.getHideEmptyPanels();
             const cacheKey = {
                 snapshotId,
-                serviceKey: 'custom',
+                serviceKey: segment,
                 dashboardType: segment,
                 additional: `cluster:${currentCluster ?? 'all'}_instance:${currentInstance ?? 'all'}_hideEmpty:${hideEmpty}_match:${customPanels.match}`,
             };
