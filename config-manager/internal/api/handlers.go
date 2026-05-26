@@ -92,6 +92,7 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 		TsEnd:        "now",
 		Label:        req.Label,
 		CustomPanels: presets.BuildCustomPanels(&req),
+		Services:     []string{},
 	}
 	hasMetadata := false
 
@@ -181,16 +182,15 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Persist the metadata document when we have anything for cbmonitor
-	// to render: collected cluster metadata, or just custom-panels
-	// presets. With presets-only, services/clusters stay empty and the
-	// frontend falls back to its alwaysInclude builtins for that snapshot.
-	if hasMetadata || len(metadataRecord.CustomPanels) > 0 {
-		if err := h.metadataStorage.SaveMetadata(metadataRecord); err != nil {
-			logger.Warn("Warning: Failed to save metadata", "error", err)
-		} else {
-			logger.Info("Successfully saved metadata for snapshot", "id", id, "hasClusterMetadata", hasMetadata, "customPanels", len(metadataRecord.CustomPanels))
-		}
+	// Persist the metadata document for every snapshot so the label and
+	// timestamps always land in the bucket. When no product contributed
+	// cluster metadata and no custom panels were requested, services/
+	// clusters stay empty and the frontend falls back to its
+	// alwaysInclude builtins for that snapshot.
+	if err := h.metadataStorage.SaveMetadata(metadataRecord); err != nil {
+		logger.Warn("Warning: Failed to save metadata", "error", err)
+	} else {
+		logger.Info("Successfully saved metadata for snapshot", "id", id, "hasClusterMetadata", hasMetadata, "customPanels", len(metadataRecord.CustomPanels))
 	}
 
 	// Create response
