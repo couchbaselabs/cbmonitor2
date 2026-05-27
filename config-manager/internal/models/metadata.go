@@ -19,6 +19,10 @@ type SnapshotMetadata struct {
 	Label        string                 `json:"label,omitempty"`
 	CustomPanels []CustomPanelsConfig   `json:"custom_panels,omitempty"`
 	Extras       map[string]interface{} `json:"extras,omitempty"`
+	// Products is the distinct, order-preserving set of products this
+	// snapshot scrapes (e.g. ["couchbase"], ["couchbase","sgw"], ["kafka"]).
+	// cbmonitor uses it to decide whether the Couchbase baseline tabs apply.
+	Products []string `json:"products,omitempty"`
 }
 
 // CustomPanelsConfig matches the shape cbmonitor's snapshot service

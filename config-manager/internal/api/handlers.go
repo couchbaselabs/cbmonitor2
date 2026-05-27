@@ -93,6 +93,7 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 		Label:        req.Label,
 		CustomPanels: presets.BuildCustomPanels(&req),
 		Services:     []string{},
+		Products:     collectProducts(req.Configs),
 	}
 	hasMetadata := false
 
@@ -207,6 +208,27 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return
 	}
+}
+
+// collectProducts returns the distinct, order-preserving set of products
+// across the request's configs. The validator has already defaulted each
+// SD config's product to "couchbase", so a typical Couchbase snapshot
+// yields ["couchbase"]; a mixed snapshot yields e.g. ["couchbase","sgw"].
+// Blank products (e.g. a static config with no product) are skipped.
+func collectProducts(configs []models.ConfigObject) []string {
+	seen := make(map[string]struct{}, len(configs))
+	out := make([]string, 0, len(configs))
+	for _, c := range configs {
+		if c.Product == "" {
+			continue
+		}
+		if _, ok := seen[c.Product]; ok {
+			continue
+		}
+		seen[c.Product] = struct{}{}
+		out = append(out, c.Product)
+	}
+	return out
 }
 
 // validateSnapshotRequest validates the snapshot request
