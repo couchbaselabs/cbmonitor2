@@ -134,6 +134,18 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 		metadata.Label = label
 	}
 
+	// Extract products (the distinct set this snapshot scrapes, e.g.
+	// ["couchbase"] or ["kafka"]). Drives the frontend's Couchbase-baseline
+	// tab decision.
+	if products, ok := rawData["products"].([]interface{}); ok {
+		metadata.Products = make([]string, 0, len(products))
+		for _, p := range products {
+			if productStr, ok := p.(string); ok {
+				metadata.Products = append(metadata.Products, productStr)
+			}
+		}
+	}
+
 	// Extract optional custom_panels config(s). Accepts either a single
 	// object (legacy single-tab form) or an array of objects (each
 	// becomes its own tab). Entries with an empty match are dropped.
@@ -194,6 +206,7 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 		"label":         true,
 		"clusters":      true,
 		"custom_panels": true,
+		"products":      true,
 	}
 	for k, v := range rawData {
 		if !metadataFields[k] {

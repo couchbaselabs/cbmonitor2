@@ -62,6 +62,7 @@ export interface SnapshotMetadata {
   phases?: Phase[];
   label?: string;
   custom_panels?: CustomPanelsConfig[];
+  products?: string[];
 }
 
 export interface SnapshotData {

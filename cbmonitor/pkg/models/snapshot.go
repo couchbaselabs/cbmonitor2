@@ -25,6 +25,7 @@ type SnapshotMetadata struct {
 	Phases       []Phase              `json:"phases,omitempty"`
 	Label        string               `json:"label,omitempty"`
 	CustomPanels []CustomPanelsConfig `json:"custom_panels,omitempty"`
+	Products     []string             `json:"products,omitempty"`
 }
 
 // CustomPanelOverride lets a snapshot tweak how a single discovered

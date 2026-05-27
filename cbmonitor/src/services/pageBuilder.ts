@@ -35,25 +35,44 @@ export interface AvailableTab {
 }
 
 /**
+ * A snapshot "covers Couchbase" when its product set is empty/absent
+ * (legacy docs + the metadata-less fallback, which we treat as Couchbase
+ * for backward compatibility) or explicitly lists "couchbase". Only then
+ * do the `alwaysInclude` baseline tabs (system / kv / cluster_manager)
+ * default on — external-product snapshots shouldn't surface empty
+ * Couchbase tabs by default.
+ */
+export function snapshotCoversCouchbase(products?: string[]): boolean {
+    if (!products || products.length === 0) {
+        return true;
+    }
+    return products.includes('couchbase');
+}
+
+/**
  * Compute the full set of available tabs for a snapshot.
  *
- * Every builtin in SERVICE_CONFIGS is included (defaultVisible iff
- * `alwaysInclude` or listed in `services`). Each `customPanels` entry
- * is appended, defaultVisible=true.
+ * Every builtin in SERVICE_CONFIGS is always included (kept available so
+ * the user can still toggle one on). A builtin defaults on when it's in
+ * `services`, or when it's an `alwaysInclude` baseline tab AND the
+ * snapshot covers Couchbase. Each `customPanels` entry is appended,
+ * defaultVisible=true.
  */
 export function getAvailableTabs(
     services: string[] | undefined,
     customPanels?: CustomPanelsConfig[],
+    products?: string[],
 ): AvailableTab[] {
     // Canonicalize the metadata's services through `normalizeServiceName`
     // so aliases (e.g. "n1ql" → "query", "sync-gateway" → "sgw") and case
     // variants are treated as the canonical key — matching the lookup
     // semantics used by `getServiceConfigs`.
     const lookup = new Set((services ?? []).map((s) => normalizeServiceName(s)));
+    const couchbaseBaseline = snapshotCoversCouchbase(products);
     const tabs: AvailableTab[] = SERVICE_CONFIGS.map((cfg) => ({
         key: cfg.key,
         title: cfg.title,
-        defaultVisible: Boolean(cfg.alwaysInclude) || lookup.has(cfg.key),
+        defaultVisible: lookup.has(cfg.key) || (Boolean(cfg.alwaysInclude) && couchbaseBaseline),
         kind: 'builtin',
         serviceKey: cfg.key,
         segment: cfg.segment,
@@ -118,6 +137,12 @@ export interface PageBuilderOptions {
      * have an explicit `true` are shown.
      */
     tabOverrides?: Record<string, boolean>;
+    /**
+     * Products the snapshot scrapes (e.g. ["couchbase"], ["kafka"]).
+     * Single-mode only. Decides whether the Couchbase baseline tabs
+     * default on. Empty/absent ⇒ treated as Couchbase.
+     */
+    products?: string[];
 }
 
 /**
@@ -147,7 +172,7 @@ export interface PageBuilderOptions {
  * });
  */
 export function buildServiceTabs(options: PageBuilderOptions): SceneAppPage[] {
-    const { snapshotIds, services, mode, routePrefix, timeRanges, overlapMode, overlapEndTimeSeconds, urlBase, customPanels, tabOverrides } = options;
+    const { snapshotIds, services, mode, routePrefix, timeRanges, overlapMode, overlapEndTimeSeconds, urlBase, customPanels, tabOverrides, products } = options;
 
     if (mode === 'single' && snapshotIds.length !== 1) {
         throw new Error('Single mode requires exactly one snapshot ID');
@@ -164,7 +189,7 @@ export function buildServiceTabs(options: PageBuilderOptions): SceneAppPage[] {
     const pages: SceneAppPage[] = [];
 
     if (mode === 'single') {
-        const available = getAvailableTabs(services, customPanels);
+        const available = getAvailableTabs(services, customPanels, products);
         for (const tab of available) {
             if (!isTabVisible(tab, tabOverrides)) {
                 continue;

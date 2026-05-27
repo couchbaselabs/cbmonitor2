@@ -169,7 +169,7 @@ snapshotViewPage.addActivationHandler(() => {
         // snapshot cache. `availableTabs` is recomputed any time the
         // tab-set changes (metadata refresh).
         let tabOverrides = snapshotService.getTabOverrides(snapshotId);
-        let availableTabs = getAvailableTabs(metadata.services, metadata.custom_panels);
+        let availableTabs = getAvailableTabs(metadata.services, metadata.custom_panels, metadata.products);
 
         const urlPhase = params.phase as string;
         initializeTimeRange(timeRange, metadata, urlPhase);
@@ -232,14 +232,14 @@ snapshotViewPage.addActivationHandler(() => {
         const handleLayoutChange = () => {
           sceneCacheService.clearAll();
           snapshotViewPage.setState({
-            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides),
+            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides, metadata.products),
           });
         };
 
         const handleDataSourceChange = () => {
           sceneCacheService.clearAll();
           snapshotViewPage.setState({
-            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides),
+            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides, metadata.products),
           });
         };
 
@@ -247,14 +247,14 @@ snapshotViewPage.addActivationHandler(() => {
           clusterFilterService.setCurrentCluster(clusterId);
           sceneCacheService.clearAll();
           snapshotViewPage.setState({
-            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides),
+            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides, metadata.products),
           });
         };
 
         const handleHideEmptyChange = () => {
           sceneCacheService.clearAll();
           snapshotViewPage.setState({
-            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides),
+            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides, metadata.products),
           });
         };
 
@@ -264,7 +264,7 @@ snapshotViewPage.addActivationHandler(() => {
           sceneCacheService.clearAll();
           settingsDropdown.setState({ tabOverrides: next });
           snapshotViewPage.setState({
-            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides),
+            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides, metadata.products),
           });
           redirectIfActiveTabHidden(snapshotId, availableTabs, tabOverrides);
         };
@@ -300,7 +300,7 @@ snapshotViewPage.addActivationHandler(() => {
 
         snapshotViewPage.setState({
           title: "",
-          tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides),
+          tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides, metadata.products),
           $timeRange: timeRange,
           controls: controls,
           renderTitle: () => {

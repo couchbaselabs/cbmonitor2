@@ -14,6 +14,7 @@ export function getDashboardsForServices(
     snapshotId: string,
     customPanels?: CustomPanelsConfig[],
     tabOverrides?: Record<string, boolean>,
+    products?: string[],
 ): SceneAppPage[] {
     // Check if we already have tabs cached for this snapshot
     if (sceneCacheService.hasTabs(snapshotId)) {
@@ -28,6 +29,7 @@ export function getDashboardsForServices(
         routePrefix: ROUTES.CBMonitor,
         customPanels,
         tabOverrides,
+        products,
     });
 
     // Cache the tabs before returning
