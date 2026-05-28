@@ -128,13 +128,17 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 			}
 			for _, hostname := range hostnames {
 				sdURL := fmt.Sprintf("%s://%s:%d%s", scheme, hostname, port, path)
-				httpSDConfigs = append(httpSDConfigs, map[string]interface{}{
+				sdEntry := map[string]interface{}{
 					"url": sdURL,
 					"basic_auth": map[string]interface{}{
 						"username": username,
 						"password": password,
 					},
-				})
+				}
+				if scheme == "https" {
+					sdEntry["tls_config"] = map[string]interface{}{"insecure_skip_verify": true}
+				}
+				httpSDConfigs = append(httpSDConfigs, sdEntry)
 			}
 		case "static":
 			targetList := []string{}
@@ -156,6 +160,10 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 			"password": password,
 		},
 		"scheme": scheme,
+	}
+
+	if scheme == "https" {
+		yamlConfig["tls_config"] = map[string]interface{}{"insecure_skip_verify": true}
 	}
 
 	if len(httpSDConfigs) > 0 {

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -20,11 +21,15 @@ type MetadataService struct {
 	httpClient *http.Client
 }
 
-// NewMetadataService creates a new metadata service instance
+// NewMetadataService creates a new metadata service instance.
+// TLS verification is disabled to support self-signed certificates used in our test environment.
 func NewMetadataService() *MetadataService {
 	return &MetadataService{
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
 		},
 	}
 }
