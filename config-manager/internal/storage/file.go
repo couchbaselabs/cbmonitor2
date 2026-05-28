@@ -89,18 +89,19 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 	username := credentials["username"].(string)
 	password := credentials["password"].(string)
 
-	// Extract scheme, default to http if not provided
-	scheme, ok := clusterMap["scheme"].(string)
-	if !ok || scheme == "" {
-		scheme = "http"
+	type scrapeBucket struct {
+		httpSDConfigs []map[string]interface{}
+		staticConfigs []map[string]interface{}
 	}
-
-	// Generate UUID for job_name
-	jobName := id
-
-	//. preparing yaml sections for configs
-	httpSDConfigs := []map[string]interface{}{}
-	staticConfigs := []map[string]interface{}{}
+	buckets := map[string]*scrapeBucket{}
+	bucketFor := func(scheme string) *scrapeBucket {
+		b, ok := buckets[scheme]
+		if !ok {
+			b = &scrapeBucket{}
+			buckets[scheme] = b
+		}
+		return b
+	}
 
 	for _, config := range configs {
 		hostnames, ok := config["hostnames"].([]string)
@@ -113,6 +114,12 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 			return nil, fmt.Errorf("invalid port format")
 		}
 
+		configScheme, _ := config["scheme"].(string)
+		if configScheme == "" {
+			configScheme = "http"
+		}
+		bucket := bucketFor(configScheme)
+
 		switch configType := config["type"].(string); configType {
 		case "sd":
 			product, _ := config["product"].(string)
@@ -123,11 +130,11 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 			path := sdPath
 			if path == "" {
 				if p := products.Get(product); p != nil && p.ResolveSDPath != nil {
-					path = p.ResolveSDPath(scheme)
+					path = p.ResolveSDPath(configScheme)
 				}
 			}
 			for _, hostname := range hostnames {
-				sdURL := fmt.Sprintf("%s://%s:%d%s", scheme, hostname, port, path)
+				sdURL := fmt.Sprintf("%s://%s:%d%s", configScheme, hostname, port, path)
 				sdEntry := map[string]interface{}{
 					"url": sdURL,
 					"basic_auth": map[string]interface{}{
@@ -135,17 +142,17 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 						"password": password,
 					},
 				}
-				if scheme == "https" {
+				if configScheme == "https" {
 					sdEntry["tls_config"] = map[string]interface{}{"insecure_skip_verify": true}
 				}
-				httpSDConfigs = append(httpSDConfigs, sdEntry)
+				bucket.httpSDConfigs = append(bucket.httpSDConfigs, sdEntry)
 			}
 		case "static":
 			targetList := []string{}
 			for _, hostname := range hostnames {
 				targetList = append(targetList, fmt.Sprintf("%s:%d", hostname, port))
 			}
-			staticConfigs = append(staticConfigs, map[string]interface{}{
+			bucket.staticConfigs = append(bucket.staticConfigs, map[string]interface{}{
 				"targets": targetList,
 			})
 		default:
@@ -153,28 +160,55 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 		}
 	}
 
-	yamlConfig := map[string]interface{}{
-		"job_name": jobName,
-		"basic_auth": map[string]interface{}{
-			"username": username,
-			"password": password,
-		},
-		"scheme": scheme,
+	// Emit one Prometheus job per scheme bucket. When the file contains
+	// more than one bucket, suffix job_name with the scheme so each job is
+	// uniquely named, and use relabel_configs to rewrite the scraped `job`
+	// label back to the snapshot id — cbmonitor's PromQL selects by
+	// job="<id>" and must stay green across both halves.
+	jobs := []map[string]interface{}{}
+	multiBucket := len(buckets) > 1
+	for _, scheme := range []string{"http", "https"} {
+		bucket, ok := buckets[scheme]
+		if !ok {
+			continue
+		}
+
+		jobName := id
+		if multiBucket {
+			jobName = id + "-" + scheme
+		}
+
+		yamlConfig := map[string]interface{}{
+			"job_name": jobName,
+			"basic_auth": map[string]interface{}{
+				"username": username,
+				"password": password,
+			},
+			"scheme": scheme,
+		}
+
+		if scheme == "https" {
+			yamlConfig["tls_config"] = map[string]interface{}{"insecure_skip_verify": true}
+		}
+
+		if len(bucket.httpSDConfigs) > 0 {
+			yamlConfig["http_sd_configs"] = bucket.httpSDConfigs
+		}
+
+		if len(bucket.staticConfigs) > 0 {
+			yamlConfig["static_configs"] = bucket.staticConfigs
+		}
+
+		if multiBucket {
+			yamlConfig["relabel_configs"] = []map[string]interface{}{
+				{"target_label": "job", "replacement": id},
+			}
+		}
+
+		jobs = append(jobs, yamlConfig)
 	}
 
-	if scheme == "https" {
-		yamlConfig["tls_config"] = map[string]interface{}{"insecure_skip_verify": true}
-	}
-
-	if len(httpSDConfigs) > 0 {
-		yamlConfig["http_sd_configs"] = httpSDConfigs
-	}
-
-	if len(staticConfigs) > 0 {
-		yamlConfig["static_configs"] = staticConfigs
-	}
-
-	return yaml.Marshal([]map[string]interface{}{yamlConfig})
+	return yaml.Marshal(jobs)
 }
 
 func (fs *FileStorage) GetSnapshot(id string) (models.DisplaySnapshot, error) {
@@ -197,32 +231,38 @@ func (fs *FileStorage) GetSnapshot(id string) (models.DisplaySnapshot, error) {
 		return models.DisplaySnapshot{}, fmt.Errorf("failed to unmarshal config file: %w", err)
 	}
 
-	var name string
-	if v, ok := snapshot[0]["job_name"].(string); ok {
-		name = v
-	}
-	// extract urls from http_sd_configs
+	// A snapshot file may contain multiple jobs (one per scheme) when the
+	// payload mixed http and https configs; aggregate URLs and targets
+	// across every job. The display name is always the snapshot id —
+	// per-job job_name values may carry `-http`/`-https` suffixes.
+	name := id
 	var urls []string
-	if sdConfigs, ok := snapshot[0]["http_sd_configs"].([]interface{}); ok && len(sdConfigs) > 0 {
-		for _, url := range sdConfigs {
-			if m, ok := url.(map[string]interface{}); ok {
-				if url, ok := m["url"].(string); ok {
-					urls = append(urls, url)
+	var targets []string
+	for _, job := range snapshot {
+		if sdConfigs, ok := job["http_sd_configs"].([]interface{}); ok {
+			for _, sd := range sdConfigs {
+				m, ok := sd.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				if u, ok := m["url"].(string); ok {
+					urls = append(urls, u)
 				}
 			}
 		}
-	}
-
-	// extract targets from static_configs
-	var targets []string
-	if staticConfigs, ok := snapshot[0]["static_configs"].([]interface{}); ok && len(staticConfigs) > 0 {
-		for _, eachStatic := range staticConfigs {
-			if m, ok := eachStatic.(map[string]interface{}); ok {
-				if tlist, ok := m["targets"].([]interface{}); ok {
-					for _, t := range tlist {
-						if target, ok := t.(string); ok {
-							targets = append(targets, target)
-						}
+		if staticConfigs, ok := job["static_configs"].([]interface{}); ok {
+			for _, eachStatic := range staticConfigs {
+				m, ok := eachStatic.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				tlist, ok := m["targets"].([]interface{})
+				if !ok {
+					continue
+				}
+				for _, t := range tlist {
+					if target, ok := t.(string); ok {
+						targets = append(targets, target)
 					}
 				}
 			}

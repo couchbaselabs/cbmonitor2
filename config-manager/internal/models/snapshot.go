@@ -47,6 +47,7 @@ type ConfigObject struct {
 	Port      int      `json:"port"`
 	Product   string   `json:"product,omitempty"`
 	SDPath    string   `json:"sd_path,omitempty"`
+	Scheme    string   `json:"scheme,omitempty"`
 }
 
 // DisplaySnapshot represents the snapshot structure for GET responses or display purposes

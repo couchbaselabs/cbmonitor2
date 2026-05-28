@@ -60,6 +60,7 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 			"port":      config.Port,
 			"product":   config.Product,
 			"sd_path":   config.SDPath,
+			"scheme":    config.Scheme,
 		}
 	}
 
@@ -104,7 +105,7 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, hostname := range config.Hostnames {
 			metadata, err := product.GetMetadata(
-				req.Scheme,
+				config.Scheme,
 				hostname,
 				config.Port,
 				req.Credentials.Username,
@@ -233,6 +234,12 @@ func collectProducts(configs []models.ConfigObject) []string {
 
 // validateSnapshotRequest validates the snapshot request
 func (h *Handler) validateSnapshotRequest(req *models.SnapshotRequest) error {
+	if req.Scheme == "" {
+		req.Scheme = "http"
+	} else if req.Scheme != "http" && req.Scheme != "https" {
+		return &ValidationError{Field: "scheme", Message: "scheme must be either 'http' or 'https'"}
+	}
+
 	for i := range req.Configs {
 		cfg := &req.Configs[i]
 
@@ -265,6 +272,12 @@ func (h *Handler) validateSnapshotRequest(req *models.SnapshotRequest) error {
 				}
 			}
 		}
+
+		if cfg.Scheme == "" {
+			cfg.Scheme = req.Scheme
+		} else if cfg.Scheme != "http" && cfg.Scheme != "https" {
+			return &ValidationError{Field: "configs.scheme", Message: "scheme must be either 'http' or 'https'"}
+		}
 	}
 
 	if req.Credentials.Username == "" {
@@ -273,12 +286,6 @@ func (h *Handler) validateSnapshotRequest(req *models.SnapshotRequest) error {
 
 	if req.Credentials.Password == "" {
 		return &ValidationError{Field: "credentials.password", Message: "password is required"}
-	}
-
-	if req.Scheme == "" {
-		req.Scheme = "http"
-	} else if req.Scheme != "http" && req.Scheme != "https" {
-		return &ValidationError{Field: "scheme", Message: "scheme must be either 'http' or 'https'"}
 	}
 
 	return nil
