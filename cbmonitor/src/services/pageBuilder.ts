@@ -14,6 +14,7 @@ import {
 import type { CustomPanelsConfig } from '../types/snapshot';
 import { makeCustomBuilder } from '../dashboards/custom';
 import { getCachedCustomMetricNames } from './customMetricsDiscovery';
+import { SnapshotOverviewScene } from '../components/SnapshotOverview/SnapshotOverview';
 
 /**
  * A single tab that the snapshot view *could* show. Drives both the
@@ -25,13 +26,46 @@ export interface AvailableTab {
     key: string;
     title: string;
     defaultVisible: boolean;
-    kind: 'builtin' | 'custom';
+    kind: 'builtin' | 'custom' | 'overview';
     /** Present for builtin tabs only. */
     serviceKey?: string;
     /** Present for custom tabs only. */
     customConfig?: CustomPanelsConfig;
     /** URL segment. For builtins, the ServiceConfig.segment (may be ''). For custom tabs, the slugged 'custom-…'. */
     segment: string;
+}
+
+export const OVERVIEW_TAB_KEY = 'overview';
+export const OVERVIEW_TAB_SEGMENT = 'overview';
+
+const OVERVIEW_TAB: AvailableTab = {
+    key: OVERVIEW_TAB_KEY,
+    title: 'Overview',
+    defaultVisible: true,
+    kind: 'overview',
+    segment: OVERVIEW_TAB_SEGMENT,
+};
+
+/**
+ * Resolve the tabs that should actually render given the available tabs
+ * and current user overrides. When no builtin / custom tab would be
+ * visible, fall back to a single synthesized Overview tab so the view
+ * always has something to route to (snapshots with only external
+ * products and no custom panels hit this path).
+ *
+ * The Overview tab is intentionally absent from `getAvailableTabs` so it
+ * doesn't show up as a toggle row in the SettingsDropdown; it appears
+ * and disappears automatically based on what else is visible.
+ */
+export function getTabsToRender(
+    available: AvailableTab[],
+    overrides?: Record<string, boolean>,
+): AvailableTab[] {
+    const visible = available.filter((t) => isTabVisible(t, overrides));
+    if (visible.length > 0) {
+        return visible;
+    }
+    return [OVERVIEW_TAB];
 }
 
 /**
@@ -190,17 +224,17 @@ export function buildServiceTabs(options: PageBuilderOptions): SceneAppPage[] {
 
     if (mode === 'single') {
         const available = getAvailableTabs(services, customPanels, products);
-        for (const tab of available) {
-            if (!isTabVisible(tab, tabOverrides)) {
-                continue;
-            }
+        const toRender = getTabsToRender(available, tabOverrides);
+        for (const tab of toRender) {
             if (tab.kind === 'builtin') {
                 pages.push(buildSingleSnapshotPage(tab.serviceKey!, snapshotIds[0], routePrefix, urlBase));
-            } else {
+            } else if (tab.kind === 'custom') {
                 const built = buildCustomPanelsPage(snapshotIds[0], routePrefix, tab.customConfig!, tab.segment, urlBase);
                 if (built) {
                     pages.push(built);
                 }
+            } else if (tab.kind === 'overview') {
+                pages.push(buildOverviewPage(snapshotIds[0], routePrefix, urlBase));
             }
         }
         return pages;
@@ -382,6 +416,23 @@ function buildCustomPanelsPage(
 
             return sceneCacheService.getScene(cacheKey)!;
         },
+    });
+}
+
+/**
+ * Build the synthesised Overview page. Rendered when no builtin or
+ * custom tab would otherwise be visible (typically a snapshot whose
+ * only products are external and that has no custom panels).
+ */
+function buildOverviewPage(snapshotId: string, routePrefix: string, urlBase?: string): SceneAppPage {
+    const base = urlBase ?? `${routePrefix}/${encodeURIComponent(snapshotId)}`;
+    return new SceneAppPage({
+        title: 'Overview',
+        url: prefixRoute(`${base}/${OVERVIEW_TAB_SEGMENT}`),
+        routePath: `/${OVERVIEW_TAB_SEGMENT}`,
+        getScene: () => new EmbeddedScene({
+            body: new SnapshotOverviewScene({ snapshotId }),
+        }),
     });
 }
 

@@ -118,7 +118,7 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 
 // setupSnapshotRoutes registers the snapshot API routes. Called when
 // Snapshots.Enabled is true (full path) OR when only Prometheus is enabled
-// (metric routes work with a synthesized fallback time window when
+// (metric routes work with a synthesised fallback time window when
 // snapshotService is nil; the metadata route still 503s in that mode).
 // Services are owned by App.initServices / App.Dispose.
 func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {

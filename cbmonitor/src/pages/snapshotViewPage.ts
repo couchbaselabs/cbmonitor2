@@ -13,6 +13,7 @@ import { PinPanelToggle } from '../components/DashboardHeader/actions/PinPanelTo
 import { EditModeToggle } from '../components/DashboardHeader/actions/EditModeToggle';
 import { ExploreButton } from '../components/DashboardHeader/actions/ExploreButton';
 import { MetricsDrilldownButton } from '../components/DashboardHeader/actions/MetricsDrilldownButton';
+import { ProductDashboardsButton } from '../components/DashboardHeader/actions/ProductDashboardsButton';
 import { createNoUrlSyncTimeRange, initializeTimeRange } from '../utils/timeRange';
 import { clusterDrilldown } from './clusterDrilldownPage';
 import { nodeDrilldown } from './nodeDrilldownPage';
@@ -24,7 +25,7 @@ import {
     discoverCustomMetricNames,
     clearCustomMetricNamesCache,
 } from '../services/customMetricsDiscovery';
-import { getAvailableTabs, isTabVisible, type AvailableTab } from '../services/pageBuilder';
+import { getAvailableTabs, getTabsToRender, type AvailableTab } from '../services/pageBuilder';
 import { Spinner } from '@grafana/ui';
 
 // Simple loading scene to show while snapshot is being loaded
@@ -316,6 +317,7 @@ snapshotViewPage.addActivationHandler(() => {
                 { key: 'edit', render: () => React.createElement(EditModeToggle, {}) },
                 { key: 'explore', render: () => React.createElement(ExploreButton, { snapshotId, timeRange }) },
                 { key: 'metricsDrilldown', render: () => React.createElement(MetricsDrilldownButton, { snapshotId, timeRange }) },
+                { key: 'productDashboards', render: () => React.createElement(ProductDashboardsButton, { snapshotId, timeRange, products: metadata.products }) },
               ],
             });
           },
@@ -384,26 +386,28 @@ function getActiveTabSegment(snapshotId: string): string | undefined {
 
 // Grafana Scenes doesn't gracefully fall back when the URL points at a
 // tab that's been removed from the tabs array — the user sees a 404.
-// Detect that case and replace the URL with the first visible tab's URL.
+// Detect that case and replace the URL with the first rendered tab's URL.
+// `getTabsToRender` mirrors what `buildServiceTabs` emits, including the
+// synthesised Overview fallback when no other tab is visible.
 // Called both on initial snapshot load and after a visibility toggle.
 function redirectIfActiveTabHidden(
   snapshotId: string,
   available: AvailableTab[],
   overrides: Record<string, boolean>,
 ): void {
-  const visible = available.filter((t) => isTabVisible(t, overrides));
-  if (visible.length === 0) {
+  const rendered = getTabsToRender(available, overrides);
+  if (rendered.length === 0) {
     return;
   }
   const active = getActiveTabSegment(snapshotId);
   if (active === undefined) {
     return;
   }
-  if (visible.some((t) => t.segment === active)) {
+  if (rendered.some((t) => t.segment === active)) {
     return;
   }
   const base = prefixRoute(`${ROUTES.CBMonitor}/${encodeURIComponent(snapshotId)}`);
-  const firstSegment = visible[0].segment;
+  const firstSegment = rendered[0].segment;
   const target = firstSegment ? `${base}/${firstSegment}` : base;
   locationService.replace(target);
 }
