@@ -15,6 +15,7 @@ import {
     type ProductDashboard,
 } from '../../services/productDashboards';
 import { buildProductDashboardUrl } from '../../utils/productDashboardUrl';
+import { openInNewTab } from '../../utils/openInNewTab';
 import type { Phase } from '../../types/snapshot';
 
 interface SnapshotOverviewState extends SceneObjectState {
@@ -71,7 +72,7 @@ function SnapshotOverviewRenderer({ model }: SceneComponentProps<SnapshotOvervie
                 to: String(timeRangeValue.raw.to),
             },
         });
-        window.open(url, '_blank', 'noopener,noreferrer');
+        openInNewTab(url);
     };
 
     return (

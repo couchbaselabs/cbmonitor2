@@ -8,6 +8,7 @@ import {
     buildMetricsDrilldownUrl,
     METRICS_DRILLDOWN_PLUGIN_ID,
 } from '../../../utils/metricsDrilldownUrl';
+import { openInNewTab } from '../../../utils/openInNewTab';
 
 interface MetricsDrilldownButtonProps {
     snapshotId: string;
@@ -42,7 +43,7 @@ export function MetricsDrilldownButton({ snapshotId, timeRange }: MetricsDrilldo
             snapshotId,
             range: { from: String(value.raw.from), to: String(value.raw.to) },
         });
-        window.open(url, '_blank', 'noopener,noreferrer');
+        openInNewTab(url);
     };
 
     return (

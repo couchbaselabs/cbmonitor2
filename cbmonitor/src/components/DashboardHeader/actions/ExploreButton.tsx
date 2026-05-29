@@ -4,6 +4,7 @@ import { ToolbarButton } from '@grafana/ui';
 import { dataSourceService } from '../../../services/datasourceService';
 import { DataSourceType } from '../../../types/datasource';
 import { buildExploreUrl } from '../../../utils/exploreUrl';
+import { openInNewTab } from '../../../utils/openInNewTab';
 
 interface ExploreButtonProps {
     snapshotId: string;
@@ -28,7 +29,7 @@ export function ExploreButton({ snapshotId, timeRange }: ExploreButtonProps) {
             snapshotIds: snapshotId,
             range: { from: String(value.raw.from), to: String(value.raw.to) },
         });
-        window.open(url, '_blank', 'noopener,noreferrer');
+        openInNewTab(url);
     };
 
     return (
