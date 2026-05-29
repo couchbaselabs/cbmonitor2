@@ -96,6 +96,25 @@ func (a *App) handleReconcileDatasources(w http.ResponseWriter, req *http.Reques
 	}
 }
 
+// handleReconcileDashboards forces a synchronous bundled-dashboard
+// reconciliation pass and returns its outcome. Useful as a recovery knob
+// when the initial activation-time pass failed (e.g. transient Grafana
+// startup race) or when the operator wants to re-apply the bundled JSON
+// after an in-place edit.
+func (a *App) handleReconcileDashboards(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	a.reconcileDashboardsNow(req.Context())
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(a.getDashboardReconcileState()); err != nil {
+		log.Printf("Error encoding response: %v", err)
+	}
+}
+
 // registerRoutes takes a *http.ServeMux and registers HTTP handlers based
 // on the plugin settings. Feature-specific routes are only registered when
 // their owning feature is enabled.
@@ -105,6 +124,7 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("/config/datasources", a.handleGetDatasourceConfig)
 	mux.HandleFunc("/admin/reconcile-datasources", a.handleReconcileDatasources)
+	mux.HandleFunc("/admin/reconcile-dashboards", a.handleReconcileDashboards)
 	mux.HandleFunc("/healthcheck/connection", a.handleHealthCheckConnection)
 
 	if a.settings.CouchbaseDatasource.Enabled {

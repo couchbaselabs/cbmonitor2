@@ -58,6 +58,11 @@
       "type": "datasource",
       "name": "couchbase-datasource",
       "path": "couchbase-datasource/plugin.json"
+    },
+    {
+      "type": "dashboard",
+      "name": "Couchbase Performance Analysis",
+      "path": "dashboards/products/couchbase-perf.json"
     }
   ],
   "iam": {
@@ -68,7 +73,16 @@
       { "action": "datasources:write",  "scope": "datasources:uid:prometheus" },
       { "action": "datasources:write",  "scope": "datasources:uid:cbdatasource" },
       { "action": "datasources:delete", "scope": "datasources:uid:prometheus" },
-      { "action": "datasources:delete", "scope": "datasources:uid:cbdatasource" }
+      { "action": "datasources:delete", "scope": "datasources:uid:cbdatasource" },
+
+      { "action": "folders:read",      "scope": "folders:uid:*" },
+      { "action": "folders:write",     "scope": "folders:uid:*" },
+      { "action": "folders:create" },
+      { "action": "dashboards:read",   "scope": "folders:uid:*" },
+      { "action": "dashboards:read",   "scope": "dashboards:uid:*" },
+      { "action": "dashboards:create", "scope": "folders:uid:*" },
+      { "action": "dashboards:write",  "scope": "folders:uid:*" },
+      { "action": "dashboards:write",  "scope": "dashboards:uid:*" }
     ]
   },
   "dependencies": {

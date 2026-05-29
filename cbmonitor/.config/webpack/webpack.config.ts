@@ -192,6 +192,15 @@ const config = async (env: Env): Promise<Configuration> => {
           { from: 'libs/**/*', to: '.', noErrorOnMissing: true },
           { from: 'static/**/*', to: '.', noErrorOnMissing: true },
           { from: '**/query_help.md', to: '.', noErrorOnMissing: true },
+          // Bundled product dashboards live next to the Go backend (so //go:embed
+          // can reach them); mirror them into dist/dashboards/ so the plugin.json
+          // `includes` path resolves and ops can find the source-of-truth JSON.
+          {
+            from: '**/*.json',
+            to: 'dashboards/[path][name][ext]',
+            context: path.resolve(process.cwd(), 'pkg/plugin/bundled-dashboards'),
+            noErrorOnMissing: true,
+          },
         ],
       }),
       // Replace certain template-variables in the README and plugin.json

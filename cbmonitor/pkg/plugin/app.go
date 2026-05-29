@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -45,6 +46,12 @@ type App struct {
 	reconcileMu    sync.RWMutex
 	reconcileState ReconcileStatus
 
+	// Dashboards reconcile state — populated by the first lazy pass and by
+	// the /admin/reconcile-dashboards endpoint. Guarded by the same mu as
+	// reconcileState (one mutex per App; the two reconciler states never
+	// race against each other in practice but share the lock for simplicity).
+	dashboardReconcileState DashboardReconcileStatus
+
 	// reconcileCtx is the cancellation root for any goroutines App owns
 	// (currently the lazy datasource reconcile pass). Dispose() calls
 	// reconcileCancel before closing services, so background work observes
@@ -77,6 +84,7 @@ func NewApp(_ context.Context, instSettings backend.AppInstanceSettings) (instan
 			Status:         "pending",
 			AppManagedUIDs: []string{dsUIDPrometheus, dsUIDCouchbase},
 		},
+		dashboardReconcileState: DashboardReconcileStatus{Status: "pending"},
 	}
 
 	app.initServices()
@@ -144,6 +152,7 @@ func (a *App) CallResource(ctx context.Context, req *backend.CallResourceRequest
 		// Parent on app.reconcileCtx so Dispose() can cancel the goroutine cleanly.
 		bg := backend.WithGrafanaConfig(a.reconcileCtx, backend.GrafanaConfigFromContext(ctx))
 		go a.reconcileNow(bg)
+		go a.reconcileDashboardsNow(bg)
 	})
 	return a.inner.CallResource(ctx, req, sender)
 }
@@ -196,6 +205,53 @@ func (a *App) getReconcileState() ReconcileStatus {
 	a.reconcileMu.RLock()
 	defer a.reconcileMu.RUnlock()
 	return a.reconcileState
+}
+
+// reconcileDashboardsNow imports the bundled product dashboards into Grafana.
+// Runs once per App instance via the lazy path in CallResource, and on demand
+// via /admin/reconcile-dashboards. Failures are surfaced through
+// dashboardReconcileState rather than crashing the plugin.
+func (a *App) reconcileDashboardsNow(ctx context.Context) {
+	dashboards, err := LoadBundledDashboards()
+	if err != nil {
+		a.setDashboardReconcileState(DashboardReconcileStatus{
+			Status:    "error",
+			LastError: fmt.Sprintf("load bundled dashboards: %v", err),
+			LastRunAt: time.Now(),
+		})
+		return
+	}
+	if len(dashboards) == 0 {
+		a.setDashboardReconcileState(DashboardReconcileStatus{
+			Status:    "skipped",
+			LastRunAt: time.Now(),
+		})
+		return
+	}
+
+	r, err := NewDashboardReconciler(ctx)
+	if err != nil {
+		sdklog.DefaultLogger.Warn("cbmonitor dashboard reconciliation disabled", "error", err.Error())
+		a.setDashboardReconcileState(DashboardReconcileStatus{
+			Status:    "disabled",
+			LastError: err.Error(),
+			LastRunAt: time.Now(),
+		})
+		return
+	}
+	a.setDashboardReconcileState(r.Reconcile(ctx, dashboards))
+}
+
+func (a *App) setDashboardReconcileState(s DashboardReconcileStatus) {
+	a.reconcileMu.Lock()
+	defer a.reconcileMu.Unlock()
+	a.dashboardReconcileState = s
+}
+
+func (a *App) getDashboardReconcileState() DashboardReconcileStatus {
+	a.reconcileMu.RLock()
+	defer a.reconcileMu.RUnlock()
+	return a.dashboardReconcileState
 }
 
 // Dispose tears down resources owned by this App instance. Grafana calls
