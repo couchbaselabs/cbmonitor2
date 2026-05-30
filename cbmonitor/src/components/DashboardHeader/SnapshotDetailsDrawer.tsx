@@ -79,7 +79,7 @@ export function SnapshotDetailsDrawer({ metadata, onClose }: SnapshotDetailsDraw
     const labelIsUrl = isValidURL(label);
 
     return (
-        <Drawer title="Snapshot details" onClose={onClose} size="md">
+        <Drawer title="Snapshot details" onClose={onClose} size="sm">
             <div className={styles.body}>
                 <div className={styles.actions}>
                     <Button
