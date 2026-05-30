@@ -1,0 +1,3602 @@
+{
+  "uid": "syncgateway-perf",
+  "title": "SyncGateway Performance Dashboard",
+  "tags": [
+    "syncgateway",
+    "perfrunner",
+    "USE",
+    "RED",
+    "Workload characteristics"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "refresh": "",
+  "annotations": {
+    "list": []
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "job",
+        "label": "Snapshot (job)",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values(sgw_resource_utilization_system_memory_total{job=\"$job\"}, job)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "sort": 1
+      },
+      {
+        "name": "instance",
+        "label": "Node",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values(sgw_resource_utilization_system_memory_total{job=\"$job\"}, instance)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 2,
+        "sort": 1
+      },
+      {
+        "name": "database",
+        "label": "Database",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values(sgw_database_num_doc_writes{job=\"$job\"}, database)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "hide": 0,
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Instances up",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "count(group by (instance) (sgw_resource_utilization_system_memory_total{job=\"$job\"}))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Peak CPU %",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 3,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(max_over_time(sgw_resource_utilization_node_cpu_percent_utilization{job=\"$job\"}[$__range:1m]))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Peak process mem %",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(max_over_time((sgw_resource_utilization_process_memory_resident{job=\"$job\"} / sgw_resource_utilization_system_memory_total{job=\"$job\"} * 100)[$__range:1m]))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Peak goroutines",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 9,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(max_over_time(sgw_resource_utilization_num_goroutines{job=\"$job\"}[$__range:1m]))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Error rate",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(sgw_resource_utilization_error_count{job=\"$job\"}[$__rate_interval]))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Auth failure rate",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 15,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(sgw_security_auth_failed_count{job=\"$job\"}[$__rate_interval]))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Channel-cache hit %",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 80
+              },
+              {
+                "color": "green",
+                "value": 95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * sum(rate(sgw_cache_chan_cache_hits{job=\"$job\"}[$__rate_interval])) / (sum(rate(sgw_cache_chan_cache_hits{job=\"$job\"}[$__rate_interval])) + sum(rate(sgw_cache_chan_cache_misses{job=\"$job\"}[$__rate_interval])))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Docs rejected rate",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 21,
+        "y": 0,
+        "w": 3,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(sgw_security_num_docs_rejected{job=\"$job\"}[$__rate_interval]))",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "bargauge",
+      "title": "Peak process mem % per node",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (instance) (max_over_time((sgw_resource_utilization_process_memory_resident{job=\"$job\"} / sgw_resource_utilization_system_memory_total{job=\"$job\"} * 100)[$__range:1m]))",
+          "instant": true,
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "bargauge",
+      "title": "Peak goroutines per node",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (instance) (max_over_time(sgw_resource_utilization_num_goroutines{job=\"$job\"}[$__range:1m]))",
+          "instant": true,
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "bargauge",
+      "title": "Peak Go heap in-use per node",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (instance) (max_over_time(sgw_resource_utilization_go_memstats_heapinuse{job=\"$job\"}[$__range:1m]))",
+          "instant": true,
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "bargauge",
+      "title": "Peak GC pause ratio % per node",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (instance) (max_over_time((rate(sgw_resource_utilization_go_memstats_pausetotalns{job=\"$job\"}[$__rate_interval]) / 1e9 * 100)[$__range:1m]))",
+          "instant": true,
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    },
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Saturation",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 101,
+          "type": "timeseries",
+          "title": "CPU % per node",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 9,
+            "w": 8,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sgw_resource_utilization_node_cpu_percent_utilization{job=\"$job\",instance=~\"$instance\"}",
+              "legendFormat": "{{instance}}"
+            }
+          ]
+        },
+        {
+          "id": 102,
+          "type": "timeseries",
+          "title": "Goroutines vs high-watermark",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 8,
+            "y": 9,
+            "w": 8,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sgw_resource_utilization_num_goroutines{job=\"$job\",instance=~\"$instance\"}",
+              "legendFormat": "{{instance}} — current"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sgw_resource_utilization_goroutines_high_watermark{job=\"$job\",instance=~\"$instance\"}",
+              "legendFormat": "{{instance}} — high-watermark"
+            }
+          ]
+        },
+        {
+          "id": 103,
+          "type": "timeseries",
+          "title": "GC pause ratio %",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 16,
+            "y": 9,
+            "w": 8,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "rate(sgw_resource_utilization_go_memstats_pausetotalns{job=\"$job\",instance=~\"$instance\"}[$__rate_interval]) / 1e9 * 100",
+              "legendFormat": "{{instance}}"
+            }
+          ]
+        },
+        {
+          "id": 104,
+          "type": "timeseries",
+          "title": "Go heap in-use / idle / released",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 17,
+            "w": 8,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sgw_resource_utilization_go_memstats_heapinuse{job=\"$job\",instance=~\"$instance\"}",
+              "legendFormat": "{{instance}} — in-use"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sgw_resource_utilization_go_memstats_heapidle{job=\"$job\",instance=~\"$instance\"}",
+              "legendFormat": "{{instance}} — idle"
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sgw_resource_utilization_go_memstats_heapreleased{job=\"$job\",instance=~\"$instance\"}",
+              "legendFormat": "{{instance}} — released"
+            }
+          ]
+        },
+        {
+          "id": 105,
+          "type": "timeseries",
+          "title": "Channel-cache pending queries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 8,
+            "y": 17,
+            "w": 8,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (sgw_cache_chan_cache_pending_queries{job=\"$job\",database=~\"$database\"})",
+              "legendFormat": "{{database}}"
+            }
+          ]
+        },
+        {
+          "id": 106,
+          "type": "timeseries",
+          "title": "Cache skipped + pending sequence length",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 16,
+            "y": 17,
+            "w": 8,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (sgw_cache_skipped_seq_len{job=\"$job\",database=~\"$database\"})",
+              "legendFormat": "skipped — {{database}}"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (sgw_cache_pending_seq_len{job=\"$job\",database=~\"$database\"})",
+              "legendFormat": "pending — {{database}}"
+            }
+          ]
+        },
+        {
+          "id": 107,
+          "type": "timeseries",
+          "title": "Replication pull max pending",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 25,
+            "w": 8,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (sgw_replication_pull_max_pending{job=\"$job\",database=~\"$database\"})",
+              "legendFormat": "{{database}}"
+            }
+          ]
+        },
+        {
+          "id": 108,
+          "type": "timeseries",
+          "title": "Sequence-hierarchy lag (feed → cached → stable)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 8,
+            "y": 25,
+            "w": 8,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (sgw_database_high_seq_feed{job=\"$job\",database=~\"$database\"}) - sum by (database) (sgw_cache_high_seq_cached{job=\"$job\",database=~\"$database\"})",
+              "legendFormat": "cache-fill lag (feed-cached) — {{database}}"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (sgw_cache_high_seq_cached{job=\"$job\",database=~\"$database\"}) - sum by (database) (sgw_cache_high_seq_stable{job=\"$job\",database=~\"$database\"})",
+              "legendFormat": "stability lag (cached-stable) — {{database}}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 200,
+      "type": "row",
+      "title": "Errors",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 201,
+          "type": "timeseries",
+          "title": "Error + warning rate",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 10,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (instance) (rate(sgw_resource_utilization_error_count{job=\"$job\",instance=~\"$instance\"}[$__rate_interval]))",
+              "legendFormat": "errors — {{instance}}"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (instance) (rate(sgw_resource_utilization_warn_count{job=\"$job\",instance=~\"$instance\"}[$__rate_interval]))",
+              "legendFormat": "warnings — {{instance}}"
+            }
+          ]
+        },
+        {
+          "id": 202,
+          "type": "timeseries",
+          "title": "Auth success vs failure rate",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 10,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_security_auth_success_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "success — {{database}}"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_security_auth_failed_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "failed — {{database}}"
+            }
+          ]
+        },
+        {
+          "id": 203,
+          "type": "timeseries",
+          "title": "Docs rejected + access errors",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 18,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_security_num_docs_rejected{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "rejected — {{database}}"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_security_num_access_errors{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "access errors — {{database}}"
+            }
+          ]
+        },
+        {
+          "id": 204,
+          "type": "timeseries",
+          "title": "Conflict-write rate",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 18,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_database_conflict_write_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "{{database}}"
+            }
+          ]
+        },
+        {
+          "id": 205,
+          "type": "timeseries",
+          "title": "Doc-level warnings (xattr / channels / grants per doc)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 26,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_database_warn_xattr_size_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "xattr size — {{database}}"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_database_warn_channels_per_doc_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "channels/doc — {{database}}"
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_database_warn_grants_per_doc_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "grants/doc — {{database}}"
+            }
+          ]
+        },
+        {
+          "id": 206,
+          "type": "timeseries",
+          "title": "Cache correctness (skipped / abandoned sequences)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 26,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_cache_num_skipped_seqs{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "skipped/s — {{database}}"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_cache_abandoned_seqs{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "abandoned/s — {{database}}"
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (sgw_cache_current_skipped_seq_count{job=\"$job\",database=~\"$database\"})",
+              "legendFormat": "current skipped — {{database}}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 300,
+      "type": "row",
+      "title": "RED — latency (derived rate(time)/rate(count))",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 301,
+          "type": "timeseries",
+          "title": "Auth latency (avg)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 11,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ns",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_security_total_auth_time{job=\"$job\",database=~\"$database\"}[$__rate_interval])) / (sum by (database) (rate(sgw_security_auth_success_count{job=\"$job\",database=~\"$database\"}[$__rate_interval])) + sum by (database) (rate(sgw_security_auth_failed_count{job=\"$job\",database=~\"$database\"}[$__rate_interval])))",
+              "legendFormat": "{{database}}"
+            }
+          ]
+        },
+        {
+          "id": 302,
+          "type": "timeseries",
+          "title": "DCP received latency (avg)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 11,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ns",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_database_dcp_received_time{job=\"$job\",database=~\"$database\"}[$__rate_interval])) / sum by (database) (rate(sgw_database_dcp_received_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "{{database}}"
+            }
+          ]
+        },
+        {
+          "id": 303,
+          "type": "timeseries",
+          "title": "DCP caching latency (avg)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 19,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ns",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_database_dcp_caching_time{job=\"$job\",database=~\"$database\"}[$__rate_interval])) / sum by (database) (rate(sgw_database_dcp_caching_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "{{database}}"
+            }
+          ]
+        },
+        {
+          "id": 304,
+          "type": "timeseries",
+          "title": "Sync-function latency (avg)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 19,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ns",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_database_sync_function_time{job=\"$job\",database=~\"$database\"}[$__rate_interval])) / sum by (database) (rate(sgw_database_sync_function_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "{{database}}"
+            }
+          ]
+        },
+        {
+          "id": 305,
+          "type": "timeseries",
+          "title": "Pull request-changes latency (avg)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 27,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ns",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_replication_pull_request_changes_time{job=\"$job\",database=~\"$database\"}[$__rate_interval])) / sum by (database) (rate(sgw_replication_pull_request_changes_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "{{database}}"
+            }
+          ]
+        },
+        {
+          "id": 306,
+          "type": "timeseries",
+          "title": "Pull rev-processing latency (avg)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 27,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_replication_pull_rev_processing_time{job=\"$job\",database=~\"$database\"}[$__rate_interval])) / sum by (database) (rate(sgw_replication_pull_rev_send_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "{{database}}"
+            }
+          ]
+        },
+        {
+          "id": 307,
+          "type": "timeseries",
+          "title": "Push write latency (avg per doc write)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 35,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_replication_push_write_processing_time{job=\"$job\",database=~\"$database\"}[$__rate_interval])) / sum by (database) (rate(sgw_database_num_doc_writes{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "{{database}}"
+            }
+          ]
+        },
+        {
+          "id": 308,
+          "type": "timeseries",
+          "title": "Push propose-change latency (avg)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 35,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ns",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_replication_push_propose_change_time{job=\"$job\",database=~\"$database\"}[$__rate_interval])) / sum by (database) (rate(sgw_replication_push_propose_change_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "{{database}}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 400,
+      "type": "row",
+      "title": "Workload characterisation",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 401,
+          "type": "timeseries",
+          "title": "Doc read mix (REST vs BLIP)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 12,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_database_num_doc_reads_rest{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "REST — {{database}}"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_database_num_doc_reads_blip{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "BLIP — {{database}}"
+            }
+          ]
+        },
+        {
+          "id": 402,
+          "type": "timeseries",
+          "title": "Doc writes vs conflict writes",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 12,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_database_num_doc_writes{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "writes — {{database}}"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_database_conflict_write_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "conflicts — {{database}}"
+            }
+          ]
+        },
+        {
+          "id": 403,
+          "type": "timeseries",
+          "title": "Replication throughput (push vs pull)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 20,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_replication_push_propose_change_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "push proposes — {{database}}"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_replication_pull_rev_send_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "pull revs sent — {{database}}"
+            }
+          ]
+        },
+        {
+          "id": 404,
+          "type": "timeseries",
+          "title": "Bandwidth mix (doc + attachment bytes)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 20,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_database_doc_writes_bytes{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "doc writes"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_database_doc_reads_bytes_blip{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "blip reads"
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_database_doc_writes_bytes_blip{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "blip writes"
+            },
+            {
+              "refId": "D",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_replication_push_attachment_push_bytes{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "attachment push"
+            },
+            {
+              "refId": "E",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_replication_pull_attachment_pull_bytes{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "attachment pull"
+            }
+          ]
+        },
+        {
+          "id": 405,
+          "type": "timeseries",
+          "title": "Avg doc-write size",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 28,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_database_doc_writes_bytes{job=\"$job\",database=~\"$database\"}[$__rate_interval])) / sum by (database) (rate(sgw_database_num_doc_writes{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "{{database}}"
+            }
+          ]
+        },
+        {
+          "id": 406,
+          "type": "timeseries",
+          "title": "Propose-change redundancy (proposes vs writes)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 28,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_replication_push_propose_change_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "proposes — {{database}}"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_database_num_doc_writes{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "writes — {{database}}"
+            }
+          ]
+        },
+        {
+          "id": 407,
+          "type": "timeseries",
+          "title": "Sequence operation mix",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 36,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "right"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_database_sequence_get_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "get"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_database_sequence_incr_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "incr"
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_database_sequence_reserved_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "reserved"
+            },
+            {
+              "refId": "D",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_database_sequence_assigned_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "assigned"
+            },
+            {
+              "refId": "E",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_database_sequence_released_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "released"
+            }
+          ]
+        },
+        {
+          "id": 408,
+          "type": "timeseries",
+          "title": "Channel-cache hit % over time",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 36,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "100 * sum by (database) (rate(sgw_cache_chan_cache_hits{job=\"$job\",database=~\"$database\"}[$__rate_interval])) / (sum by (database) (rate(sgw_cache_chan_cache_hits{job=\"$job\",database=~\"$database\"}[$__rate_interval])) + sum by (database) (rate(sgw_cache_chan_cache_misses{job=\"$job\",database=~\"$database\"}[$__rate_interval])))",
+              "legendFormat": "{{database}}"
+            }
+          ]
+        },
+        {
+          "id": 409,
+          "type": "timeseries",
+          "title": "Active replications",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 44,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (sgw_replication_pull_num_pull_repl_active_continuous{job=\"$job\",database=~\"$database\"})",
+              "legendFormat": "pull continuous — {{database}}"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (sgw_replication_pull_num_pull_repl_active_one_shot{job=\"$job\",database=~\"$database\"})",
+              "legendFormat": "pull one-shot — {{database}}"
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (sgw_database_num_replications_active{job=\"$job\",database=~\"$database\"})",
+              "legendFormat": "db active — {{database}}"
+            }
+          ]
+        },
+        {
+          "id": 410,
+          "type": "timeseries",
+          "title": "Network throughput (public vs admin)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 44,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_resource_utilization_pub_net_bytes_sent{job=\"$job\",instance=~\"$instance\"}[$__rate_interval]))",
+              "legendFormat": "public sent"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_resource_utilization_pub_net_bytes_recv{job=\"$job\",instance=~\"$instance\"}[$__rate_interval]))",
+              "legendFormat": "public recv"
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_resource_utilization_admin_net_bytes_sent{job=\"$job\",instance=~\"$instance\"}[$__rate_interval]))",
+              "legendFormat": "admin sent"
+            },
+            {
+              "refId": "D",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_resource_utilization_admin_net_bytes_recv{job=\"$job\",instance=~\"$instance\"}[$__rate_interval]))",
+              "legendFormat": "admin recv"
+            }
+          ]
+        },
+        {
+          "id": 411,
+          "type": "timeseries",
+          "title": "Sync-function invocations vs doc writes",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 52,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_database_sync_function_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "sync fn — {{database}}"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_database_num_doc_writes{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "writes — {{database}}"
+            }
+          ]
+        },
+        {
+          "id": 412,
+          "type": "timeseries",
+          "title": "Rev-cache hit %",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 52,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "100 * sum by (database) (rate(sgw_cache_rev_cache_hits{job=\"$job\",database=~\"$database\"}[$__rate_interval])) / (sum by (database) (rate(sgw_cache_rev_cache_hits{job=\"$job\",database=~\"$database\"}[$__rate_interval])) + sum by (database) (rate(sgw_cache_rev_cache_misses{job=\"$job\",database=~\"$database\"}[$__rate_interval])))",
+              "legendFormat": "{{database}}"
+            }
+          ]
+        },
+        {
+          "id": 413,
+          "type": "timeseries",
+          "title": "Delta-sync effectiveness",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 60,
+            "w": 24,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "right"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_delta_sync_deltas_requested{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "deltas requested — {{database}}"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_delta_sync_delta_cache_hit{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "delta cache hit — {{database}}"
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_delta_sync_delta_sync_miss{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "delta sync miss — {{database}}"
+            },
+            {
+              "refId": "D",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (rate(sgw_delta_sync_deltas_sent{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "deltas sent — {{database}}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 450,
+      "type": "row",
+      "title": "Collection-level (named collections, SGW ≥3.1)",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 451,
+          "type": "timeseries",
+          "title": "Collection doc writes/s",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 13,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database, collection) (rate(sgw_collection_num_doc_writes{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "{{database}} / {{collection}}"
+            }
+          ]
+        },
+        {
+          "id": 452,
+          "type": "timeseries",
+          "title": "Collection doc-write bytes/s",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 13,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database, collection) (rate(sgw_collection_doc_writes_bytes{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "{{database}} / {{collection}}"
+            }
+          ]
+        },
+        {
+          "id": 453,
+          "type": "timeseries",
+          "title": "Collection sync-function latency (avg)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 21,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ns",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database, collection) (rate(sgw_collection_sync_function_time{job=\"$job\",database=~\"$database\"}[$__rate_interval])) / sum by (database, collection) (rate(sgw_collection_sync_function_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "{{database}} / {{collection}}"
+            }
+          ]
+        },
+        {
+          "id": 454,
+          "type": "timeseries",
+          "title": "Collection sync-function exceptions + rejects/s",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 21,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database, collection) (rate(sgw_collection_sync_function_exception_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "exceptions — {{database}} / {{collection}}"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database, collection) (rate(sgw_collection_sync_function_reject_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "rejects — {{database}} / {{collection}}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 500,
+      "type": "row",
+      "title": "Capacity headroom",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 501,
+          "type": "timeseries",
+          "title": "Process memory vs system memory (%)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 14,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sgw_resource_utilization_process_memory_resident{job=\"$job\",instance=~\"$instance\"} / sgw_resource_utilization_system_memory_total{job=\"$job\",instance=~\"$instance\"} * 100",
+              "legendFormat": "{{instance}}"
+            }
+          ]
+        },
+        {
+          "id": 502,
+          "type": "timeseries",
+          "title": "Go heap in-use vs Go sys (%)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 14,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sgw_resource_utilization_go_memstats_heapinuse{job=\"$job\",instance=~\"$instance\"} / sgw_resource_utilization_go_memstats_sys{job=\"$job\",instance=~\"$instance\"} * 100",
+              "legendFormat": "{{instance}}"
+            }
+          ]
+        },
+        {
+          "id": 503,
+          "type": "timeseries",
+          "title": "Go heap reclaimable (idle − released)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 22,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sgw_resource_utilization_go_memstats_heapidle{job=\"$job\",instance=~\"$instance\"} - sgw_resource_utilization_go_memstats_heapreleased{job=\"$job\",instance=~\"$instance\"}",
+              "legendFormat": "{{instance}}"
+            }
+          ]
+        },
+        {
+          "id": 504,
+          "type": "timeseries",
+          "title": "Goroutines vs high-watermark (%)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 22,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sgw_resource_utilization_num_goroutines{job=\"$job\",instance=~\"$instance\"} / sgw_resource_utilization_goroutines_high_watermark{job=\"$job\",instance=~\"$instance\"} * 100",
+              "legendFormat": "{{instance}}"
+            }
+          ]
+        },
+        {
+          "id": 505,
+          "type": "timeseries",
+          "title": "Cache skipped + pending sequence length",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 30,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (sgw_cache_skipped_seq_len{job=\"$job\",database=~\"$database\"})",
+              "legendFormat": "skipped — {{database}}"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (sgw_cache_pending_seq_len{job=\"$job\",database=~\"$database\"})",
+              "legendFormat": "pending — {{database}}"
+            }
+          ]
+        },
+        {
+          "id": 506,
+          "type": "timeseries",
+          "title": "Pull replications caught-up vs total",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 30,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (sgw_replication_pull_num_pull_repl_caught_up{job=\"$job\",database=~\"$database\"})",
+              "legendFormat": "caught-up — {{database}}"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (database) (sgw_replication_pull_num_pull_repl_active_continuous{job=\"$job\",database=~\"$database\"} + sgw_replication_pull_num_pull_repl_active_one_shot{job=\"$job\",database=~\"$database\"})",
+              "legendFormat": "active total — {{database}}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 600,
+      "type": "row",
+      "title": "RCA correlation overlays",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 601,
+          "type": "timeseries",
+          "title": "DCP caching latency vs heap in-use",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 15,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "ns"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "bytes"
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_database_dcp_caching_time{job=\"$job\",database=~\"$database\"}[$__rate_interval])) / sum (rate(sgw_database_dcp_caching_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "DCP caching latency"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (sgw_resource_utilization_go_memstats_heapinuse{job=\"$job\",instance=~\"$instance\"})",
+              "legendFormat": "total heap in-use"
+            }
+          ]
+        },
+        {
+          "id": 602,
+          "type": "timeseries",
+          "title": "Auth latency vs goroutines",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 15,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "ns"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_security_total_auth_time{job=\"$job\",database=~\"$database\"}[$__rate_interval])) / (sum (rate(sgw_security_auth_success_count{job=\"$job\",database=~\"$database\"}[$__rate_interval])) + sum (rate(sgw_security_auth_failed_count{job=\"$job\",database=~\"$database\"}[$__rate_interval])))",
+              "legendFormat": "auth latency"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (sgw_resource_utilization_num_goroutines{job=\"$job\",instance=~\"$instance\"})",
+              "legendFormat": "total goroutines"
+            }
+          ]
+        },
+        {
+          "id": 603,
+          "type": "timeseries",
+          "title": "Latency vs GC pause ratio",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 23,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "ns"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "percent"
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_database_dcp_caching_time{job=\"$job\",database=~\"$database\"}[$__rate_interval])) / sum (rate(sgw_database_dcp_caching_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "DCP caching latency"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "avg (rate(sgw_resource_utilization_go_memstats_pausetotalns{job=\"$job\",instance=~\"$instance\"}[$__rate_interval]) / 1e9 * 100)",
+              "legendFormat": "GC pause ratio %"
+            }
+          ]
+        },
+        {
+          "id": 604,
+          "type": "timeseries",
+          "title": "Cache miss rate vs pending queries vs caching latency",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 23,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "reqps"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "ns"
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_cache_chan_cache_misses{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "channel-cache misses/s"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (sgw_cache_chan_cache_pending_queries{job=\"$job\",database=~\"$database\"})",
+              "legendFormat": "pending queries"
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_database_dcp_caching_time{job=\"$job\",database=~\"$database\"}[$__rate_interval])) / sum (rate(sgw_database_dcp_caching_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "DCP caching latency"
+            }
+          ]
+        },
+        {
+          "id": 605,
+          "type": "timeseries",
+          "title": "Sequence feed lag vs caching latency vs doc writes",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 31,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "ns"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "reqps"
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (sgw_database_high_seq_feed{job=\"$job\",database=~\"$database\"}) - sum (sgw_cache_high_seq_cached{job=\"$job\",database=~\"$database\"})",
+              "legendFormat": "cache-fill lag (feed-cached)"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_database_dcp_caching_time{job=\"$job\",database=~\"$database\"}[$__rate_interval])) / sum (rate(sgw_database_dcp_caching_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "DCP caching latency"
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_database_num_doc_writes{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "doc writes/s"
+            }
+          ]
+        },
+        {
+          "id": 606,
+          "type": "timeseries",
+          "title": "Throughput vs pull backlog",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 31,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "reqps"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "reqps"
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_database_num_doc_writes{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "doc writes/s"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (sgw_replication_pull_max_pending{job=\"$job\",database=~\"$database\"})",
+              "legendFormat": "pull max pending"
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_replication_pull_rev_send_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "revs sent/s"
+            }
+          ]
+        },
+        {
+          "id": 607,
+          "type": "timeseries",
+          "title": "Conflict writes vs doc writes vs active replications",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 39,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "reqps"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "reqps"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_database_conflict_write_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "conflict writes/s"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_database_num_doc_writes{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "doc writes/s"
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (sgw_database_num_replications_active{job=\"$job\",database=~\"$database\"})",
+              "legendFormat": "active replications"
+            }
+          ]
+        },
+        {
+          "id": 608,
+          "type": "timeseries",
+          "title": "Error/warn rate vs auth failures vs goroutines",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 39,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "A"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "reqps"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "B"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "reqps"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "C"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "reqps"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byFrameRefID",
+                  "options": "D"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "legend": {
+              "showLegend": true,
+              "placement": "bottom"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_resource_utilization_error_count{job=\"$job\",instance=~\"$instance\"}[$__rate_interval]))",
+              "legendFormat": "errors/s"
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_resource_utilization_warn_count{job=\"$job\",instance=~\"$instance\"}[$__rate_interval]))",
+              "legendFormat": "warnings/s"
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (rate(sgw_security_auth_failed_count{job=\"$job\",database=~\"$database\"}[$__rate_interval]))",
+              "legendFormat": "auth failures/s"
+            },
+            {
+              "refId": "D",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum (sgw_resource_utilization_num_goroutines{job=\"$job\",instance=~\"$instance\"})",
+              "legendFormat": "total goroutines"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
