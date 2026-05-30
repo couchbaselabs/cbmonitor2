@@ -31,7 +31,6 @@ export const eventingBuilder: ServiceBuilder = (ctx) => {
             expr: `sum by (${ctx.sumBy()}) (eventing_worker_restart_count{${ctx.jobSelector}${ctx.instanceFilter}})`,
             legendFormat: ctx.legend(),
             extraFields: ['d.labels.instance'],
-            width: '100%',
             unit: 'short',
         }),
     ];

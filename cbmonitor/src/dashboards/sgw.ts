@@ -5,7 +5,7 @@ import type { MetricContext, ServiceBuilder } from './types';
 type SgwMetric = readonly [metric: string, title: string, unit: string, rate: boolean];
 
 /**
- * Resource-utilization metrics. Single mode emits them with a raw
+ * Resource utilisation metrics. Single mode emits them with a raw
  * (un-aggregated) selector — preserving Prometheus' native label set.
  * Overlap mode aggregates with `sum by (job)` (no `instance`), which
  * collapses series across instances for snapshot-to-snapshot comparison.
@@ -126,7 +126,7 @@ const SGW_SECURITY_METRICS: readonly SgwMetric[] = [
  * Unified panel emitter for the Sync Gateway service.
  *
  * SGW dashboards diverge from every other service in two important ways:
- * 1. Single-mode resource-utilization panels use raw (un-summed) selectors
+ * 1. Single-mode resource-utilisation panels use raw (un-summed) selectors
  *    instead of the usual `sum by (instance, …)` pattern.
  * 2. Overlap-mode aggregation drops `instance` (uses `sum by (job)` or
  *    `sum by (job, database)`) — collapsing series across instances for
@@ -155,7 +155,7 @@ export const sgwBuilder: ServiceBuilder = (ctx) => {
 };
 
 /**
- * Resource utilization shape:
+ * Resource utilisation shape:
  * - single: raw `{metric}{job="…"}` (or `rate(…)`)
  * - overlap: `sum by (job) ({metric}{job=~"…",instance="…"})` (or `rate(…)`)
  *

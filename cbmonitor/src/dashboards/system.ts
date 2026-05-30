@@ -17,11 +17,10 @@ import type { ServiceBuilder } from './types';
 export const systemBuilder: ServiceBuilder = (ctx) => {
     if (ctx.branch === 'base') {
         return [
-            ctx.panel('sys_cpu_utilization_rate', `CPU Utilization (%)${ctx.titleSuffix}`, {
+            ctx.panel('sys_cpu_utilization_rate', `CPU Utilisation (%)${ctx.titleSuffix}`, {
                 expr: `sum by (${ctx.sumBy()}) (sys_cpu_utilization_rate{${ctx.jobSelector}${ctx.instanceFilter}})`,
                 legendFormat: ctx.legend(),
                 unit: 'percent',
-                width: '100%',
             }),
             ctx.panel('sys_mem_free_sys', `Free Memory (Bytes)${ctx.titleSuffix}`, {
                 expr: `sum by (${ctx.sumBy()}) (sys_mem_free_sys{${ctx.jobSelector}${ctx.instanceFilter}})`,
