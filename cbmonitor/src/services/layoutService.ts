@@ -5,12 +5,15 @@ export type LayoutMode = 'grid' | 'rows';
 
 type LayoutChangeListener = (layout: LayoutMode) => void;
 type HideEmptyChangeListener = (hideEmpty: boolean) => void;
+type PhaseStyleChangeListener = (asZones: boolean) => void;
 
 class LayoutService {
     private layout: LayoutMode = 'grid';
-    private hideEmptyPanels: boolean = false;
+    private hideEmptyPanels = false;
+    private phasesAsZones = true;
     private layoutListeners: Set<LayoutChangeListener> = new Set();
     private hideEmptyListeners: Set<HideEmptyChangeListener> = new Set();
+    private phaseStyleListeners: Set<PhaseStyleChangeListener> = new Set();
 
     constructor() {
         // Load from localStorage if available
@@ -20,6 +23,10 @@ class LayoutService {
         }
         const storedHideEmpty = localStorage.getItem('cbmonitor-hide-empty');
         this.hideEmptyPanels = storedHideEmpty === 'true';
+        // Phases render as shaded zones by default; opt back into the
+        // start/end marker lines by storing 'false'.
+        const storedPhaseStyle = localStorage.getItem('cbmonitor-phases-as-zones');
+        this.phasesAsZones = storedPhaseStyle !== 'false';
     }
 
     getLayout(): LayoutMode {
@@ -56,6 +63,23 @@ class LayoutService {
         this.hideEmptyListeners.add(listener);
         return () => {
             this.hideEmptyListeners.delete(listener);
+        };
+    }
+
+    getPhasesAsZones(): boolean {
+        return this.phasesAsZones;
+    }
+
+    setPhasesAsZones(asZones: boolean) {
+        this.phasesAsZones = asZones;
+        localStorage.setItem('cbmonitor-phases-as-zones', String(asZones));
+        this.phaseStyleListeners.forEach(listener => listener(asZones));
+    }
+
+    subscribePhaseStyle(listener: PhaseStyleChangeListener): () => void {
+        this.phaseStyleListeners.add(listener);
+        return () => {
+            this.phaseStyleListeners.delete(listener);
         };
     }
 

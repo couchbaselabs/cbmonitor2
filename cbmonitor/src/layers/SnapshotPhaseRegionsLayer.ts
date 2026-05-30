@@ -1,6 +1,7 @@
 import { SceneDataLayerBase } from '@grafana/scenes';
 import { DataFrame, DataTopic, FieldType, LoadingState, toDataFrame, dateTime } from '@grafana/data';
 import { snapshotService } from '../services/snapshotService';
+import { layoutService } from '../services/layoutService';
 import { Phase } from '../types/snapshot';
 
 interface SnapshotPhaseRegionsLayerState {
@@ -13,6 +14,16 @@ interface SnapshotPhaseRegionsLayerState {
 export class SnapshotPhaseRegionsLayer extends SceneDataLayerBase<SnapshotPhaseRegionsLayerState> {
   constructor(initialState: SnapshotPhaseRegionsLayerState) {
     super(initialState);
+
+    // Re-render when the user flips the zones/lines preference so the change
+    // takes effect without rebuilding the whole scene.
+    this.addActivationHandler(() =>
+      layoutService.subscribePhaseStyle(() => {
+        if (this.state.isEnabled) {
+          this.runLayer();
+        }
+      })
+    );
   }
 
   onEnable() {
@@ -60,24 +71,25 @@ export class SnapshotPhaseRegionsLayer extends SceneDataLayerBase<SnapshotPhaseR
       return;
     }
 
+    // Shaded zones by default
+    const asZones = layoutService.getPhasesAsZones();
+
     // Define up to 6 distinct colors for phases
     const palette = ['red', 'orange', 'yellow', 'green', 'blue', 'purple'];
     // If end markers sit at the snapshot end, nudge left a bit to avoid label clipping
     const epsilonMs = 5000;
     const snapshotEnd = snapshot?.metadata ? dateTime(snapshot.metadata.ts_end).valueOf() : undefined;
 
-    // Region annotations (start->end)
+    // Region annotations (start->end). The `isRegion` field is what makes the
+    // timeseries AnnotationsPlugin draw a shaded zone rather than a single line;
     const regionStarts: Date[] = [];
     const regionEnds: Date[] = [];
     const regionTexts: string[] = [];
     const regionColors: string[] = [];
 
-    // Collect all point annotations (phase transitions) with timestamps as keys
-    // Use a Map to group annotations that are very close in time (within 1 second)
-    const pointAnnotations = new Map<number, { labels: string[], color: string }>();
-    const timeThresholdMs = 1000; 
-    
-    // Helper function to find existing timestamp within threshold
+    // A Map groups annotations that are very close in time (within 1 second).
+    const pointAnnotations = new Map<number, { labels: string[]; color: string }>();
+    const timeThresholdMs = 1000;
     const findNearbyTimestamp = (targetTime: number): number | undefined => {
       for (const existingTime of pointAnnotations.keys()) {
         if (Math.abs(existingTime - targetTime) <= timeThresholdMs) {
@@ -93,38 +105,39 @@ export class SnapshotPhaseRegionsLayer extends SceneDataLayerBase<SnapshotPhaseR
       phaseIndex++;
       const hasEnd = Boolean(p.ts_end);
       const start = dateTime(p.ts_start).toDate();
-      const startTime = start.getTime();
-      
-      // Add start annotation for all phases (merge if nearby timestamp exists)
-      const nearbyStartTime = findNearbyTimestamp(startTime);
-      const effectiveStartTime = nearbyStartTime ?? startTime;
-      
-      if (!pointAnnotations.has(effectiveStartTime)) {
-        pointAnnotations.set(effectiveStartTime, { labels: [], color });
-      }
-      pointAnnotations.get(effectiveStartTime)!.labels.push(`{Phase Start: ${p.label}}`);
-      
+
       if (hasEnd) {
         let end = dateTime(p.ts_end).toDate();
         if (snapshotEnd !== undefined && end.getTime() >= snapshotEnd - epsilonMs) {
           end = new Date(snapshotEnd - epsilonMs);
         }
-        const endTime = end.getTime();
-        
-        // Only add region markers when an explicit end exists in the JSON
         regionStarts.push(start);
         regionEnds.push(end);
         regionTexts.push(`Phase: ${p.label}`);
         regionColors.push(color);
+      }
 
-        // Group end annotations by timestamp (merge if nearby timestamp exists)
-        const nearbyEndTime = findNearbyTimestamp(endTime);
-        const effectiveEndTime = nearbyEndTime ?? endTime;
-        
-        if (!pointAnnotations.has(effectiveEndTime)) {
-          pointAnnotations.set(effectiveEndTime, { labels: [], color });
+      if (!asZones) {
+        // Vertical lines at each phase start (and end when present).
+        const startTime = start.getTime();
+        const effectiveStartTime = findNearbyTimestamp(startTime) ?? startTime;
+        if (!pointAnnotations.has(effectiveStartTime)) {
+          pointAnnotations.set(effectiveStartTime, { labels: [], color });
         }
-        pointAnnotations.get(effectiveEndTime)!.labels.push(`{Phase End: ${p.label}}`);
+        pointAnnotations.get(effectiveStartTime)!.labels.push(`{Phase Start: ${p.label}}`);
+
+        if (hasEnd) {
+          let end = dateTime(p.ts_end).toDate();
+          if (snapshotEnd !== undefined && end.getTime() >= snapshotEnd - epsilonMs) {
+            end = new Date(snapshotEnd - epsilonMs);
+          }
+          const endTime = end.getTime();
+          const effectiveEndTime = findNearbyTimestamp(endTime) ?? endTime;
+          if (!pointAnnotations.has(effectiveEndTime)) {
+            pointAnnotations.set(effectiveEndTime, { labels: [], color });
+          }
+          pointAnnotations.get(effectiveEndTime)!.labels.push(`{Phase End: ${p.label}}`);
+        }
       }
     }
 
@@ -133,26 +146,24 @@ export class SnapshotPhaseRegionsLayer extends SceneDataLayerBase<SnapshotPhaseR
       fields: [
         { name: 'time', type: FieldType.time, values: regionStarts },
         { name: 'timeEnd', type: FieldType.time, values: regionEnds },
+        { name: 'isRegion', type: FieldType.boolean, values: regionStarts.map(() => asZones) },
         { name: 'text', type: FieldType.string, values: regionTexts },
         { name: 'color', type: FieldType.string, values: regionColors },
       ],
     });
     regionFrame.meta = { ...(regionFrame.meta || {}), dataTopic: DataTopic.Annotations };
 
-    // Build combined point annotations frame
-    const pointTimes: Date[] = [];
-    const pointTexts: string[] = [];
-    const pointColors: string[] = [];
-    
-    for (const [timestamp, data] of pointAnnotations.entries()) {
-      pointTimes.push(new Date(timestamp));
-      pointTexts.push(data.labels.join('\n'));
-      pointColors.push(data.color);
-    }
-
     const frames: DataFrame[] = [regionFrame];
-    
-    if (pointTimes.length > 0) {
+
+    if (!asZones && pointAnnotations.size > 0) {
+      const pointTimes: Date[] = [];
+      const pointTexts: string[] = [];
+      const pointColors: string[] = [];
+      for (const [timestamp, data] of pointAnnotations.entries()) {
+        pointTimes.push(new Date(timestamp));
+        pointTexts.push(data.labels.join('\n'));
+        pointColors.push(data.color);
+      }
       const pointFrame: DataFrame = toDataFrame({
         name: 'snapshot_phase_transitions',
         fields: [

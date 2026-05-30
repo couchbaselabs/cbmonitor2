@@ -26,6 +26,7 @@ interface SettingsDropdownState extends SceneObjectState {
     showDataSourceSection?: boolean;
     showClusterSection?: boolean;
     showHideEmptySection?: boolean;
+    showPhaseStyleSection?: boolean;
     showTabVisibilitySection?: boolean;
 }
 
@@ -51,6 +52,7 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
         showDataSourceSection = true,
         showClusterSection = true,
         showHideEmptySection = true,
+        showPhaseStyleSection = true,
         showTabVisibilitySection = true,
     } = model.useState();
 
@@ -60,6 +62,7 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
     const [dataSource, setDataSource] = useState<DataSourceType>(dataSourceService.getCurrentDataSource());
     const [selectedCluster, setSelectedCluster] = useState<string>(clusterFilterService.getCurrentCluster() ?? ALL_CLUSTERS);
     const [hideEmpty, setHideEmpty] = useState(layoutService.getHideEmptyPanels());
+    const [phasesAsZones, setPhasesAsZones] = useState(layoutService.getPhasesAsZones());
 
     const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -134,6 +137,13 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
         return unsubscribe;
     }, []);
 
+    useEffect(() => {
+        const unsubscribe = layoutService.subscribePhaseStyle((newAsZones) => {
+            setPhasesAsZones(newAsZones);
+        });
+        return unsubscribe;
+    }, []);
+
     const handleLayoutChange = (value: LayoutMode) => {
         layoutService.setLayout(value);
         onLayoutChange?.();
@@ -155,6 +165,10 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
     const handleHideEmptyChange = (checked: boolean) => {
         layoutService.setHideEmptyPanels(checked);
         onHideEmptyChange?.();
+    };
+
+    const handlePhasesAsZonesChange = (checked: boolean) => {
+        layoutService.setPhasesAsZones(checked);
     };
 
     const handleTabVisibilityChange = (tab: AvailableTab, nextVisible: boolean) => {
@@ -246,6 +260,16 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
                             <Switch
                                 value={hideEmpty}
                                 onChange={(e) => handleHideEmptyChange(e.currentTarget.checked)}
+                            />
+                        </div>
+                    )}
+
+                    {showPhaseStyleSection && (
+                        <div className={styles.toggleRow}>
+                            <div className={styles.sectionLabel}>Phases as Zones</div>
+                            <Switch
+                                value={phasesAsZones}
+                                onChange={(e) => handlePhasesAsZonesChange(e.currentTarget.checked)}
                             />
                         </div>
                     )}
