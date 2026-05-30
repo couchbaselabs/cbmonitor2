@@ -37,8 +37,6 @@ export interface ServiceConfig {
      * in proxy-Prometheus's broader scope.
      */
     overlapInstanceMetric?: string;
-    /** Always include this service even if not in snapshot */
-    alwaysInclude?: boolean;
 }
 
 /**
@@ -54,7 +52,6 @@ export const SERVICE_CONFIGS: ServiceConfig[] = [
         builder: systemBuilder,
         instanceMetric: 'sys_disk_read_bytes',
         overlapInstanceMetric: 'sys_cpu_utilization_rate',
-        alwaysInclude: true,
     },
     {
         key: 'kv',
@@ -63,7 +60,6 @@ export const SERVICE_CONFIGS: ServiceConfig[] = [
         aliases: [],
         builder: kvBuilder,
         instanceMetric: 'kv_ops',
-        alwaysInclude: true,
     },
     {
         key: 'index',
@@ -130,7 +126,6 @@ export const SERVICE_CONFIGS: ServiceConfig[] = [
         builder: clusterManagerBuilder,
         instanceMetric: 'cm_http_requests_total',
         overlapInstanceMetric: 'sys_cpu_utilization_rate',
-        alwaysInclude: true,
     },
 ];
 
@@ -142,25 +137,25 @@ export const SERVICE_CONFIGS: ServiceConfig[] = [
  * @returns Canonical service key, or original if not found
  *
  * @example
- * normalizeServiceName('n1ql') // returns 'query'
- * normalizeServiceName('SYNC-GATEWAY') // returns 'sgw'
- * normalizeServiceName('KV') // returns 'kv'
+ * normaliseServiceName('n1ql') // returns 'query'
+ * normaliseServiceName('SYNC-GATEWAY') // returns 'sgw'
+ * normaliseServiceName('KV') // returns 'kv'
  */
-export function normalizeServiceName(service: string): string {
-    const normalized = service.toLowerCase().trim();
+export function normaliseServiceName(service: string): string {
+    const normalised = service.toLowerCase().trim();
 
     // Check if it's already a canonical key
-    const directMatch = SERVICE_CONFIGS.find(c => c.key === normalized);
+    const directMatch = SERVICE_CONFIGS.find(c => c.key === normalised);
     if (directMatch) {
         return directMatch.key;
     }
 
     // Check aliases
     const aliasMatch = SERVICE_CONFIGS.find(c =>
-        c.aliases.some(alias => alias.toLowerCase() === normalized)
+        c.aliases.some(alias => alias.toLowerCase() === normalised)
     );
 
-    return aliasMatch?.key ?? normalized;
+    return aliasMatch?.key ?? normalised;
 }
 
 /**
@@ -181,11 +176,9 @@ export function getServiceConfig(serviceKey: string): ServiceConfig | undefined 
  * @returns Array of service configurations in canonical order
  */
 export function getServiceConfigs(services: string[]): ServiceConfig[] {
-    const normalizedServices = new Set(services.map(s => normalizeServiceName(s)));
+    const normalisedServices = new Set(services.map(s => normaliseServiceName(s)));
 
-    return SERVICE_CONFIGS.filter(config =>
-        config.alwaysInclude || normalizedServices.has(config.key)
-    );
+    return SERVICE_CONFIGS.filter(config => normalisedServices.has(config.key));
 }
 
 /**
@@ -201,30 +194,24 @@ export function getServiceConfigs(services: string[]): ServiceConfig[] {
  *   ['kv', 'n1ql', 'fts'],   // n1ql is alias for query
  *   ['kv', 'query']
  * ]);
- * // Returns: ['system', 'kv', 'query', 'cluster_manager']
- * // (system and cluster_manager are always included)
+ * // Returns: ['kv', 'query']
+ *
+ * This is a pure intersection of detected services in canonical display order.
  */
 export function findCommonServices(serviceLists: string[][]): string[] {
     if (serviceLists.length === 0) {
         return [];
     }
 
-    // Normalize all service names in each list
-    const normalizedSets = serviceLists.map(list =>
-        new Set(list.map(s => normalizeServiceName(s)))
+    // Normalise all service names in each list
+    const normalisedSets = serviceLists.map(list =>
+        new Set(list.map(s => normaliseServiceName(s)))
     );
 
     // Find services that exist in all sets
-    const commonKeys = SERVICE_CONFIGS
-        .filter(config => {
-            if (config.alwaysInclude) {
-                return true;
-            }
-            return normalizedSets.every(set => set.has(config.key));
-        })
+    return SERVICE_CONFIGS
+        .filter(config => normalisedSets.every(set => set.has(config.key)))
         .map(config => config.key);
-
-    return commonKeys;
 }
 
 /**

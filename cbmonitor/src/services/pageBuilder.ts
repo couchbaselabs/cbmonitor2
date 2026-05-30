@@ -1,6 +1,7 @@
 import { SceneAppPage, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneTimeRange, SceneDataLayerSet } from '@grafana/scenes';
 import { prefixRoute } from '../utils/utils.routing';
-import { SERVICE_CONFIGS, getServiceConfigs, getServiceConfig, normalizeServiceName, type ServiceConfig } from '../config/services';
+import { getServiceConfig, normaliseServiceName, type ServiceConfig } from '../config/services';
+import { getOwnedTabs } from '../config/products';
 import { sceneCacheService } from './sceneCache';
 import { clusterFilterService } from './clusterFilterService';
 import { instanceFilterService } from './instanceFilterService';
@@ -15,129 +16,23 @@ import type { CustomPanelsConfig } from '../types/snapshot';
 import { makeCustomBuilder } from '../dashboards/custom';
 import { getCachedCustomMetricNames } from './customMetricsDiscovery';
 import { SnapshotOverviewScene } from '../components/SnapshotOverview/SnapshotOverview';
+import {
+    getAvailableTabs,
+    getTabsToRender,
+    OVERVIEW_TAB_SEGMENT,
+} from './tabVisibility';
 
-/**
- * A single tab that the snapshot view *could* show. Drives both the
- * SettingsDropdown checkbox list and `buildServiceTabs`'s filter. Each
- * tab has a `defaultVisible` flag computed from snapshot metadata at
- * view time; the user can override it via `tabOverrides`.
- */
-export interface AvailableTab {
-    key: string;
-    title: string;
-    defaultVisible: boolean;
-    kind: 'builtin' | 'custom' | 'overview';
-    /** Present for builtin tabs only. */
-    serviceKey?: string;
-    /** Present for custom tabs only. */
-    customConfig?: CustomPanelsConfig;
-    /** URL segment. For builtins, the ServiceConfig.segment (may be ''). For custom tabs, the slugged 'custom-…'. */
-    segment: string;
-}
-
-export const OVERVIEW_TAB_KEY = 'overview';
-export const OVERVIEW_TAB_SEGMENT = 'overview';
-
-const OVERVIEW_TAB: AvailableTab = {
-    key: OVERVIEW_TAB_KEY,
-    title: 'Overview',
-    defaultVisible: true,
-    kind: 'overview',
-    segment: OVERVIEW_TAB_SEGMENT,
-};
-
-/**
- * Resolve the tabs that should actually render given the available tabs
- * and current user overrides. When no builtin / custom tab would be
- * visible, fall back to a single synthesized Overview tab so the view
- * always has something to route to (snapshots with only external
- * products and no custom panels hit this path).
- *
- * The Overview tab is intentionally absent from `getAvailableTabs` so it
- * doesn't show up as a toggle row in the SettingsDropdown; it appears
- * and disappears automatically based on what else is visible.
- */
-export function getTabsToRender(
-    available: AvailableTab[],
-    overrides?: Record<string, boolean>,
-): AvailableTab[] {
-    const visible = available.filter((t) => isTabVisible(t, overrides));
-    if (visible.length > 0) {
-        return visible;
-    }
-    return [OVERVIEW_TAB];
-}
-
-/**
- * A snapshot "covers Couchbase" when its product set is empty/absent
- * (legacy docs + the metadata-less fallback, which we treat as Couchbase
- * for backward compatibility) or explicitly lists "couchbase". Only then
- * do the `alwaysInclude` baseline tabs (system / kv / cluster_manager)
- * default on — external-product snapshots shouldn't surface empty
- * Couchbase tabs by default.
- */
-export function snapshotCoversCouchbase(products?: string[]): boolean {
-    if (!products || products.length === 0) {
-        return true;
-    }
-    return products.includes('couchbase');
-}
-
-/**
- * Compute the full set of available tabs for a snapshot.
- *
- * Every builtin in SERVICE_CONFIGS is always included (kept available so
- * the user can still toggle one on). A builtin defaults on when it's in
- * `services`, or when it's an `alwaysInclude` baseline tab AND the
- * snapshot covers Couchbase. Each `customPanels` entry is appended,
- * defaultVisible=true.
- */
-export function getAvailableTabs(
-    services: string[] | undefined,
-    customPanels?: CustomPanelsConfig[],
-    products?: string[],
-): AvailableTab[] {
-    // Canonicalize the metadata's services through `normalizeServiceName`
-    // so aliases (e.g. "n1ql" → "query", "sync-gateway" → "sgw") and case
-    // variants are treated as the canonical key — matching the lookup
-    // semantics used by `getServiceConfigs`.
-    const lookup = new Set((services ?? []).map((s) => normalizeServiceName(s)));
-    const couchbaseBaseline = snapshotCoversCouchbase(products);
-    const tabs: AvailableTab[] = SERVICE_CONFIGS.map((cfg) => ({
-        key: cfg.key,
-        title: cfg.title,
-        defaultVisible: lookup.has(cfg.key) || (Boolean(cfg.alwaysInclude) && couchbaseBaseline),
-        kind: 'builtin',
-        serviceKey: cfg.key,
-        segment: cfg.segment,
-    }));
-
-    if (customPanels && customPanels.length > 0) {
-        const usedSegments = new Set<string>();
-        customPanels.forEach((cp, idx) => {
-            const segment = uniqueCustomSegment(cp, idx, usedSegments);
-            tabs.push({
-                key: segment,
-                title: cp.title?.trim() || 'Custom',
-                defaultVisible: true,
-                kind: 'custom',
-                customConfig: cp,
-                segment,
-            });
-        });
-    }
-
-    return tabs;
-}
-
-/**
- * Resolve a tab's effective visibility: explicit user override wins,
- * else the default computed at view time.
- */
-export function isTabVisible(tab: AvailableTab, overrides?: Record<string, boolean>): boolean {
-    const override = overrides?.[tab.key];
-    return typeof override === 'boolean' ? override : tab.defaultVisible;
-}
+// The pure tab-availability/visibility layer lives in `tabVisibility.ts`
+// (no scene runtime, so it's unit-testable). Re-exported here so existing
+// importers of these symbols from `pageBuilder` keep working.
+export {
+    getAvailableTabs,
+    getTabsToRender,
+    isTabVisible,
+    OVERVIEW_TAB_KEY,
+    OVERVIEW_TAB_SEGMENT,
+    type AvailableTab,
+} from './tabVisibility';
 
 /**
  * Options for building service tabs/pages
@@ -240,33 +135,17 @@ export function buildServiceTabs(options: PageBuilderOptions): SceneAppPage[] {
         return pages;
     }
 
-    // Comparison mode: visibility filter is not applied (the union of
-    // services between snapshots is what `getServiceConfigs` already
-    // returns).
-    const serviceConfigs = getServiceConfigs(services);
-    for (const config of serviceConfigs) {
-        pages.push(buildComparisonPage(config.key, snapshotIds, routePrefix, timeRanges, overlapMode, overlapEndTimeSeconds));
+    // Comparison mode: tabs are owned by the products common to the compared
+    // snapshots (passed via `products`). An owned tab is rendered when it's an
+    // 'always' baseline or when its service is detected in all snapshots
+    // (`services` here is the common-detected set).
+    const detected = new Set(services.map((s) => normaliseServiceName(s)));
+    for (const owned of getOwnedTabs(products)) {
+        if (owned.visibility === 'always' || detected.has(owned.serviceKey)) {
+            pages.push(buildComparisonPage(owned.serviceKey, snapshotIds, routePrefix, timeRanges, overlapMode, overlapEndTimeSeconds));
+        }
     }
     return pages;
-}
-
-/**
- * Slugify a custom-panels title into a URL-safe segment, deduping
- * collisions by appending a numeric suffix. Falls back to
- * `custom-<idx>` when the title is empty / non-alphanumeric.
- */
-function uniqueCustomSegment(cp: CustomPanelsConfig, idx: number, used: Set<string>): string {
-    const base = (cp.title ?? '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
-    let candidate = base ? `custom-${base}` : `custom-${idx}`;
-    let n = 2;
-    while (used.has(candidate)) {
-        candidate = (base ? `custom-${base}` : `custom-${idx}`) + `-${n++}`;
-    }
-    used.add(candidate);
-    return candidate;
 }
 
 /**

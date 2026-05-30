@@ -64,7 +64,7 @@ describe('loadSnapshot fallback behavior', () => {
         await expect(loadSnapshot('ghost')).rejects.toBe(err);
     });
 
-    it('leaves services empty in fallback metadata (alwaysInclude builtins still render via the visibility model)', async () => {
+    it('leaves services empty in fallback metadata (Couchbase baseline tabs still render via product ownership)', async () => {
         mockedSnapshotService.getSnapshot.mockRejectedValue(new Error('HTTP 503'));
 
         const loaded = await loadSnapshot('xyz');

@@ -1,6 +1,7 @@
 import { snapshotService } from './snapshotService';
 import { SnapshotData, SnapshotMetadata } from '../types/snapshot';
 import { findCommonServices } from '../config/services';
+import { PRODUCT_CONFIGS, resolveProducts } from '../config/products';
 
 const FALLBACK_WINDOW_MS = 15 * 60 * 1000;
 
@@ -106,6 +107,25 @@ export async function loadSnapshots(snapshotIds: string[]): Promise<LoadedSnapsh
 export function findCommonServicesInSnapshots(snapshots: LoadedSnapshot[]): string[] {
     const serviceLists = snapshots.map(s => s.metadata.services);
     return findCommonServices(serviceLists);
+}
+
+/**
+ * Find the products common to all loaded snapshots, in plugin registry order.
+ * Drives which product-owned tabs the comparison view shows.
+ *
+ * @param snapshots - Array of loaded snapshots
+ * @returns Canonical product keys present in every snapshot, registry order
+ */
+export function findCommonProductsInSnapshots(snapshots: LoadedSnapshot[]): string[] {
+    if (snapshots.length === 0) {
+        return [];
+    }
+    const productSets = snapshots.map(
+        (s) => new Set(resolveProducts(s.metadata.products).map((p) => p.key))
+    );
+    return PRODUCT_CONFIGS
+        .map((c) => c.key)
+        .filter((key) => productSets.every((set) => set.has(key)));
 }
 
 /**

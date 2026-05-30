@@ -5,7 +5,7 @@ import { locationService } from '@grafana/runtime';
 import React from 'react';
 import { layoutService } from '../../services/layoutService';
 import { createNoUrlSyncTimeRange, syncTimeRangesToPhase, syncTimeRangesToFullRange, NoUrlSyncTimeRange } from '../../utils/timeRange';
-import { loadSnapshots, findCommonServicesInSnapshots, findCommonPhasesInSnapshots, formatSnapshotInfo, getMaxSnapshotDuration } from '../../services/snapshotLoader';
+import { loadSnapshots, findCommonServicesInSnapshots, findCommonProductsInSnapshots, findCommonPhasesInSnapshots, formatSnapshotInfo, getMaxSnapshotDuration } from '../../services/snapshotLoader';
 import { sceneCacheService } from '../../services/sceneCache';
 import { buildServiceTabs } from '../../services/pageBuilder';
 import { StatusScene } from '../SceneComponents/StatusScene';
@@ -33,6 +33,7 @@ function invalidateComparisonTabs() {
             timeRanges: getComparisonTimeRanges(),
             overlapMode: isOverlapModeEnabled(),
             overlapEndTimeSeconds: ctx.overlapEndTimeSeconds,
+            products: ctx.commonProducts,
         });
         comparisonPage.setState({ tabs });
     }
@@ -127,6 +128,7 @@ export const comparisonPage = new SceneAppPage({
 let lastComparisonContext: {
     snapshotIds: string[];
     commonServices: string[];
+    commonProducts: string[];
     commonPhases: string[];
     overlapEndTimeSeconds: number;
 } | null = null;
@@ -207,8 +209,9 @@ comparisonPage.addActivationHandler(() => {
                 // Fetch all snapshots using unified loader
                 const snapshots = await loadSnapshots(snapshotIds);
 
-                // Find common services and phases using utility functions
+                // Find common services, products, and phases using utility functions
                 const commonServices = findCommonServicesInSnapshots(snapshots);
+                const commonProducts = findCommonProductsInSnapshots(snapshots);
                 const commonPhases = findCommonPhasesInSnapshots(snapshots);
                 const overlapEndTimeSeconds = Math.max(1, Math.floor(getMaxSnapshotDuration(snapshots.map((s) => s.metadata)) / 1000));
 
@@ -219,6 +222,7 @@ comparisonPage.addActivationHandler(() => {
                 lastComparisonContext = {
                     snapshotIds: [...snapshotIds],
                     commonServices,
+                    commonProducts,
                     commonPhases,
                     overlapEndTimeSeconds,
                 };
@@ -248,6 +252,7 @@ comparisonPage.addActivationHandler(() => {
                     timeRanges,
                     overlapMode: isOverlapModeEnabled(),
                     overlapEndTimeSeconds,
+                    products: commonProducts,
                 });
 
                 // Handler: clicking a common phase sets all time ranges to that phase

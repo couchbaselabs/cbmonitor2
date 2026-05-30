@@ -254,15 +254,20 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
                         <div className={styles.section}>
                             <div className={styles.sectionLabel}>Visible Tabs</div>
                             <div className={styles.tabList}>
-                                {availableTabs.map((tab) => (
-                                    <div key={tab.key} className={styles.toggleRow}>
-                                        <div className={styles.tabLabel}>{tab.title}</div>
-                                        <Switch
-                                            value={isTabVisible(tab, tabOverrides)}
-                                            onChange={(e) =>
-                                                handleTabVisibilityChange(tab, e.currentTarget.checked)
-                                            }
-                                        />
+                                {groupTabsByProduct(availableTabs).map((group) => (
+                                    <div key={group.title} className={styles.tabGroup}>
+                                        <div className={styles.tabGroupLabel}>{group.title}</div>
+                                        {group.tabs.map((tab) => (
+                                            <div key={tab.key} className={styles.toggleRow}>
+                                                <div className={styles.tabLabel}>{tab.title}</div>
+                                                <Switch
+                                                    value={isTabVisible(tab, tabOverrides)}
+                                                    onChange={(e) =>
+                                                        handleTabVisibilityChange(tab, e.currentTarget.checked)
+                                                    }
+                                                />
+                                            </div>
+                                        ))}
                                     </div>
                                 ))}
                             </div>
@@ -272,6 +277,26 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
             )}
         </div>
     );
+}
+
+/**
+ * Group available tabs by their owning product for the settings checklist,
+ * preserving first-appearance order. Custom tabs fall under "Custom".
+ */
+function groupTabsByProduct(tabs: AvailableTab[]): Array<{ title: string; tabs: AvailableTab[] }> {
+    const groups: Array<{ title: string; tabs: AvailableTab[] }> = [];
+    const byTitle = new Map<string, { title: string; tabs: AvailableTab[] }>();
+    for (const tab of tabs) {
+        const title = tab.productTitle ?? 'Custom';
+        let group = byTitle.get(title);
+        if (!group) {
+            group = { title, tabs: [] };
+            byTitle.set(title, group);
+            groups.push(group);
+        }
+        group.tabs.push(tab);
+    }
+    return groups;
 }
 
 const getStyles = (theme: GrafanaTheme2) => ({
@@ -327,5 +352,16 @@ const getStyles = (theme: GrafanaTheme2) => ({
     tabLabel: css`
         font-size: ${theme.typography.bodySmall.fontSize};
         color: ${theme.colors.text.primary};
+    `,
+    tabGroup: css`
+        display: flex;
+        flex-direction: column;
+        gap: ${theme.spacing(0.5)};
+    `,
+    tabGroupLabel: css`
+        font-size: ${theme.typography.bodySmall.fontSize};
+        font-weight: ${theme.typography.fontWeightMedium};
+        color: ${theme.colors.text.secondary};
+        margin-top: ${theme.spacing(0.5)};
     `,
 });
