@@ -156,6 +156,16 @@ export function SnapshotDetailsDrawer({ metadata, onClose }: SnapshotDetailsDraw
                     </Section>
                 )}
 
+                {metadata.products && metadata.products.length > 0 && (
+                    <Section label="Products">
+                        <div className={styles.tags}>
+                            {metadata.products.map((p) => (
+                                <span key={p} className={styles.tag}>{p}</span>
+                            ))}
+                        </div>
+                    </Section>
+                )}
+
                 {metadata.phases && metadata.phases.length > 0 && (
                     <Section label={`Phases (${metadata.phases.length})`}>
                         <div className={styles.phaseList}>
