@@ -21,21 +21,127 @@
   "annotations": {
     "list": [
       {
-        "name": "Snapshot phases",
+        "name": "Snapshot phases (1)",
         "datasource": {
           "type": "grafana",
           "uid": "-- Grafana --"
         },
         "enable": true,
-        "hide": false,
-        "iconColor": "rgba(255, 96, 96, 1)",
+        "hide": true,
+        "iconColor": "red",
         "type": "tags",
         "target": {
           "type": "tags",
           "matchAny": false,
           "tags": [
-            "cbmonitor-phase",
-            "job:$job"
+            "$phasevis",
+            "job:$job",
+            "phaseidx:0"
+          ],
+          "limit": 100
+        }
+      },
+      {
+        "name": "Snapshot phases (2)",
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "orange",
+        "type": "tags",
+        "target": {
+          "type": "tags",
+          "matchAny": false,
+          "tags": [
+            "$phasevis",
+            "job:$job",
+            "phaseidx:1"
+          ],
+          "limit": 100
+        }
+      },
+      {
+        "name": "Snapshot phases (3)",
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "yellow",
+        "type": "tags",
+        "target": {
+          "type": "tags",
+          "matchAny": false,
+          "tags": [
+            "$phasevis",
+            "job:$job",
+            "phaseidx:2"
+          ],
+          "limit": 100
+        }
+      },
+      {
+        "name": "Snapshot phases (4)",
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "green",
+        "type": "tags",
+        "target": {
+          "type": "tags",
+          "matchAny": false,
+          "tags": [
+            "$phasevis",
+            "job:$job",
+            "phaseidx:3"
+          ],
+          "limit": 100
+        }
+      },
+      {
+        "name": "Snapshot phases (5)",
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "blue",
+        "type": "tags",
+        "target": {
+          "type": "tags",
+          "matchAny": false,
+          "tags": [
+            "$phasevis",
+            "job:$job",
+            "phaseidx:4"
+          ],
+          "limit": 100
+        }
+      },
+      {
+        "name": "Snapshot phases (6)",
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "purple",
+        "type": "tags",
+        "target": {
+          "type": "tags",
+          "matchAny": false,
+          "tags": [
+            "$phasevis",
+            "job:$job",
+            "phaseidx:5"
           ],
           "limit": 100
         }
@@ -108,6 +214,33 @@
         },
         "hide": 0,
         "sort": 1
+      },
+      {
+        "name": "phasevis",
+        "label": "Snapshot phases",
+        "description": "Show or hide the snapshot phase annotation regions",
+        "type": "custom",
+        "query": "On : cbmonitor-phase,Off : cbmonitor-phase__off",
+        "options": [
+          {
+            "text": "On",
+            "value": "cbmonitor-phase",
+            "selected": true
+          },
+          {
+            "text": "Off",
+            "value": "cbmonitor-phase__off",
+            "selected": false
+          }
+        ],
+        "current": {
+          "selected": true,
+          "text": "On",
+          "value": "cbmonitor-phase"
+        },
+        "includeAll": false,
+        "multi": false,
+        "hide": 0
       }
     ]
   },

@@ -21,6 +21,13 @@ import (
 // find and replace only its own annotations without touching user-created ones.
 const phaseAnnotationTag = "cbmonitor-phase"
 
+// phasePaletteSize mirrors the builtin panel palette length (see
+// SnapshotPhaseRegionsLayer). Each phase also gets a `phaseidx:<n>` tag where
+// n = phaseIndex % phasePaletteSize. Product dashboards carry one annotation
+// query per index, each with its own color, so phase colors line up with the
+// builtin panels — a single tag query can only render one color.
+const phasePaletteSize = 6
+
 // annotationSyncTimeout caps a full phase-annotation sync (a list + several
 // deletes + one create per phase).
 const annotationSyncTimeout = 15 * time.Second
@@ -88,12 +95,15 @@ func (s *phaseAnnotationSyncer) sync(ctx context.Context, snapshotID string, pha
 		result.Deleted++
 	}
 
-	for _, p := range phases {
+	// Color by position in the phases array (matching the builtin layer, which
+	// increments its palette index for every phase — including those skipped
+	// here for lacking an end — so subsequent phases keep the same colors).
+	for i, p := range phases {
 		start, end, ok := parsePhaseWindow(p.TSStart, p.TSEnd)
 		if !ok {
 			continue
 		}
-		if err := s.create(ctx, start, end, p.Label, jobTag); err != nil {
+		if err := s.create(ctx, start, end, p.Label, jobTag, i%phasePaletteSize); err != nil {
 			sdklog.DefaultLogger.Warn("cbmonitor phase annotation create failed", "label", p.Label, "error", err.Error())
 			continue
 		}
@@ -151,11 +161,11 @@ func (s *phaseAnnotationSyncer) delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (s *phaseAnnotationSyncer) create(ctx context.Context, start, end time.Time, label, jobTag string) error {
+func (s *phaseAnnotationSyncer) create(ctx context.Context, start, end time.Time, label, jobTag string, colorIdx int) error {
 	body := map[string]any{
 		"time":    start.UnixMilli(),
 		"timeEnd": end.UnixMilli(),
-		"tags":    []string{phaseAnnotationTag, jobTag},
+		"tags":    []string{phaseAnnotationTag, jobTag, fmt.Sprintf("phaseidx:%d", colorIdx)},
 		"text":    label,
 	}
 	buf, err := json.Marshal(body)
