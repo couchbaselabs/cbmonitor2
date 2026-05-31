@@ -82,7 +82,11 @@
       { "action": "dashboards:read",   "scope": "dashboards:uid:*" },
       { "action": "dashboards:create", "scope": "folders:uid:*" },
       { "action": "dashboards:write",  "scope": "folders:uid:*" },
-      { "action": "dashboards:write",  "scope": "dashboards:uid:*" }
+      { "action": "dashboards:write",  "scope": "dashboards:uid:*" },
+
+      { "action": "annotations:read",   "scope": "annotations:type:organization" },
+      { "action": "annotations:create", "scope": "annotations:type:organization" },
+      { "action": "annotations:delete", "scope": "annotations:type:organization" }
     ]
   },
   "dependencies": {

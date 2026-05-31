@@ -56,6 +56,9 @@ export async function loadSnapshot(snapshotId: string): Promise<LoadedSnapshot> 
         try {
             snapshot = await snapshotService.getSnapshot(snapshotId);
             await snapshotService.storeSnapshotData(snapshotId, snapshot);
+            // Mirror this snapshot's phases into Grafana's annotation store so
+            // native product dashboards can show phase zones for this job.
+            snapshotService.syncPhaseAnnotations(snapshotId);
         } catch (err) {
             if (isSnapshotNotFoundError(err)) {
                 throw err;

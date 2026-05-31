@@ -90,8 +90,22 @@ class SnapshotService {
     await this.cache.delete(snapshotId);
     const fresh = await this.getSnapshot(snapshotId);
     await this.storeSnapshotData(snapshotId, fresh);
+    this.syncPhaseAnnotations(snapshotId);
     this.emitRefresh(snapshotId);
     return fresh;
+  }
+
+  /**
+   * Ask the backend to (re)write this snapshot's phases into Grafana's
+   * annotation store so native product dashboards can render phase zones for
+   * the selected job. Fire-and-forget and idempotent — failures are
+   * non-fatal (e.g. snapshots feature disabled or no phases).
+   */
+  syncPhaseAnnotations(snapshotId: string): void {
+    const url = `${API_BASE_URL}/snapshots/${snapshotId}/annotations/sync`;
+    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } }).catch((err) => {
+      console.warn(`Phase annotation sync failed for ${snapshotId}:`, err);
+    });
   }
 
   /** Subscribe to refresh events. Returns the unsubscribe function. */
