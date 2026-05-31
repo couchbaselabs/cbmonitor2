@@ -42,14 +42,20 @@ func NewSnapshotService(connectionString, username, password, bucketName, scopeN
 	// Get bucket reference
 	bucket := cluster.Bucket(bucketName)
 
-	// Wait for bucket to be ready
-	err = bucket.WaitUntilReady(30*time.Second, nil)
-	if err != nil {
-		return nil, fmt.Errorf("bucket not ready: %w", err)
-	}
-
-	log.Printf("Snapshot service connected to Couchbase cluster: %s, bucket: %s, scope: %s, collection: %s",
-		connectionString, bucketName, scopeName, collectionName)
+	// Verify readiness in the background instead of blocking the caller.
+	// gocb.Connect/Bucket return without network I/O; only WaitUntilReady
+	// blocks. Blocking here would stall App instantiation in the Grafana plugin,
+	// which in turn gates the datasource/dashboard reconcile. Operations are queued until
+	// the cluster is ready, so the first query still succeeds once bootstrap
+	// completes.
+	go func() {
+		if err := bucket.WaitUntilReady(30*time.Second, nil); err != nil {
+			log.Printf("Snapshot service: bucket %q not ready within 30s: %v", bucketName, err)
+			return
+		}
+		log.Printf("Snapshot service connected to Couchbase cluster: %s, bucket: %s, scope: %s, collection: %s",
+			connectionString, bucketName, scopeName, collectionName)
+	}()
 
 	return &SnapshotService{
 		cluster:        cluster,

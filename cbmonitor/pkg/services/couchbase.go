@@ -34,11 +34,16 @@ func NewCouchbaseService(connectionString, username, password, bucketName, scope
 	}
 
 	bucket := cluster.Bucket(bucketName)
-	if err := bucket.WaitUntilReady(30*time.Second, nil); err != nil {
-		return nil, fmt.Errorf("bucket not ready: %w", err)
-	}
 
-	log.Printf("Connected to Couchbase cluster: %s, bucket: %s, scope: %s", connectionString, bucketName, scopeName)
+	// Verify readiness in the background rather than blocking the caller —
+	// see NewSnapshotService for why.
+	go func() {
+		if err := bucket.WaitUntilReady(30*time.Second, nil); err != nil {
+			log.Printf("Couchbase service: bucket %q not ready within 30s: %v", bucketName, err)
+			return
+		}
+		log.Printf("Connected to Couchbase cluster: %s, bucket: %s, scope: %s", connectionString, bucketName, scopeName)
+	}()
 
 	return &CouchbaseService{
 		cluster: cluster,
