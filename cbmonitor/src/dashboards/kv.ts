@@ -30,6 +30,16 @@ export const kvBuilder: ServiceBuilder = (ctx) => {
                 labelFilters: { proc: 'memcached' },
                 unit: 'bytes',
             }),
+            // Resident ratio is reported per bucket and vBucket state
+            // (active/replica/pending). We split active vs replica (pending
+            // dropped)
+            ctx.panel('kv_vb_perc_mem_resident_ratio', `vBucket Memory Resident Ratio (%)${ctx.titleSuffix}`, {
+                expr: `avg by (${ctx.mode === 'overlap' ? 'job, bucket, state' : 'bucket, state'}) (kv_vb_perc_mem_resident_ratio{${ctx.jobSelector},state=~"active|replica"})`,
+                legendFormat: ctx.mode === 'overlap' ? '{{job}} , {{bucket}} , {{state}}' : '{{bucket}} , {{state}}',
+                labelFilters: { state: ['active', 'replica'] },
+                extraFields: ['d.labels.`bucket`', 'd.labels.`state`'],
+                unit: 'percentunit',
+            }),
 
             // Operations & Performance
             ctx.panel('kv_vb_ops_get', `vBucket GET Ops/Sec${ctx.titleSuffix}`, {
