@@ -14,7 +14,6 @@ import { SettingsDropdown } from '../SettingsDropdown/SettingsDropdown';
 import { CompareDashboardHeader } from '../DashboardHeader/CompareDashboardHeader';
 import { OverlapToggle } from '../DashboardHeader/actions/OverlapToggle';
 import { PinPanelToggle } from '../DashboardHeader/actions/PinPanelToggle';
-import { EditModeToggle } from '../DashboardHeader/actions/EditModeToggle';
 
 // Global overlap mode (when true, hide columns and show placeholders)
 let overlapMode = false;
@@ -91,7 +90,6 @@ function CompareHeaderContainer(props: CompareHeaderContainerProps) {
         actions: [
             { key: 'overlap', render: () => React.createElement(OverlapToggle, { active: overlap, onToggle: onToggleOverlap }) },
             { key: 'pin', render: () => React.createElement(PinPanelToggle, {}) },
-            { key: 'edit', render: () => React.createElement(EditModeToggle, {}) },
         ],
     });
 }

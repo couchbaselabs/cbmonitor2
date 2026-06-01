@@ -10,7 +10,6 @@ import { SettingsDropdown } from '../components/SettingsDropdown/SettingsDropdow
 import { ClusterToggle } from '../components/ClusterSelector/ClusterToggle';
 import { DashboardHeader } from '../components/DashboardHeader/DashboardHeader';
 import { PinPanelToggle } from '../components/DashboardHeader/actions/PinPanelToggle';
-import { EditModeToggle } from '../components/DashboardHeader/actions/EditModeToggle';
 import { ExploreButton } from '../components/DashboardHeader/actions/ExploreButton';
 import { MetricsDrilldownButton } from '../components/DashboardHeader/actions/MetricsDrilldownButton';
 import { ProductDashboardsButton } from '../components/DashboardHeader/actions/ProductDashboardsButton';
@@ -314,7 +313,6 @@ snapshotViewPage.addActivationHandler(() => {
               settingsDropdown,
               actions: [
                 { key: 'pin', render: () => React.createElement(PinPanelToggle, {}) },
-                { key: 'edit', render: () => React.createElement(EditModeToggle, {}) },
                 { key: 'explore', render: () => React.createElement(ExploreButton, { snapshotId, timeRange }) },
                 { key: 'metricsDrilldown', render: () => React.createElement(MetricsDrilldownButton, { snapshotId, timeRange }) },
                 { key: 'productDashboards', render: () => React.createElement(ProductDashboardsButton, { snapshotId, timeRange, products: metadata.products }) },
