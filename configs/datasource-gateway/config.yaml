@@ -1,0 +1,25 @@
+# datasource-gateway Service Configuration
+server:
+  port: 8090
+  host: "0.0.0.0"
+
+logging:
+  level: "info"
+
+# Upstream Prometheus-compatible store, used for the passthrough path
+# (Prometheus-backed snapshots).
+prometheus:
+  url: "http://localhost:9009/prometheus"
+
+# Couchbase access for snapshot metadata (routing + time windows) and
+# metrics (the PromQL->SQL++ translation path). Clients are wired in a
+# later task; these values are loaded now.
+couchbase:
+  enabled: true
+  host: "localhost"
+  username: "Administrator"
+  password: "password"
+  metadata_bucket: "metadata"
+  metrics_bucket: "cbmonitor"
+  metrics_scope: "_default"
+  metrics_collection: "_default"
