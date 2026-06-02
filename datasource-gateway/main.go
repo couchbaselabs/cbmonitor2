@@ -13,7 +13,9 @@ import (
 
 	"github.com/couchbase/datasource-gateway/internal/api"
 	"github.com/couchbase/datasource-gateway/internal/config"
+	"github.com/couchbase/datasource-gateway/internal/couchbase"
 	"github.com/couchbase/datasource-gateway/internal/logger"
+	"github.com/couchbase/datasource-gateway/internal/prometheus"
 )
 
 const shutdownTimeout = 10 * time.Second
@@ -55,7 +57,27 @@ func main() {
 		"couchbase_metrics_bucket", cfg.Couchbase.MetricsBucket,
 	)
 
-	handler := api.NewHandler()
+	// Upstream Prometheus client (passthrough path) — always constructed.
+	promClient := prometheus.New(cfg.Prometheus.URL)
+
+	// Couchbase client (metadata + metrics). Non-blocking: a connect error or
+	// an unreachable cluster degrades to the Prometheus-only path rather than
+	// failing startup.
+	cbClient, cbErr := couchbase.New(couchbase.Config{
+		Enabled:           cfg.Couchbase.Enabled,
+		ConnectionString:  couchbase.BuildConnectionString(cfg.Couchbase.Host),
+		Username:          cfg.Couchbase.Username,
+		Password:          cfg.Couchbase.Password,
+		MetadataBucket:    cfg.Couchbase.MetadataBucket,
+		MetricsBucket:     cfg.Couchbase.MetricsBucket,
+		MetricsScope:      cfg.Couchbase.MetricsScope,
+		MetricsCollection: cfg.Couchbase.MetricsCollection,
+	})
+	if cbErr != nil {
+		logger.Error("Couchbase client init degraded; serving Prometheus path only", "error", cbErr)
+	}
+
+	handler := api.NewHandler(cbClient, promClient)
 
 	mux := http.NewServeMux()
 	handler.Register(mux)
@@ -88,6 +110,11 @@ func main() {
 	if err := server.Shutdown(ctx); err != nil {
 		logger.Error("Server forced to shutdown", "error", err)
 		os.Exit(1)
+	}
+
+	_ = promClient.Close()
+	if err := cbClient.Close(); err != nil {
+		logger.Error("Error closing Couchbase client", "error", err)
 	}
 
 	logger.Info("Server exited")
