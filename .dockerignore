@@ -1,0 +1,11 @@
+# Keep the Docker build context small for the Go-service images
+# (config-manager, datasource-gateway). These builds only need the
+# Makefile, Go sources, and configs — not JS deps, build artifacts, or VCS.
+.git
+.gitignore
+**/node_modules
+**/dist
+bin
+data
+temp_path
+*.log
