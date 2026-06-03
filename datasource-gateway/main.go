@@ -16,6 +16,7 @@ import (
 	"github.com/couchbase/datasource-gateway/internal/couchbase"
 	"github.com/couchbase/datasource-gateway/internal/logger"
 	"github.com/couchbase/datasource-gateway/internal/prometheus"
+	"github.com/couchbase/datasource-gateway/internal/router"
 )
 
 const shutdownTimeout = 10 * time.Second
@@ -77,7 +78,11 @@ func main() {
 		logger.Error("Couchbase client init degraded; serving Prometheus path only", "error", cbErr)
 	}
 
-	handler := api.NewHandler(cbClient, promClient)
+	// Per-snapshot router: caches each snapshot's store + time window so
+	// routing is a map lookup after the first query.
+	metricRouter := router.New(cbClient)
+
+	handler := api.NewHandler(cbClient, promClient, metricRouter)
 
 	mux := http.NewServeMux()
 	handler.Register(mux)

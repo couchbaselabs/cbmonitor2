@@ -4,6 +4,8 @@ go 1.24.0
 
 require (
 	github.com/couchbase/gocb/v2 v2.11.1
+	github.com/hashicorp/golang-lru/v2 v2.0.7
+	golang.org/x/sync v0.17.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
