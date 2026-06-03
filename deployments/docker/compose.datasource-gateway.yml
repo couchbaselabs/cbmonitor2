@@ -1,0 +1,14 @@
+# Usage: docker compose -f deployments/docker/compose.datasource-gateway.yml up --build -d
+name: datasource-gateway
+
+services:
+  datasource-gateway:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile.datasource-gateway
+      args:
+        - DSG_SERVER_PORT=${DSG_SERVER_PORT:-8090}
+    ports:
+      - "${DSG_SERVER_PORT:-8090}:${DSG_SERVER_PORT:-8090}"
+    environment:
+      - DSG_LOG_LEVEL=${DSG_LOG_LEVEL:-info}
