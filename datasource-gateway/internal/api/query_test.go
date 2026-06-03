@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -10,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/couchbase/datasource-gateway/internal/cbeval"
 	"github.com/couchbase/datasource-gateway/internal/couchbase"
 	"github.com/couchbase/datasource-gateway/internal/router"
 )
@@ -37,10 +40,26 @@ func (f *fakeProm) URL() string                      { return "http://upstream" 
 func (f *fakeProm) Reachable(_ context.Context) bool { return true }
 func (f *fakeProm) ReverseProxy() http.Handler       { return f.proxy }
 
+type fakeEvaluator struct {
+	result   *cbeval.Result
+	err      error
+	called   bool
+	gotQuery string
+	gotStart time.Time
+	gotEnd   time.Time
+	gotStep  time.Duration
+}
+
+func (f *fakeEvaluator) RangeQuery(_ context.Context, query string, start, end time.Time, step time.Duration) (*cbeval.Result, error) {
+	f.called = true
+	f.gotQuery, f.gotStart, f.gotEnd, f.gotStep = query, start, end, step
+	return f.result, f.err
+}
+
 // recorder captures the params the reverse proxy received from the handler.
 type recorder struct {
-	called             bool
-	start, end, query  string
+	called            bool
+	start, end, query string
 }
 
 func (rc *recorder) handler() http.Handler {
@@ -54,8 +73,8 @@ func (rc *recorder) handler() http.Handler {
 	})
 }
 
-func newTestHandler(cb *fakeCouchbase, rc *recorder) *Handler {
-	return NewHandler(cb, &fakeProm{proxy: rc.handler()}, router.New(cb))
+func newTestHandler(cb *fakeCouchbase, rc *recorder, ev couchbaseEvaluator) *Handler {
+	return NewHandler(cb, &fakeProm{proxy: rc.handler()}, router.New(cb), ev)
 }
 
 func postQueryRange(h *Handler, query, start, end string) *httptest.ResponseRecorder {
@@ -79,9 +98,8 @@ func unixOf(t *testing.T, rfc string) string {
 func TestQueryRangePrometheusBackedRewritesWindow(t *testing.T) {
 	rc := &recorder{}
 	cb := &fakeCouchbase{enabled: true, md: &couchbase.Metadata{Store: "prometheus", TSStart: "2024-01-02T00:00:00Z", TSEnd: "2024-01-02T01:00:00Z"}}
-	h := newTestHandler(cb, rc)
+	h := newTestHandler(cb, rc, &fakeEvaluator{})
 
-	// Deliberately-wrong dashboard range (1..2); expect it rewritten to the window.
 	postQueryRange(h, `rate(kv_ops{job="snap-1"}[5m])`, "1", "2")
 
 	if !rc.called {
@@ -98,25 +116,61 @@ func TestQueryRangePrometheusBackedRewritesWindow(t *testing.T) {
 	}
 }
 
-func TestQueryRangeCouchbaseBackedReturnsStub(t *testing.T) {
+func TestQueryRangeCouchbaseBackedRunsEvaluator(t *testing.T) {
 	rc := &recorder{}
 	cb := &fakeCouchbase{enabled: true, md: &couchbase.Metadata{Store: "couchbase", TSStart: "2024-01-02T00:00:00Z", TSEnd: "2024-01-02T01:00:00Z"}}
-	h := newTestHandler(cb, rc)
+	ev := &fakeEvaluator{result: &cbeval.Result{Status: "success"}}
+	ev.result.Data.ResultType = "matrix"
+	h := newTestHandler(cb, rc, ev)
 
 	w := postQueryRange(h, `rate(kv_ops{job="snap-1"}[5m])`, "1", "2")
 
 	if rc.called {
 		t.Error("Couchbase-backed query should not hit the passthrough")
 	}
-	if w.Code != http.StatusNotImplemented {
-		t.Errorf("code = %d, want 501", w.Code)
+	if !ev.called {
+		t.Fatal("evaluator not called for a Couchbase-backed snapshot")
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("code = %d, want 200", w.Code)
+	}
+	if !strings.Contains(ev.gotQuery, "kv_ops") {
+		t.Errorf("query = %q", ev.gotQuery)
+	}
+	// Evaluated over the snapshot window, not the dashboard range (1..2).
+	wantStart, _ := time.Parse(time.RFC3339, "2024-01-02T00:00:00Z")
+	wantEnd, _ := time.Parse(time.RFC3339, "2024-01-02T01:00:00Z")
+	if !ev.gotStart.Equal(wantStart) || !ev.gotEnd.Equal(wantEnd) {
+		t.Errorf("window = [%v, %v], want [%v, %v]", ev.gotStart, ev.gotEnd, wantStart, wantEnd)
+	}
+	if ev.gotStep != 15*time.Second {
+		t.Errorf("step = %v, want 15s", ev.gotStep)
+	}
+}
+
+func TestQueryRangeCouchbaseEvaluatorErrorRendersEnvelope(t *testing.T) {
+	cb := &fakeCouchbase{enabled: true, md: &couchbase.Metadata{Store: "couchbase", TSStart: "2024-01-02T00:00:00Z", TSEnd: "2024-01-02T01:00:00Z"}}
+	ev := &fakeEvaluator{err: errors.New("boom")}
+	h := newTestHandler(cb, &recorder{}, ev)
+
+	w := postQueryRange(h, `rate(kv_ops{job="snap-1"}[5m])`, "1", "2")
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("code = %d, want 422", w.Code)
+	}
+	var resp map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp["status"] != "error" {
+		t.Errorf("status = %q, want error", resp["status"])
 	}
 }
 
 func TestQueryRangeOverlapForwardedUnchanged(t *testing.T) {
 	rc := &recorder{}
 	cb := &fakeCouchbase{enabled: true, md: &couchbase.Metadata{Store: "couchbase"}}
-	h := newTestHandler(cb, rc)
+	h := newTestHandler(cb, rc, &fakeEvaluator{})
 
 	postQueryRange(h, `rate(kv_ops{job=~"snap-1|snap-2"}[5m])`, "1000", "2000")
 
@@ -134,7 +188,7 @@ func TestQueryRangeOverlapForwardedUnchanged(t *testing.T) {
 func TestQueryRangeCouchbaseDisabledForwardsUnchanged(t *testing.T) {
 	rc := &recorder{}
 	cb := &fakeCouchbase{enabled: false}
-	h := newTestHandler(cb, rc)
+	h := newTestHandler(cb, rc, &fakeEvaluator{})
 
 	postQueryRange(h, `rate(kv_ops{job="snap-1"}[5m])`, "1000", "2000")
 
