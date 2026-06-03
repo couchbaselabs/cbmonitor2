@@ -73,12 +73,14 @@ func (v *queryPlanner) Visit(node parser.Node, path []parser.Node) (parser.Visit
 		v.plan.SeriesQueries = append(v.plan.SeriesQueries, seriesQuery)
 
 	case *parser.AggregateExpr:
-		// Extract aggregation
-		v.plan.Aggregation = &AggregationPlan{
-			Operation: n.Op.String(),
-			By:        v.extractLabels(n.Grouping),
-			Without:   v.extractLabels(n.Grouping), // Simplified - would need to check Without flag
+		// Extract aggregation, honouring the by/without flag.
+		agg := &AggregationPlan{Operation: n.Op.String()}
+		if n.Without {
+			agg.Without = v.extractLabels(n.Grouping)
+		} else {
+			agg.By = v.extractLabels(n.Grouping)
 		}
+		v.plan.Aggregation = agg
 
 	case *parser.Call:
 		// Extract function call
