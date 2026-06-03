@@ -58,9 +58,10 @@ func BuildLabelWhereClauseFromFilters(filters []LabelFilter) string {
 		case "!=":
 			condition = fmt.Sprintf(`d.labels.%s != '%s'`, escapedLabel, escapedValue)
 		case "=~":
-			condition = fmt.Sprintf(`d.labels.%s LIKE '%s'`, escapedLabel, escapedValue)
+			// PromQL =~ is a full-string regex match, not a SQL glob.
+			condition = fmt.Sprintf(`REGEXP_MATCHES(d.labels.%s, '^(%s)$')`, escapedLabel, escapedValue)
 		case "!~":
-			condition = fmt.Sprintf(`d.labels.%s NOT LIKE '%s'`, escapedLabel, escapedValue)
+			condition = fmt.Sprintf(`NOT REGEXP_MATCHES(d.labels.%s, '^(%s)$')`, escapedLabel, escapedValue)
 		default: // "="
 			condition = fmt.Sprintf(`d.labels.%s = '%s'`, escapedLabel, escapedValue)
 		}
