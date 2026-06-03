@@ -28,6 +28,7 @@ type QueryContext struct {
 	Step       time.Duration
 	IsRange    bool
 	SnapshotID string // Optional snapshot ID from context
+	Keyspace   string // Metrics keyspace (bucket.scope.collection); empty → default
 }
 
 // ParseQueryContext parses query parameters into a QueryContext
