@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/couchbase/datasource-gateway/internal/cbeval"
 	"github.com/couchbase/datasource-gateway/internal/router"
 )
 
@@ -24,17 +25,24 @@ type prometheusGateway interface {
 	ReverseProxy() http.Handler
 }
 
+// couchbaseEvaluator runs a PromQL range query against Couchbase-backed samples
+// (via the Prometheus engine) and returns the matrix result.
+type couchbaseEvaluator interface {
+	RangeQuery(ctx context.Context, query string, start, end time.Time, step time.Duration) (*cbeval.Result, error)
+}
+
 // Handler holds the gateway HTTP handlers: the health endpoint and the
 // Prometheus-compatible API surface (/api/v1/*).
 type Handler struct {
 	couchbase  couchbaseHealth
 	prometheus prometheusGateway
 	router     *router.Router
+	evaluator  couchbaseEvaluator
 }
 
 // NewHandler constructs the gateway HTTP handler.
-func NewHandler(couchbase couchbaseHealth, prometheus prometheusGateway, router *router.Router) *Handler {
-	return &Handler{couchbase: couchbase, prometheus: prometheus, router: router}
+func NewHandler(couchbase couchbaseHealth, prometheus prometheusGateway, router *router.Router, evaluator couchbaseEvaluator) *Handler {
+	return &Handler{couchbase: couchbase, prometheus: prometheus, router: router, evaluator: evaluator}
 }
 
 // Register wires the handler's routes onto the given mux: the gateway's own

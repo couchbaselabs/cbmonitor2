@@ -3,9 +3,11 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/couchbase/datasource-gateway/internal/router"
 )
@@ -42,13 +44,64 @@ func (h *Handler) handleQueryRange(w http.ResponseWriter, r *http.Request) {
 	h.prometheus.ReverseProxy().ServeHTTP(w, r)
 }
 
-// serveCouchbaseQueryRange will translate the PromQL to SQL++, execute it
-// against Couchbase, and shape the result as Prometheus JSON. Wired in a later
-// task; for now it returns a clear, parseable error so the routing decision is
-// observable without silently returning empty data.
-func (h *Handler) serveCouchbaseQueryRange(w http.ResponseWriter, _ *http.Request, route router.Route) {
-	writePromError(w, http.StatusNotImplemented, "not_implemented",
-		"Couchbase-backed query execution for snapshot "+route.Snapshot+" is not yet wired")
+// serveCouchbaseQueryRange evaluates the PromQL against Couchbase-backed
+// samples via the Prometheus engine and writes the matrix result. It evaluates
+// over the snapshot's stored window (from the router) so the panel resolves
+// against the snapshot regardless of the dashboard's time picker.
+func (h *Handler) serveCouchbaseQueryRange(w http.ResponseWriter, r *http.Request, route router.Route) {
+	start, end, ok := evalRange(route, r.Form)
+	if !ok {
+		writePromError(w, http.StatusBadRequest, "bad_data", "no snapshot window and missing/invalid start/end")
+		return
+	}
+
+	result, err := h.evaluator.RangeQuery(r.Context(), r.Form.Get("query"), start, end, parseStepParam(r.Form.Get("step")))
+	if err != nil {
+		writePromError(w, http.StatusUnprocessableEntity, "execution", err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+// evalRange picks the evaluation window: the snapshot's stored window when
+// known, else the request's own start/end (Unix seconds, Prometheus-style).
+func evalRange(route router.Route, form url.Values) (time.Time, time.Time, bool) {
+	if route.HasWindow {
+		return route.Start, route.End, true
+	}
+	start, ok1 := parseUnixSeconds(form.Get("start"))
+	end, ok2 := parseUnixSeconds(form.Get("end"))
+	if !ok1 || !ok2 {
+		return time.Time{}, time.Time{}, false
+	}
+	return start, end, true
+}
+
+// parseStepParam parses the query_range step, accepting a Go duration ("15s")
+// or bare seconds ("15"); defaults to 15s.
+func parseStepParam(s string) time.Duration {
+	if s == "" {
+		return 15 * time.Second
+	}
+	if d, err := time.ParseDuration(s); err == nil && d > 0 {
+		return d
+	}
+	if f, err := strconv.ParseFloat(s, 64); err == nil && f > 0 {
+		return time.Duration(f * float64(time.Second))
+	}
+	return 15 * time.Second
+}
+
+func parseUnixSeconds(s string) (time.Time, bool) {
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return time.Time{}, false
+	}
+	sec := int64(f)
+	return time.Unix(sec, int64((f-float64(sec))*1e9)), true
 }
 
 // singleJob returns the snapshot ID from a single-snapshot job matcher, or ""

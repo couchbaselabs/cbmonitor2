@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/couchbase/datasource-gateway/internal/api"
+	"github.com/couchbase/datasource-gateway/internal/cbeval"
 	"github.com/couchbase/datasource-gateway/internal/config"
 	"github.com/couchbase/datasource-gateway/internal/couchbase"
 	"github.com/couchbase/datasource-gateway/internal/logger"
@@ -82,7 +83,13 @@ func main() {
 	// routing is a map lookup after the first query.
 	metricRouter := router.New(cbClient)
 
-	handler := api.NewHandler(cbClient, promClient, metricRouter)
+	// Couchbase query evaluator: runs the Prometheus engine over samples
+	// fetched from the metrics keyspace (bucket.scope.collection).
+	metricsKeyspace := fmt.Sprintf("`%s`.`%s`.`%s`",
+		cfg.Couchbase.MetricsBucket, cfg.Couchbase.MetricsScope, cfg.Couchbase.MetricsCollection)
+	evaluator := cbeval.NewEvaluator(cbClient, metricsKeyspace)
+
+	handler := api.NewHandler(cbClient, promClient, metricRouter, evaluator)
 
 	mux := http.NewServeMux()
 	handler.Register(mux)
