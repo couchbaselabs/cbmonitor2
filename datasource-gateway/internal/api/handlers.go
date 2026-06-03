@@ -6,16 +6,14 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/couchbase/datasource-gateway/internal/couchbase"
+	"github.com/couchbase/datasource-gateway/internal/router"
 )
 
-// couchbaseGateway is the slice of the Couchbase client the gateway needs:
-// health reporting plus snapshot-metadata lookup (for time-window rewriting
-// and, later, routing).
-type couchbaseGateway interface {
+// couchbaseHealth is the slice of the Couchbase client the health endpoint
+// needs. Snapshot-metadata lookups for routing live behind the router.
+type couchbaseHealth interface {
 	Enabled() bool
 	Ready() bool
-	GetSnapshotMetadata(ctx context.Context, snapshotID string) (*couchbase.Metadata, error)
 }
 
 // prometheusGateway is the slice of the Prometheus client the gateway needs:
@@ -29,20 +27,19 @@ type prometheusGateway interface {
 // Handler holds the gateway HTTP handlers: the health endpoint and the
 // Prometheus-compatible API surface (/api/v1/*).
 type Handler struct {
-	couchbase  couchbaseGateway
+	couchbase  couchbaseHealth
 	prometheus prometheusGateway
+	router     *router.Router
 }
 
 // NewHandler constructs the gateway HTTP handler.
-func NewHandler(couchbase couchbaseGateway, prometheus prometheusGateway) *Handler {
-	return &Handler{couchbase: couchbase, prometheus: prometheus}
+func NewHandler(couchbase couchbaseHealth, prometheus prometheusGateway, router *router.Router) *Handler {
+	return &Handler{couchbase: couchbase, prometheus: prometheus, router: router}
 }
 
 // Register wires the handler's routes onto the given mux: the gateway's own
-// /healthz; /api/v1/query_range (which rewrites the time window to the
-// snapshot's before forwarding); and a catch-all /api/v1/ streaming reverse
-// proxy for every other Prometheus-API endpoint. Per-snapshot routing and the
-// Couchbase translation path attach to the query routes in later tasks.
+// /healthz; /api/v1/query_range (routed per snapshot); and a catch-all
+// /api/v1/ streaming reverse proxy for every other Prometheus-API endpoint.
 func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/healthz", h.Health)
 	if h.prometheus != nil {
@@ -73,7 +70,7 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-func couchbaseStatus(cb couchbaseGateway) map[string]any {
+func couchbaseStatus(cb couchbaseHealth) map[string]any {
 	if cb == nil || !cb.Enabled() {
 		return map[string]any{"enabled": false}
 	}
