@@ -58,11 +58,6 @@
       "type": "datasource",
       "name": "couchbase-datasource",
       "path": "couchbase-datasource/plugin.json"
-    },
-    {
-      "type": "dashboard",
-      "name": "Couchbase Performance Analysis",
-      "path": "dashboards/products/couchbase-perf.json"
     }
   ],
   "iam": {
