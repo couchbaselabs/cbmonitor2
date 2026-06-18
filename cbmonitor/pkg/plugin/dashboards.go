@@ -31,22 +31,23 @@ const dashboardReconcileTimeout = 15 * time.Second
 type BundledDashboard struct {
 	Folder string          // e.g. "products"
 	Name   string          // e.g. "couchbase-perf.json"
-	UID    string          // parsed from the JSON's top-level "uid"
+	UID    string          // parsed from the JSON (top-level "uid" or v2 "metadata.name")
+	IsV2   bool            // true when apiVersion == "dashboard.grafana.app/v2"
 	Body   json.RawMessage // the dashboard JSON as-is
 }
 
 // DashboardReconcileStatus is the wire shape returned via
 // /admin/reconcile-dashboards so the UI can surface outcomes.
 type DashboardReconcileStatus struct {
-	Status      string    `json:"status"` // "ok" | "skipped" | "error" | "pending" | "disabled"
-	LastError   string    `json:"lastError,omitempty"`
-	LastRunAt   time.Time `json:"lastRunAt,omitempty"`
-	Bundled     []string  `json:"bundled"` // dashboard UIDs we ship
-	Folders     []string  `json:"folders"` // folder titles we manage
-	Created     []string  `json:"created,omitempty"`
-	Updated     []string  `json:"updated,omitempty"`
-	Skipped     []string  `json:"skipped,omitempty"`
-	FolderUIDs  map[string]string `json:"folderUIDs,omitempty"` // title -> uid
+	Status     string            `json:"status"` // "ok" | "skipped" | "error" | "pending" | "disabled"
+	LastError  string            `json:"lastError,omitempty"`
+	LastRunAt  time.Time         `json:"lastRunAt,omitempty"`
+	Bundled    []string          `json:"bundled"` // dashboard UIDs we ship
+	Folders    []string          `json:"folders"` // folder titles we manage
+	Created    []string          `json:"created,omitempty"`
+	Updated    []string          `json:"updated,omitempty"`
+	Skipped    []string          `json:"skipped,omitempty"`
+	FolderUIDs map[string]string `json:"folderUIDs,omitempty"` // title -> uid
 }
 
 // DashboardReconciler upserts dashboards bundled with the plugin into Grafana,
@@ -105,19 +106,29 @@ func LoadBundledDashboards() ([]BundledDashboard, error) {
 		if err != nil {
 			return fmt.Errorf("read %s: %w", p, err)
 		}
-		var meta struct {
-			UID string `json:"uid"`
+		var probe struct {
+			APIVersion string `json:"apiVersion"`
+			UID        string `json:"uid"`
+			Metadata   struct {
+				Name string `json:"name"`
+			} `json:"metadata"`
 		}
-		if err := json.Unmarshal(body, &meta); err != nil {
+		if err := json.Unmarshal(body, &probe); err != nil {
 			return fmt.Errorf("parse uid from %s: %w", p, err)
 		}
-		if meta.UID == "" {
-			return fmt.Errorf("%s has empty top-level uid", p)
+		isV2 := probe.APIVersion == "dashboard.grafana.app/v2"
+		uid := probe.UID
+		if isV2 {
+			uid = probe.Metadata.Name
+		}
+		if uid == "" {
+			return fmt.Errorf("%s has empty uid (classic: top-level \"uid\", v2: \"metadata.name\")", p)
 		}
 		out = append(out, BundledDashboard{
 			Folder: folder,
 			Name:   path.Base(p),
-			UID:    meta.UID,
+			UID:    uid,
+			IsV2:   isV2,
 			Body:   body,
 		})
 		return nil
@@ -257,7 +268,9 @@ func (r *DashboardReconciler) ensureFolder(ctx context.Context, title string) (s
 	}
 	defer createResp.Body.Close()
 	if createResp.StatusCode >= 200 && createResp.StatusCode < 300 {
-		var out struct{ UID string `json:"uid"` }
+		var out struct {
+			UID string `json:"uid"`
+		}
 		if err := json.NewDecoder(createResp.Body).Decode(&out); err == nil && out.UID != "" {
 			return out.UID, nil
 		}
@@ -273,6 +286,10 @@ func (r *DashboardReconciler) ensureFolder(ctx context.Context, title string) (s
 // created=true when the dashboard didn't exist beforehand. Idempotent —
 // running twice with the same JSON is a no-op (or version bump).
 func (r *DashboardReconciler) upsertDashboard(ctx context.Context, d BundledDashboard, folderUID string) (created bool, err error) {
+	if d.IsV2 {
+		return r.upsertDashboardV2(ctx, d, folderUID)
+	}
+
 	// Probe live state for the create/updated distinction in logs/status.
 	probeReq, perr := http.NewRequestWithContext(ctx, http.MethodGet, r.appURL+"/api/dashboards/uid/"+d.UID, nil)
 	if perr != nil {
@@ -316,6 +333,138 @@ func (r *DashboardReconciler) upsertDashboard(ctx context.Context, d BundledDash
 		return false, fmt.Errorf("forbidden (403) on POST /api/dashboards/db — check plugin iam.permissions includes dashboards:create/write: %s", readBodySnippet(resp.Body))
 	}
 	return false, fmt.Errorf("status %d: %s", resp.StatusCode, readBodySnippet(resp.Body))
+}
+
+// upsertDashboardV2 provisions a Grafana v2 dashboard (apiVersion
+// "dashboard.grafana.app/v2") via the storage API introduced in Grafana 12.
+// The folder is injected as a metadata annotation before the PUT so Grafana places it in the right folder.
+//
+// The PUT endpoint acts as an upsert: if the resource does not exist it is
+// created (HTTP 201), if it does exist it is replaced (HTTP 200). When updating
+// an existing resource the server requires the current resourceVersion in
+// metadata; we GET the live state first to retrieve it.
+func (r *DashboardReconciler) upsertDashboardV2(ctx context.Context, d BundledDashboard, folderUID string) (created bool, err error) {
+	const apiBase = "/apis/dashboard.grafana.app/v2/namespaces/default/dashboards"
+
+	// Decode the body into a generic map so we can inject/read metadata fields.
+	var doc map[string]any
+	if err := json.Unmarshal(d.Body, &doc); err != nil {
+		return false, fmt.Errorf("decode v2 body: %w", err)
+	}
+
+	// Ensure metadata.annotations exists and set the folder.
+	meta, _ := doc["metadata"].(map[string]any)
+	if meta == nil {
+		meta = map[string]any{}
+		doc["metadata"] = meta
+	}
+	annotations, _ := meta["annotations"].(map[string]any)
+	if annotations == nil {
+		annotations = map[string]any{}
+		meta["annotations"] = annotations
+	}
+	annotations["grafana.app/folder"] = folderUID
+
+	// Check whether the dashboard already exists and, if so, retrieve its
+	// resourceVersion (required by PUT for conflict detection).
+	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, r.appURL+apiBase+"/"+d.UID, nil)
+	if err != nil {
+		return false, err
+	}
+	r.authorize(getReq)
+	getResp, err := r.httpClient.Do(getReq)
+	if err != nil {
+		return false, err
+	}
+	exists := getResp.StatusCode == http.StatusOK
+	if exists {
+		var live map[string]any
+		if decErr := json.NewDecoder(getResp.Body).Decode(&live); decErr == nil {
+			if liveMeta, ok := live["metadata"].(map[string]any); ok {
+				if rv, ok := liveMeta["resourceVersion"].(string); ok && rv != "" {
+					meta["resourceVersion"] = rv
+				}
+			}
+		}
+	}
+	getResp.Body.Close()
+
+	buf, mErr := json.Marshal(doc)
+	if mErr != nil {
+		return false, mErr
+	}
+
+	method := http.MethodPut
+	url := r.appURL + apiBase + "/" + d.UID
+	if !exists {
+		method = http.MethodPost
+		url = r.appURL + apiBase
+	}
+	req, rErr := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(buf))
+	if rErr != nil {
+		return false, rErr
+	}
+	req.Header.Set("Content-Type", "application/json")
+	r.authorize(req)
+	resp, doErr := r.httpClient.Do(req)
+	if doErr != nil {
+		return false, doErr
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return !exists, nil
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		return false, fmt.Errorf("forbidden (403) on %s %s — check plugin iam.permissions: %s", method, url, readBodySnippet(resp.Body))
+	}
+
+	// 409 Conflict: POST said the resource already exists even though GET returned 404.
+	// This can occur during Grafana unified-storage migration. Retry as PUT.
+	if resp.StatusCode == http.StatusConflict && method == http.MethodPost {
+		resp.Body.Close()
+
+		// Attempt a fresh GET to retrieve the current resourceVersion.
+		getRetry, getErr := http.NewRequestWithContext(ctx, http.MethodGet, r.appURL+apiBase+"/"+d.UID, nil)
+		if getErr != nil {
+			return false, fmt.Errorf("v2 retry-GET after 409: %w", getErr)
+		}
+		r.authorize(getRetry)
+		if getRetryResp, _ := r.httpClient.Do(getRetry); getRetryResp != nil {
+			if getRetryResp.StatusCode == http.StatusOK {
+				var live map[string]any
+				if decErr := json.NewDecoder(getRetryResp.Body).Decode(&live); decErr == nil {
+					if liveMeta, ok := live["metadata"].(map[string]any); ok {
+						if rv, ok := liveMeta["resourceVersion"].(string); ok && rv != "" {
+							meta["resourceVersion"] = rv
+						}
+					}
+				}
+			}
+			getRetryResp.Body.Close()
+		}
+
+		putBuf, putMErr := json.Marshal(doc)
+		if putMErr != nil {
+			return false, putMErr
+		}
+		putReq, putRErr := http.NewRequestWithContext(ctx, http.MethodPut, r.appURL+apiBase+"/"+d.UID, bytes.NewReader(putBuf))
+		if putRErr != nil {
+			return false, putRErr
+		}
+		putReq.Header.Set("Content-Type", "application/json")
+		r.authorize(putReq)
+		putResp, putDoErr := r.httpClient.Do(putReq)
+		if putDoErr != nil {
+			return false, putDoErr
+		}
+		defer putResp.Body.Close()
+		if putResp.StatusCode >= 200 && putResp.StatusCode < 300 {
+			return false, nil // existed, now updated
+		}
+		return false, fmt.Errorf("v2 PUT (after 409) status %d: %s", putResp.StatusCode, readBodySnippet(putResp.Body))
+	}
+
+	return false, fmt.Errorf("v2 upsert status %d: %s", resp.StatusCode, readBodySnippet(resp.Body))
 }
 
 func (r *DashboardReconciler) authorize(req *http.Request) {
