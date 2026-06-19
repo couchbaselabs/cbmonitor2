@@ -5,8 +5,6 @@ import { GrafanaTheme2, SelectableValue } from '@grafana/data';
 import { RadioButtonGroup, Select, Switch, ToolbarButton, useStyles2 } from '@grafana/ui';
 import { Cluster } from 'types/snapshot';
 import { layoutService, LayoutMode } from '../../services/layoutService';
-import { dataSourceService } from '../../services/datasourceService';
-import { DataSourceType } from '../../types/datasource';
 import { clusterFilterService } from '../../services/clusterFilterService';
 import { AvailableTab, isTabVisible } from '../../services/pageBuilder';
 
@@ -16,14 +14,12 @@ interface SettingsDropdownState extends SceneObjectState {
     snapshotId: string;
     clusters: Cluster[];
     onLayoutChange?: () => void;
-    onDataSourceChange?: () => void;
     onClusterChange?: (clusterId: string | null) => void;
     onHideEmptyChange?: () => void;
     availableTabs?: AvailableTab[];
     tabOverrides?: Record<string, boolean>;
     onTabVisibilityChange?: (next: Record<string, boolean>) => void;
     showLayoutSection?: boolean;
-    showDataSourceSection?: boolean;
     showClusterSection?: boolean;
     showHideEmptySection?: boolean;
     showPhaseStyleSection?: boolean;
@@ -42,14 +38,12 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
     const {
         clusters,
         onLayoutChange,
-        onDataSourceChange,
         onClusterChange,
         onHideEmptyChange,
         availableTabs,
         tabOverrides,
         onTabVisibilityChange,
         showLayoutSection = true,
-        showDataSourceSection = true,
         showClusterSection = true,
         showHideEmptySection = true,
         showPhaseStyleSection = true,
@@ -59,7 +53,6 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
     const styles = useStyles2(getStyles);
     const [isOpen, setIsOpen] = useState(false);
     const [layout, setLayout] = useState<LayoutMode>(layoutService.getLayout());
-    const [dataSource, setDataSource] = useState<DataSourceType>(dataSourceService.getCurrentDataSource());
     const [selectedCluster, setSelectedCluster] = useState<string>(clusterFilterService.getCurrentCluster() ?? ALL_CLUSTERS);
     const [hideEmpty, setHideEmpty] = useState(layoutService.getHideEmptyPanels());
     const [phasesAsZones, setPhasesAsZones] = useState(layoutService.getPhasesAsZones());
@@ -117,13 +110,6 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
     }, []);
 
     useEffect(() => {
-        const unsubscribe = dataSourceService.subscribe((newDs) => {
-            setDataSource(newDs);
-        });
-        return unsubscribe;
-    }, []);
-
-    useEffect(() => {
         const unsubscribe = clusterFilterService.subscribe((clusterId) => {
             setSelectedCluster(clusterId ?? ALL_CLUSTERS);
         });
@@ -147,13 +133,6 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
     const handleLayoutChange = (value: LayoutMode) => {
         layoutService.setLayout(value);
         onLayoutChange?.();
-    };
-
-    const handleDataSourceChange = (option: SelectableValue<DataSourceType> | null) => {
-        if (option?.value && option.value !== dataSource) {
-            dataSourceService.setCurrentDataSource(option.value);
-            onDataSourceChange?.();
-        }
     };
 
     const handleClusterChange = (option: SelectableValue<string> | null) => {
@@ -189,11 +168,6 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
         { label: 'Rows', value: 'rows' as LayoutMode, icon: 'list-ul' },
     ];
 
-    const dataSourceOptions: Array<SelectableValue<DataSourceType>> = [
-        { label: 'Prometheus', value: DataSourceType.Prometheus },
-        { label: 'Couchbase SQL++', value: DataSourceType.Couchbase },
-    ];
-
     const clusterOptions: Array<SelectableValue<string>> = [
         { label: 'All clusters', value: ALL_CLUSTERS },
         ...clusters.map((cluster, index) => ({
@@ -225,18 +199,6 @@ function SettingsDropdownRenderer({ model }: SceneComponentProps<SettingsDropdow
                                 onChange={handleLayoutChange}
                                 size="sm"
                                 fullWidth
-                            />
-                        </div>
-                    )}
-
-                    {showDataSourceSection && (
-                        <div className={styles.section}>
-                            <div className={styles.sectionLabel}>Data Source</div>
-                            <Select
-                                options={dataSourceOptions}
-                                value={dataSource}
-                                onChange={handleDataSourceChange}
-                                width={30}
                             />
                         </div>
                     )}

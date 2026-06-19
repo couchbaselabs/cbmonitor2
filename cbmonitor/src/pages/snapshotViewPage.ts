@@ -236,13 +236,6 @@ snapshotViewPage.addActivationHandler(() => {
           });
         };
 
-        const handleDataSourceChange = () => {
-          sceneCacheService.clearAll();
-          snapshotViewPage.setState({
-            tabs: getDashboardsForServices(metadata.services, snapshotId, metadata.custom_panels, tabOverrides, metadata.products),
-          });
-        };
-
         const handleClusterChange = (clusterId: string | null) => {
           clusterFilterService.setCurrentCluster(clusterId);
           sceneCacheService.clearAll();
@@ -288,7 +281,6 @@ snapshotViewPage.addActivationHandler(() => {
           snapshotId,
           clusters: metadata.clusters || [],
           onLayoutChange: handleLayoutChange,
-          onDataSourceChange: handleDataSourceChange,
           onHideEmptyChange: handleHideEmptyChange,
           availableTabs,
           tabOverrides,

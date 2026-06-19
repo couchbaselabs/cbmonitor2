@@ -59,9 +59,13 @@ class DataSourceService {
         return this.config;
     }
 
-    /** Get the currently selected datasource type */
+    /**
+     * The active datasource is pinned to Prometheus: the single gateway
+     * datasource speaks PromQL, and the Couchbase-vs-Prometheus runtime toggle
+     * has been retired. (This service is removed entirely in a later step.)
+     */
     getCurrentDataSource(): DataSourceType {
-        return this.currentDataSource;
+        return DataSourceType.Prometheus;
     }
 
     /** Switch the active datasource and notify all subscribers */
