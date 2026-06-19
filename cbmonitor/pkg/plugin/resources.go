@@ -130,10 +130,6 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/admin/reconcile-dashboards", a.handleReconcileDashboards)
 	mux.HandleFunc("/healthcheck/connection", a.handleHealthCheckConnection)
 
-	if a.settings.CouchbaseDatasource.Enabled {
-		a.setupPrometheusRoutes(mux)
-	}
-
 	if a.settings.Snapshots.Enabled || a.settings.PrometheusDatasource.Enabled {
 		a.setupSnapshotRoutes(mux)
 	}
@@ -187,19 +183,6 @@ func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
 	})
 
 	log.Printf("Snapshot routes registered: /snapshots/{id}, /snapshots/{id}/metric-names, /snapshots/{id}/metrics/{metric}, /snapshots/{id}/metrics/{metric}/phases/{phase}, /snapshots/{id}/annotations/sync")
-}
-
-// setupPrometheusRoutes registers the Prometheus Query API routes backed
-// by the Couchbase datasource bucket. Only called when
-// CouchbaseDatasource.Enabled is true. Service is owned by App.initServices.
-func (a *App) setupPrometheusRoutes(mux *http.ServeMux) {
-	promQLHandler := handlers.NewPromQLHandler(a.couchbaseService)
-
-	mux.HandleFunc("/query", promQLHandler.HandleQuery)
-	mux.HandleFunc("/query_range", promQLHandler.HandleQueryRange)
-	mux.HandleFunc("/series", promQLHandler.HandleSeries)
-
-	log.Printf("PromQL Query API routes registered: /query, /query_range, /series")
 }
 
 // handleHealthCheckConnection probes the Couchbase buckets each enabled

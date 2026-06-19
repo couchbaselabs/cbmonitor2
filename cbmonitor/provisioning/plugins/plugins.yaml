@@ -1,6 +1,5 @@
 apiVersion: 1
 
 # No plugins to enable here. The cbmonitor app plugin itself is provisioned
-# via plugins/apps.yaml; datasource plugins (prometheus, couchbase-datasource)
-# come from Grafana's built-ins / bundled includes.
+# via plugins/apps.yaml; the Prometheus datasource comes from Grafana's built-ins.
 plugins: []

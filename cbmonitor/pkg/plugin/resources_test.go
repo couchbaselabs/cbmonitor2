@@ -127,15 +127,19 @@ func TestCallResource_DatasourceConfigReflectsSettings(t *testing.T) {
 	}
 }
 
-func TestCallResource_DatasourceRoutesGatedByToggle(t *testing.T) {
-	// Couchbase datasource OFF → /query, /query_range, /series should 404.
-	app := newAppWithSettings(t, defaultSettings())
+func TestCallResource_QueryRoutesNotServedByPlugin(t *testing.T) {
+	// The in-plugin PromQL-over-Couchbase query API was removed; those
+	// queries are served by the standalone datasource-gateway. The routes
+	// must 404 even when the Couchbase datasource is enabled.
+	settings := defaultSettings()
+	settings.CouchbaseDatasource = CouchbaseDatasourceSettings{Enabled: true, Bucket: "cbmonitor"}
+	app := newAppWithSettings(t, settings)
 
 	for _, path := range []string{"query", "query_range", "series"} {
-		t.Run("off/"+path, func(t *testing.T) {
+		t.Run(path, func(t *testing.T) {
 			resp := call(t, app, http.MethodGet, path, nil)
 			if resp.Status != http.StatusNotFound {
-				t.Errorf("%s with Couchbase DS off: status = %d, want 404", path, resp.Status)
+				t.Errorf("%s: status = %d, want 404 (query API moved to gateway)", path, resp.Status)
 			}
 		})
 	}

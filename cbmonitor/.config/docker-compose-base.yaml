@@ -25,7 +25,6 @@ services:
       - ../dist:/var/lib/grafana/plugins/cbmonitor
       - ../provisioning:/etc/grafana/provisioning
       - ..:/root/cbmonitor
-      - ../../couchbase-datasource/couchbase-datasource/dist:/var/lib/grafana/plugins/couchbase-datasource
       - ../../test-dashboards:/var/lib/grafana/dashboards
 
     environment:
@@ -43,9 +42,8 @@ services:
       GF_AUTH_MANAGED_SERVICE_ACCOUNTS_ENABLED: 'true'
       GF_FEATURE_TOGGLES_ENABLE: ${GF_FEATURE_TOGGLES_ENABLE:-externalServiceAccounts}
 
-      # Couchbase credentials are consumed by:
-      # 1. provisioning/datasources/datasource.yaml (couchbase-datasource plugin)
-      # 2. provisioning/plugins/apps.yaml
+      # Couchbase credentials are consumed by provisioning/plugins/apps.yaml
+      # (the cbmonitor app jsonData).
       COUCHBASE_CONNECTION_STRING: ${COUCHBASE_CONNECTION_STRING:-couchbase://host.docker.internal:8091}
       COUCHBASE_USERNAME: ${COUCHBASE_USERNAME:-Administrator}
       COUCHBASE_PASSWORD: ${COUCHBASE_PASSWORD:-password}
