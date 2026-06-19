@@ -1,4 +1,0 @@
-[submodule "mfork-grafana-plugin"]
-	path = mfork-grafana-plugin
-	url = https://github.com/couchbaselabs/mfork-grafana-plugin.git
-	ignore = dirty
