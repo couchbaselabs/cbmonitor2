@@ -1,5 +1,5 @@
 import { EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneDataLayerSet } from '@grafana/scenes';
-import { getInstancesFromMetricRunner, getInstancesFromProxyPromMetricRunner, parseInstancesFromFrames } from 'services/instanceService';
+import { getInstancesFromMetricRunner, getInstancesFromOverlapMetricRunner, parseInstancesFromFrames } from 'services/instanceService';
 import { layoutService } from '../services/layoutService';
 import { SnapshotPhaseRegionsLayer } from '../layers/SnapshotPhaseRegionsLayer';
 import { createOverlapMetricPanel } from './utils.panelOverlap';
@@ -165,7 +165,7 @@ export function createInstanceAwareOverlapScene(
         children: [],
     });
 
-    const instancesRunner = getInstancesFromProxyPromMetricRunner(snapshotIds, options.instanceMetric);
+    const instancesRunner = getInstancesFromOverlapMetricRunner(snapshotIds, options.instanceMetric);
     layout.setState({ $data: instancesRunner });
     (instancesRunner as any).run?.();
 
