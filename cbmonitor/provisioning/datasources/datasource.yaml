@@ -1,19 +1,8 @@
 apiVersion: 1
 
-# The `prometheus` and `cbdatasource` datasources are managed by the
-# cbmonitor app plugin itself (reconciled at runtime from app jsonData via
-# the Grafana HTTP API). Don't add them back here or you'll get duplicates.
-datasources:
-- name: ProxyPrometheus
-  uid: proxyprometheus
-  type: prometheus
-  access: proxy
-  url: ${PROXY_PROMETHEUS_URL}
-  basicAuth: false
-  isDefault: false
-  jsonData:
-    cacheLevel: High
-    httpMethod: GET
-    prometheusType: Mimir
-    prometheusVersion: 2.9.1
-  secureJsonData: {}
+# The single `prometheus` datasource is managed by the cbmonitor app plugin
+# itself (reconciled at runtime from app jsonData via the Grafana HTTP API).
+# It points at the datasource-gateway sidecar when the gateway is enabled,
+# otherwise at Prometheus/Mimir directly. Don't add it back here or you'll get
+# duplicates.
+datasources: []
