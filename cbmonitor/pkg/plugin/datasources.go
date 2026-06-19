@@ -27,6 +27,12 @@ const (
 // Any UID in this set that isn't in the current `desired` list during a
 // reconcile pass gets DELETEd from Grafana — that's how toggling a
 // feature off in app settings cleans up its datasource.
+//
+// dsUIDCouchbase is retained here even though desiredDatasources no longer
+// produces it: the gateway replaced the standalone couchbase-datasource, so
+// the reconciler must DELETE any pre-existing cbdatasource left over from
+// before the gateway. Drop it (and the constant + IAM scopes) in a future
+// release once deployments have reconciled it away.
 var appManagedUIDs = []string{dsUIDPrometheus, dsUIDCouchbase}
 
 // reconcileTimeout caps a single reconciliation pass. Long enough to handle
@@ -364,9 +370,10 @@ func readBodySnippet(body io.Reader) string {
 // uses this to distinguish "feature disabled — clean up the DS" from
 // "feature enabled but misconfigured — leave the existing DS alone".
 func (s *PluginSettings) claimedDatasources() map[string]bool {
+	// cbdatasource is intentionally absent: it's retired, so it's never
+	// "claimed" and the reconciler's delete phase always removes any leftover.
 	return map[string]bool{
 		dsUIDPrometheus: s.PrometheusDatasource.Enabled,
-		dsUIDCouchbase:  s.CouchbaseDatasource.Enabled,
 	}
 }
 
@@ -376,13 +383,23 @@ func (s *PluginSettings) claimedDatasources() map[string]bool {
 // as "skipped", not as a hard error.
 func (s *PluginSettings) desiredDatasources() []DesiredDatasource {
 	out := []DesiredDatasource{}
-	if s.PrometheusDatasource.Enabled && s.PrometheusDatasource.URL != "" {
+
+	// The single Prometheus-typed datasource points at the gateway sidecar when
+	// the gateway is enabled (so it can translate Couchbase-backed snapshots and
+	// serve overlap); otherwise straight at the upstream Prometheus/Mimir
+	// (pure-Prometheus mode). Either way it's a prometheus-typed datasource
+	// speaking the Prometheus HTTP API, so the jsonData below is unchanged.
+	promURL := s.PrometheusDatasource.URL
+	if s.Gateway.Enabled {
+		promURL = s.Gateway.URL
+	}
+	if s.PrometheusDatasource.Enabled && promURL != "" {
 		out = append(out, DesiredDatasource{
 			UID:       dsUIDPrometheus,
 			Name:      "Prometheus",
 			Type:      "prometheus",
 			Access:    "proxy",
-			URL:       s.PrometheusDatasource.URL,
+			URL:       promURL,
 			IsDefault: s.PrometheusDatasource.IsDefault,
 			JSONData: map[string]any{
 				"cacheLevel":        "High",
@@ -392,38 +409,8 @@ func (s *PluginSettings) desiredDatasources() []DesiredDatasource {
 			},
 		})
 	}
-	if s.CouchbaseDatasource.Enabled && s.CouchbaseServer.ConnectionString != "" {
-		ds := s.CouchbaseDatasource
-		// The couchbase-datasource plugin (and any UDFs the panels call
-		// through) read bucket/scope/collection from jsonData. Forward
-		// every field the app captures so panel queries don't need to
-		// hardcode location info.
-		jsonData := map[string]any{
-			"host":     s.CouchbaseServer.ConnectionString,
-			"username": s.CouchbaseServer.Username,
-			"bucket":   ds.Bucket,
-		}
-		if ds.Scope != "" {
-			jsonData["scope"] = ds.Scope
-		}
-		if ds.Collection != "" {
-			jsonData["collection"] = ds.Collection
-		}
-		out = append(out, DesiredDatasource{
-			UID:    dsUIDCouchbase,
-			Name:   "cbdatasource",
-			Type:   "couchbase-datasource",
-			Access: "proxy",
-			// The couchbase-datasource plugin reads `host` from jsonData,
-			// not the top-level `url` — but Grafana's API requires `url`
-			// to be set on all datasources. Send the connection string in
-			// both so the wire object is well-formed.
-			URL:      s.CouchbaseServer.ConnectionString,
-			JSONData: jsonData,
-			SecureJSONData: map[string]string{
-				"password": s.CouchbaseServer.Password,
-			},
-		})
-	}
+	// cbdatasource is no longer created: Couchbase-backed snapshots are served
+	// by the gateway (the prometheus DS above points at it). Any pre-existing
+	// cbdatasource is orphan-deleted via appManagedUIDs.
 	return out
 }

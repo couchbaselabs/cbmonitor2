@@ -63,6 +63,9 @@ func (a *App) handleGetDatasourceConfig(w http.ResponseWriter, req *http.Request
 		"defaultDataSource":   a.settings.DefaultDataSource(),
 		"prometheusAvailable": a.settings.PrometheusDatasource.Enabled,
 		"couchbaseAvailable":  a.settings.CouchbaseDatasource.Enabled,
+		"gatewayEnabled":      a.settings.Gateway.Enabled,
+		"gatewayUrl":          a.settings.Gateway.URL,
+		"overlapEnabled":      a.settings.Gateway.Enabled && a.settings.Gateway.Overlap,
 		"reconciliation":      a.getReconcileState(),
 		"settings":            settingsBlock,
 	}
