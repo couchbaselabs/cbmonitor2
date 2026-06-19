@@ -20,14 +20,11 @@ export const kvBuilder: ServiceBuilder = (ctx) => {
             ctx.panel('sysproc_cpu_seconds_total', `memcached CPU Usage (cores)${ctx.titleSuffix}`, {
                 expr: `sum by (${ctx.sumBy()}) (rate(sysproc_cpu_seconds_total{${ctx.jobSelector},proc="memcached"${ctx.instanceFilter}}[$__rate_interval]))`,
                 legendFormat: ctx.legend(),
-                labelFilters: { proc: 'memcached' },
-                transformFunction: 'rate',
                 unit: 'short',
             }),
             ctx.panel('sysproc_mem_resident', `memcached Resident Memory (Bytes)${ctx.titleSuffix}`, {
                 expr: `sum by (${ctx.sumBy()}) (sysproc_mem_resident{${ctx.jobSelector},proc="memcached"${ctx.instanceFilter}})`,
                 legendFormat: ctx.legend(),
-                labelFilters: { proc: 'memcached' },
                 unit: 'bytes',
             }),
             // Resident ratio is reported per bucket and vBucket state
@@ -36,8 +33,6 @@ export const kvBuilder: ServiceBuilder = (ctx) => {
             ctx.panel('kv_vb_perc_mem_resident_ratio', `vBucket Memory Resident Ratio (%)${ctx.titleSuffix}`, {
                 expr: `avg by (${ctx.mode === 'overlap' ? 'job, bucket, state' : 'bucket, state'}) (kv_vb_perc_mem_resident_ratio{${ctx.jobSelector},state=~"active|replica"})`,
                 legendFormat: ctx.mode === 'overlap' ? '{{job}} , {{bucket}} , {{state}}' : '{{bucket}} , {{state}}',
-                labelFilters: { state: ['active', 'replica'] },
-                extraFields: ['d.labels.`bucket`', 'd.labels.`state`'],
                 unit: 'percentunit',
             }),
 
@@ -45,8 +40,6 @@ export const kvBuilder: ServiceBuilder = (ctx) => {
             ctx.panel('kv_vb_ops_get', `vBucket GET Ops/Sec${ctx.titleSuffix}`, {
                 expr: `sum by (${ctx.sumBy('bucket')}) (rate(kv_vb_ops_get{${ctx.jobSelector}${ctx.instanceFilter}}[$__rate_interval]))`,
                 legendFormat: ctx.legend('bucket'),
-                transformFunction: 'rate',
-                extraFields: ['d.labels.`instance`', 'd.labels.`bucket`'],
                 unit: 'short',
             }),
 
@@ -58,8 +51,6 @@ export const kvBuilder: ServiceBuilder = (ctx) => {
                 ctx.panel('kv_ops_by_type', 'KV Operations by Type (ops/sec)', {
                     expr: `sum by (op) (rate(kv_ops{${ctx.jobSelector}}[$__rate_interval]))`,
                     legendFormat: '{{op}}',
-                    transformFunction: 'rate',
-                    extraFields: ['d.labels.`op`'],
                     unit: 'short',
                 }),
             ]),
@@ -106,9 +97,6 @@ export const kvBuilder: ServiceBuilder = (ctx) => {
             ctx.panel('kv_ops', `KV Operations/Sec (${i})`, {
                 expr: `rate(kv_ops{${ctx.jobSelector},instance="${i}"}[$__rate_interval])`,
                 legendFormat: '{{bucket}} , {{op}} , {{result}}',
-                labelFilters: { instance: i },
-                extraFields: ['d.labels.`bucket`', 'd.labels.`op`', 'd.labels.`result`'],
-                transformFunction: 'rate',
                 unit: 'short',
             }),
         ];
@@ -119,8 +107,6 @@ export const kvBuilder: ServiceBuilder = (ctx) => {
         ctx.panel('kv_ops', 'KV Operations/Sec', {
             expr: `rate(kv_ops{${ctx.jobSelector}}[$__rate_interval])`,
             legendFormat: '{{instance}} , {{bucket}} , {{op}} , {{result}}',
-            extraFields: ['d.labels.`instance`', 'd.labels.`bucket`', 'd.labels.`op`', 'd.labels.`result`'],
-            transformFunction: 'rate',
             unit: 'short',
         }),
     ];
@@ -132,7 +118,6 @@ function simpleKvPanel(ctx: MetricContext, metric: string, title: string, unit: 
     return ctx.panel(metric, `${title}${ctx.titleSuffix}`, {
         expr: `sum by (${ctx.sumBy()}) (${series})`,
         legendFormat: ctx.legend(),
-        ...(rate ? { transformFunction: 'rate' } : {}),
         unit,
     });
 }
@@ -154,8 +139,6 @@ function dcpPanel(ctx: MetricContext, metric: string, title: string, unit: strin
     return ctx.panel(metric, `${title}${ctx.titleSuffix}`, {
         expr,
         legendFormat: ctx.legend('bucket', 'connection_type'),
-        ...(rate ? { transformFunction: 'rate' } : {}),
-        extraFields: ['d.labels.`instance`', 'd.labels.`bucket`', 'd.labels.`connection_type`'],
         unit,
     });
 }

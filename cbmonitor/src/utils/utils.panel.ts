@@ -61,43 +61,18 @@ export function getNewTimeSeriesDataTransformer(queryRunner: SceneQueryRunner) {
 
 // Options for panel creation
 type PanelOptions = {
-    // PromQL expression — hardcoded, source of truth
+    // PromQL expression — the source of truth
     expr: string;
     // Prometheus legend format, e.g. '{{instance}}'. Default: '{{instance}}'
     legendFormat?: string;
-
-    // SQL++ parameters for CBQueryBuilder (used when Couchbase datasource is active)
+    // Snapshot ID, baked into the node-drilldown data link.
     snapshotId: string;
-    labelFilters?: Record<string, string | string[]>;
-    extraFields?: string[];
-    transformFunction?: string; // e.g., 'rate', 'irate', 'increase' — uses AggregationQueryBuilder
 
-    // Shared display options
+    // Display options
     unit?: string;
     width?: string | number;
     height?: number;
 };
-
-// Build legend template for Grafana panel display name override
-export function makeLegendTemplate(extraFields?: string[]): string {
-    const ef = extraFields ?? [];
-    const labelKeys = ef
-        .map((f) => {
-            const matchBackticks = f.match(/d\.labels\.\`([^`]+)\`/);
-            if (matchBackticks) {
-                return matchBackticks[1];
-            }
-            const matchDot = f.match(/d\.labels\.([^`\.]+)/);
-            return matchDot ? matchDot[1] : undefined;
-        })
-        .filter((v): v is string => Boolean(v));
-
-    if (labelKeys.length > 0) {
-        const parts = labelKeys.map((k) => '${__field.labels.' + k + '}');
-        return parts.join(' , ');
-    }
-    return '${__field.labels.instance}';
-}
 
 /**
  * Inject cluster filter into a PromQL expression.
@@ -174,7 +149,7 @@ export function createMetricPanel(
     // so the legend style is consistent regardless of datasource.
     const legendTemplate = options.legendFormat
         ? options.legendFormat.replace(/\{\{(\w+)\}\}/g, '${__field.labels.$1}')
-        : makeLegendTemplate(options.extraFields);
+        : '${__field.labels.instance}';
     // Data link to the node drilldown: rendered in the tooltip + legend
     // context menu whenever a series has an `instance` label. Grafana
     // resolves `${__field.labels.instance}` per-series, so non-instance
