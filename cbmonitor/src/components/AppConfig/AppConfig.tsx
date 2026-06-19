@@ -16,9 +16,7 @@ import {
   useStyles2,
 } from '@grafana/ui';
 import { testIds } from '../testIds';
-import { dataSourceService } from '../../services/datasourceService';
-import { DataSourceType } from '../../types/datasource';
-import { API_BASE_URL, CB_DATASOURCE_REF, PROM_DATASOURCE_REF } from '../../constants';
+import { API_BASE_URL, PROM_DATASOURCE_REF } from '../../constants';
 
 // Mirror of the Go PluginSettings JSON shape, minus the password (which lives
 // in secureJsonData and is never readable from the frontend).
@@ -176,11 +174,7 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
     setCbDsResult(null);
     setDsResult(null);
 
-    const cfg = await dataSourceService.getDataSourceConfig();
-    const uid =
-      cfg.defaultDataSource === DataSourceType.Couchbase
-        ? CB_DATASOURCE_REF.uid
-        : PROM_DATASOURCE_REF.uid;
+    const uid = PROM_DATASOURCE_REF.uid;
     setDsUid(uid);
 
     const probes: Array<Promise<unknown>> = [];

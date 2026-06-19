@@ -1,15 +1,11 @@
-// Panel creation utilities with hardcoded PromQL expressions as the source of truth.
-// SQL++ queries are still generated from parameters via CBQueryBuilder when that datasource is active.
-// In the future, SQL++ queries will be derived from the PromQL expressions.
+// Panel creation utilities. Panels are authored as PromQL expressions and
+// queried against the single Prometheus datasource (the gateway).
 
 import { PanelBuilders, SceneDataTransformer, SceneFlexItem, SceneQueryRunner, SceneDataState } from '@grafana/scenes';
 import { TooltipDisplayMode, LegendDisplayMode } from '@grafana/schema';
-import { CBQueryBuilder, AggregationQueryBuilder } from './utils.cbquery';
 import { layoutService } from '../services/layoutService';
-import { dataSourceService } from '../services/datasourceService';
 import { clusterFilterService } from '../services/clusterFilterService';
 import { instanceFilterService } from '../services/instanceFilterService';
-import { DataSourceType } from '../types/datasource';
 import { PROM_DATASOURCE_REF } from '../constants';
 import { ROUTES, prefixRoute } from './utils.routing';
 
@@ -82,21 +78,6 @@ type PanelOptions = {
     height?: number;
 };
 
-// Apply label filters and extra fields to a CBQueryBuilder
-function applyCBBuilderOptions(
-    builder: CBQueryBuilder,
-    options: PanelOptions
-) {
-    if (options.labelFilters) {
-        for (const [label, value] of Object.entries(options.labelFilters)) {
-            builder.addLabelFilter(label, value);
-        }
-    }
-    if (options.extraFields) {
-        builder.setExtraFields(options.extraFields);
-    }
-}
-
 // Build legend template for Grafana panel display name override
 export function makeLegendTemplate(extraFields?: string[]): string {
     const ef = extraFields ?? [];
@@ -164,15 +145,13 @@ export function injectInstanceFilter(expr: string, instance: string): string {
 }
 
 /**
- * Create a metric panel with a hardcoded PromQL expression (source of truth).
- *
- * When the active datasource is PromQL, uses the hardcoded `expr` directly.
- * When the active datasource is Couchbase SQL++, builds a query via CBQueryBuilder
- * using `snapshotId`, `labelFilters`, `extraFields`, and optionally `transformFunction`.
+ * Create a metric panel from a PromQL expression, queried against the single
+ * Prometheus datasource. Active cluster/instance filters are injected into the
+ * expression.
  *
  * @param metricName - Metric / refId identifier
  * @param title - Panel display title
- * @param options - Panel options (PromQL expr + SQL++ params + display settings)
+ * @param options - Panel options (PromQL expr + display settings)
  */
 export function createMetricPanel(
     metricName: string,
@@ -180,8 +159,6 @@ export function createMetricPanel(
     options: PanelOptions
 ): SceneFlexItem {
     const panelWidth = options.width ?? layoutService.getPanelWidth();
-    const ds = dataSourceService.getCurrentDataSource();
-    const isPrometheus = ds === DataSourceType.Prometheus;
 
     const panelBuilder = PanelBuilders.timeseries().setTitle(title);
     panelBuilder.setOption('tooltip', { mode: TooltipDisplayMode.Multi });
@@ -223,82 +200,39 @@ export function createMetricPanel(
     const clusterFilter = clusterFilterService.getCurrentCluster();
     const instanceFilter = instanceFilterService.getCurrentInstance();
 
-    if (isPrometheus) {
-        // --- PromQL path: use hardcoded expression directly ---
-        // Apply active filters in order: cluster first, then instance (so the
-        // node drilldown's instance scope overrides any per-instance hardcoded
-        // selectors in the dashboard expressions).
-        let finalExpr = options.expr;
-        if (clusterFilter) {
-            finalExpr = injectClusterFilter(finalExpr, clusterFilter);
-        }
-        if (instanceFilter) {
-            finalExpr = injectInstanceFilter(finalExpr, instanceFilter);
-        }
-
-        queryRunner = new SceneQueryRunner({
-            datasource: PROM_DATASOURCE_REF,
-            queries: [{
-                refId: metricName,
-                expr: finalExpr,
-            }],
-        });
-
-        // Description
-        try {
-            const descriptionMd = [
-                `**Metric:** ${metricName} \n`,
-                `**Datasource:** PromQL \n`,
-                clusterFilter ? `**Cluster:** ${clusterFilter} \n` : '',
-                instanceFilter ? `**Instance:** ${instanceFilter} \n` : '',
-                '',
-                '**Query:**',
-                '```promql',
-                finalExpr,
-                '```',
-            ].join('\n');
-            panelBuilder.setDescription(descriptionMd);
-        } catch (_e) { /* skip */ }
-    } else {
-        // --- SQL++ path: build via CBQueryBuilder ---
-        let builder: CBQueryBuilder;
-        if (options.transformFunction) {
-            const aggBuilder = new AggregationQueryBuilder(options.snapshotId, metricName);
-            aggBuilder.setTransformFunction(options.transformFunction);
-            builder = aggBuilder;
-        } else {
-            builder = new CBQueryBuilder(options.snapshotId, metricName);
-        }
-        applyCBBuilderOptions(builder, options);
-
-        // If cluster filter is active, add it to the query
-        if (clusterFilter) {
-            builder.addLabelFilter('cluster', clusterFilter);
-        }
-        // If instance filter is active, scope the SQL++ query to that node.
-        if (instanceFilter) {
-            builder.addLabelFilter('instance', instanceFilter);
-        }
-
-        queryRunner = builder.buildQueryRunner();
-
-        // Description
-        try {
-            const queryText = builder.build();
-            const extraDesc = options.transformFunction ? [`**Transform:** ${options.transformFunction}`] : [];
-            const descriptionMd = [
-                `**Metric:** ${metricName} \n`,
-                `**Datasource:** Couchbase SQL++ (experimental) \n`,
-                ...extraDesc,
-                '',
-                '**Query:**',
-                '```sql',
-                queryText,
-                '```',
-            ].join('\n');
-            panelBuilder.setDescription(descriptionMd);
-        } catch (_e) { /* skip */ }
+    // Apply active filters in order: cluster first, then instance (so the node
+    // drilldown's instance scope overrides any per-instance hardcoded selectors
+    // in the dashboard expressions).
+    let finalExpr = options.expr;
+    if (clusterFilter) {
+        finalExpr = injectClusterFilter(finalExpr, clusterFilter);
     }
+    if (instanceFilter) {
+        finalExpr = injectInstanceFilter(finalExpr, instanceFilter);
+    }
+
+    queryRunner = new SceneQueryRunner({
+        datasource: PROM_DATASOURCE_REF,
+        queries: [{
+            refId: metricName,
+            expr: finalExpr,
+        }],
+    });
+
+    // Description
+    try {
+        const descriptionMd = [
+            `**Metric:** ${metricName} \n`,
+            clusterFilter ? `**Cluster:** ${clusterFilter} \n` : '',
+            instanceFilter ? `**Instance:** ${instanceFilter} \n` : '',
+            '',
+            '**Query:**',
+            '```promql',
+            finalExpr,
+            '```',
+        ].join('\n');
+        panelBuilder.setDescription(descriptionMd);
+    } catch (_e) { /* skip */ }
 
     if (options.unit) {
         panelBuilder.setUnit(options.unit);
