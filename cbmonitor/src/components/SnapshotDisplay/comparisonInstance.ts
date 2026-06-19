@@ -14,6 +14,7 @@ import { SettingsDropdown } from '../SettingsDropdown/SettingsDropdown';
 import { CompareDashboardHeader } from '../DashboardHeader/CompareDashboardHeader';
 import { OverlapToggle } from '../DashboardHeader/actions/OverlapToggle';
 import { PinPanelToggle } from '../DashboardHeader/actions/PinPanelToggle';
+import { datasourceCapabilitiesService } from '../../services/datasourceCapabilities';
 
 // Global overlap mode (when true, hide columns and show placeholders)
 let overlapMode = false;
@@ -55,6 +56,25 @@ interface CompareHeaderContainerProps {
 
 function CompareHeaderContainer(props: CompareHeaderContainerProps) {
     const [overlap, setOverlap] = React.useState(isOverlapModeEnabled());
+    const [overlapAvailable, setOverlapAvailable] = React.useState(
+        datasourceCapabilitiesService.isOverlapEnabled(),
+    );
+
+    // The overlap path routes `job=~"a|b"` to the gateway's overlap seam, so
+    // the toggle is only offered when the gateway reports overlap support.
+    React.useEffect(() => {
+        datasourceCapabilitiesService.load();
+        return datasourceCapabilitiesService.subscribe((caps) => setOverlapAvailable(caps.overlapEnabled));
+    }, []);
+
+    // If overlap support is absent but the mode was somehow left on, force it
+    // off so tabs rebuild in side-by-side mode.
+    React.useEffect(() => {
+        if (!overlapAvailable && overlap) {
+            setOverlap(false);
+            setOverlapMode(false);
+        }
+    }, [overlapAvailable, overlap]);
 
     const compareSettingsDropdown = React.useMemo(() => new SettingsDropdown({
         snapshotId: '',
@@ -79,6 +99,13 @@ function CompareHeaderContainer(props: CompareHeaderContainerProps) {
         });
     }, []);
 
+    const actions = [
+        ...(overlapAvailable
+            ? [{ key: 'overlap', render: () => React.createElement(OverlapToggle, { active: overlap, onToggle: onToggleOverlap }) }]
+            : []),
+        { key: 'pin', render: () => React.createElement(PinPanelToggle, {}) },
+    ];
+
     return React.createElement(CompareDashboardHeader, {
         items: props.items,
         commonPhases: props.commonPhases,
@@ -86,10 +113,7 @@ function CompareHeaderContainer(props: CompareHeaderContainerProps) {
         onSelectFullRange: props.onSelectFullRange,
         overlapEnabled: overlap,
         settingsDropdown: compareSettingsDropdown,
-        actions: [
-            { key: 'overlap', render: () => React.createElement(OverlapToggle, { active: overlap, onToggle: onToggleOverlap }) },
-            { key: 'pin', render: () => React.createElement(PinPanelToggle, {}) },
-        ],
+        actions,
     });
 }
 
@@ -144,6 +168,10 @@ export function getComparisonTimeRanges() {
 
 // Add activation handler to fetch and validate snapshots
 comparisonPage.addActivationHandler(() => {
+    // Resolve gateway capabilities early so the overlap affordance is gated
+    // before the compare header mounts.
+    datasourceCapabilitiesService.load();
+
     const initialParams = locationService.getSearchObject();
     if (initialParams.refresh) {
         locationService.partial({ refresh: null }, true);
