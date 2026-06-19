@@ -154,3 +154,47 @@ func TestDefaultDataSource(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadSettings_GatewayParsed(t *testing.T) {
+	jsonData := []byte(`{
+		"prometheusDatasource": {"enabled": true, "url": "http://prometheus:9090"},
+		"gateway": {"enabled": true, "url": "http://datasource-gateway:8090", "overlap": true}
+	}`)
+	s, err := LoadSettings(backend.AppInstanceSettings{JSONData: jsonData})
+	if err != nil {
+		t.Fatalf("LoadSettings: %v", err)
+	}
+	if !s.Gateway.Enabled {
+		t.Error("gateway.enabled not parsed")
+	}
+	if s.Gateway.URL != "http://datasource-gateway:8090" {
+		t.Errorf("gateway.url = %q", s.Gateway.URL)
+	}
+	if !s.Gateway.Overlap {
+		t.Error("gateway.overlap not parsed")
+	}
+}
+
+func TestLoadSettings_GatewayDisabledByDefault(t *testing.T) {
+	s, err := LoadSettings(backend.AppInstanceSettings{})
+	if err != nil {
+		t.Fatalf("LoadSettings: %v", err)
+	}
+	if s.Gateway.Enabled {
+		t.Error("gateway should be disabled by default (pure-Prometheus)")
+	}
+}
+
+func TestLoadSettings_GatewayRequiresURLWhenEnabled(t *testing.T) {
+	jsonData := []byte(`{"gateway": {"enabled": true}}`)
+	if _, err := LoadSettings(backend.AppInstanceSettings{JSONData: jsonData}); err == nil {
+		t.Fatal("expected error when gateway enabled without url")
+	}
+}
+
+func TestLoadSettings_GatewayRejectsMalformedURL(t *testing.T) {
+	jsonData := []byte(`{"gateway": {"enabled": true, "url": "not-a-url"}}`)
+	if _, err := LoadSettings(backend.AppInstanceSettings{JSONData: jsonData}); err == nil {
+		t.Fatal("expected error for malformed gateway url")
+	}
+}

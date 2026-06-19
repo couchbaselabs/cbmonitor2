@@ -17,27 +17,21 @@ export const clusterManagerBuilder: ServiceBuilder = (ctx) => {
             ctx.panel('sysproc_cpu_seconds_total', `ns_server CPU Usage (cores)${ctx.titleSuffix}`, {
                 expr: `sum by (${ctx.sumBy()}) (rate(sysproc_cpu_seconds_total{${ctx.jobSelector},proc="ns_server"${ctx.instanceFilter}}[$__rate_interval]))`,
                 legendFormat: ctx.legend(),
-                labelFilters: { proc: 'ns_server' },
-                transformFunction: 'rate',
                 unit: 'short',
             }),
             ctx.panel('sysproc_mem_resident', `ns_server Resident Memory (Bytes)${ctx.titleSuffix}`, {
                 expr: `sum by (${ctx.sumBy()}) (sysproc_mem_resident{${ctx.jobSelector},proc="ns_server"${ctx.instanceFilter}})`,
                 legendFormat: ctx.legend(),
-                labelFilters: { proc: 'ns_server' },
                 unit: 'bytes',
             }),
             ctx.panel('sysproc_cpu_seconds_total', `Prometheus CPU Usage (cores)${ctx.titleSuffix}`, {
                 expr: `sum by (${ctx.sumBy()}) (rate(sysproc_cpu_seconds_total{${ctx.jobSelector},proc="prometheus"${ctx.instanceFilter}}[$__rate_interval]))`,
                 legendFormat: ctx.legend(),
-                labelFilters: { proc: 'prometheus' },
-                transformFunction: 'rate',
                 unit: 'short',
             }),
             ctx.panel('sysproc_mem_resident', `Prometheus Resident Memory (Bytes)${ctx.titleSuffix}`, {
                 expr: `sum by (${ctx.sumBy()}) (sysproc_mem_resident{${ctx.jobSelector},proc="prometheus"${ctx.instanceFilter}})`,
                 legendFormat: ctx.legend(),
-                labelFilters: { proc: 'prometheus' },
                 unit: 'bytes',
             }),
             ctx.panel('sys_cpu_cores_available', `CPU Cores Available${ctx.titleSuffix}`, {
@@ -65,9 +59,6 @@ export const clusterManagerBuilder: ServiceBuilder = (ctx) => {
             ctx.panel('cm_http_requests_total', `HTTP Requests/Sec (${i})`, {
                 expr: `sum by (method) (rate(cm_http_requests_total{${ctx.jobSelector},instance="${i}"}[$__rate_interval]))`,
                 legendFormat: '{{method}}',
-                labelFilters: { instance: i },
-                extraFields: ['d.labels.method'],
-                transformFunction: 'rate',
                 unit: 'short',
             }),
         ];
@@ -78,8 +69,6 @@ export const clusterManagerBuilder: ServiceBuilder = (ctx) => {
         ctx.panel('cm_http_requests_total', 'HTTP Requests/Sec', {
             expr: `rate(cm_http_requests_total{${ctx.jobSelector}}[$__rate_interval])`,
             legendFormat: '{{method}} , {{instance}}',
-            extraFields: ['d.labels.method', 'd.labels.instance'],
-            transformFunction: 'rate',
             unit: 'short',
         }),
     ];

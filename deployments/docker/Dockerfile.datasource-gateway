@@ -1,0 +1,32 @@
+FROM golang:1.24-alpine AS builder
+
+# Install make for building
+RUN apk add --no-cache make
+
+# Set working directory to the project root
+WORKDIR /app
+
+# Copy the entire project
+COPY . .
+
+# Build the datasource-gateway service using the Makefile
+RUN make build-gateway
+
+FROM alpine:latest
+
+ARG DSG_SERVER_PORT=8090
+ARG DSG_LOG_LEVEL=info
+
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+
+# Copy the built binary and default config
+COPY --from=builder /app/bin/datasource-gateway .
+COPY --from=builder /app/configs/datasource-gateway/config.yaml ./config.yaml
+
+EXPOSE ${DSG_SERVER_PORT}
+
+ENV DSG_SERVER_PORT=${DSG_SERVER_PORT}
+ENV DSG_LOG_LEVEL=${DSG_LOG_LEVEL}
+
+CMD ["sh", "-c", "./datasource-gateway --config /root/config.yaml server.port=$DSG_SERVER_PORT logging.level=$DSG_LOG_LEVEL"]
