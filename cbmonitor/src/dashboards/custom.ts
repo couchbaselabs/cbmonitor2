@@ -51,7 +51,6 @@ function buildPanel(
     return ctx.panel(metric, title, {
         expr,
         legendFormat: override?.legendFormat ?? ctx.legend(),
-        ...(shouldRate ? { transformFunction: 'rate' } : {}),
         ...(override?.unit ? { unit: override.unit } : {}),
     });
 }

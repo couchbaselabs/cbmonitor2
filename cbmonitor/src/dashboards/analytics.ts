@@ -16,14 +16,11 @@ export const analyticsBuilder: ServiceBuilder = (ctx) => {
         ctx.panel('sysproc_cpu_seconds_total', `Java CPU Usage (cores)${ctx.titleSuffix}`, {
             expr: `sum by (${ctx.sumBy()}) (rate(sysproc_cpu_seconds_total{${ctx.jobSelector},proc="java"${ctx.instanceFilter}}[$__rate_interval]))`,
             legendFormat: ctx.legend(),
-            labelFilters: { proc: 'java' },
-            transformFunction: 'rate',
             unit: 'short',
         }),
         ctx.panel('sysproc_mem_resident', `Java Resident Memory (Bytes)${ctx.titleSuffix}`, {
             expr: `sum by (${ctx.sumBy()}) (sysproc_mem_resident{${ctx.jobSelector},proc="java"${ctx.instanceFilter}})`,
             legendFormat: ctx.legend(),
-            labelFilters: { proc: 'java' },
             unit: 'bytes',
         }),
 
@@ -43,8 +40,6 @@ export const analyticsBuilder: ServiceBuilder = (ctx) => {
         ctx.panel('cbas_jobs_total', `Jobs/Sec${ctx.titleSuffix}`, {
             expr: `sum by (${ctx.sumBy('result')}) (rate(cbas_jobs_total{${ctx.jobSelector}${ctx.instanceFilter}}[$__rate_interval]))`,
             legendFormat: ctx.legend('result'),
-            extraFields: ['d.labels.`result`', 'd.labels.`instance`'],
-            transformFunction: 'rate',
             unit: 'short',
         }),
 
@@ -61,7 +56,6 @@ function simpleCbasPanel(ctx: MetricContext, metric: string, title: string, unit
     return ctx.panel(metric, `${title}${ctx.titleSuffix}`, {
         expr: `sum by (${ctx.sumBy()}) (${series})`,
         legendFormat: ctx.legend(),
-        ...(rate ? { transformFunction: 'rate' } : {}),
         unit,
     });
 }

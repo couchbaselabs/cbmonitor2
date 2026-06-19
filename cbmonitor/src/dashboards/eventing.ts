@@ -16,21 +16,16 @@ export const eventingBuilder: ServiceBuilder = (ctx) => {
         ctx.panel('sysproc_cpu_seconds_total', `Eventing CPU Usage (cores)${ctx.titleSuffix}`, {
             expr: `sum by (${ctx.sumBy()}) (rate(sysproc_cpu_seconds_total{${ctx.jobSelector},proc="eventing-produc"${ctx.instanceFilter}}[$__rate_interval]))`,
             legendFormat: ctx.legend(),
-            labelFilters: { proc: 'eventing-produc' },
-            extraFields: ['d.labels.`instance`', 'd.labels.`mode`'],
-            transformFunction: 'rate',
             unit: 'short',
         }),
         ctx.panel('sysproc_mem_resident', `Eventing Resident Memory (Bytes)${ctx.titleSuffix}`, {
             expr: `sum by (${ctx.sumBy()}) (sysproc_mem_resident{${ctx.jobSelector},proc="eventing-produc"${ctx.instanceFilter}})`,
             legendFormat: ctx.legend(),
-            labelFilters: { proc: 'eventing-produc' },
             unit: 'bytes',
         }),
         ctx.panel('eventing_worker_restart_count', `Worker Restart Count${ctx.titleSuffix}`, {
             expr: `sum by (${ctx.sumBy()}) (eventing_worker_restart_count{${ctx.jobSelector}${ctx.instanceFilter}})`,
             legendFormat: ctx.legend(),
-            extraFields: ['d.labels.instance'],
             unit: 'short',
         }),
     ];

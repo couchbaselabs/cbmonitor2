@@ -43,15 +43,11 @@ export const indexBuilder: ServiceBuilder = (ctx) => {
             ctx.panel('sysproc_cpu_seconds_total', `Indexer CPU Usage (cores)${ctx.titleSuffix}`, {
                 expr: `sum by (${ctx.sumBy()}) (rate(sysproc_cpu_seconds_total{${ctx.jobSelector},proc="indexer"${ctx.instanceFilter}}[$__rate_interval]))`,
                 legendFormat: ctx.legend(),
-                labelFilters: { proc: 'indexer' },
-                extraFields: ['d.labels.`instance`', 'd.labels.`mode`'],
-                transformFunction: 'rate',
                 unit: 'short',
             }),
             ctx.panel('sysproc_mem_resident', `Indexer Resident Memory (Bytes)${ctx.titleSuffix}`, {
                 expr: `sum by (${ctx.sumBy()}) (sysproc_mem_resident{${ctx.jobSelector},proc="indexer"${ctx.instanceFilter}})`,
                 legendFormat: ctx.legend(),
-                labelFilters: { proc: 'indexer' },
                 unit: 'bytes',
             }),
 
@@ -112,8 +108,6 @@ function singleMemoryUsedPanel(ctx: MetricContext, i: string): SceneFlexItem {
     return ctx.panel('index_memory_used', `Index Memory Used (${i})`, {
         expr: `index_memory_used{${ctx.jobSelector}, instance="${i}"}`,
         legendFormat: '{{bucket}} , {{index}} , {{scope}} , {{collection}}',
-        labelFilters: { instance: i },
-        extraFields: ['d.labels.`bucket`', 'd.labels.`index`', 'd.labels.`scope`', 'd.labels.`collection`'],
         unit: 'bytes',
     });
 }
@@ -122,8 +116,6 @@ function singleDetailPanelForInstance(ctx: MetricContext, metric: string, title:
     return ctx.panel(metric, `${title} (${i})`, {
         expr: `${metric}{${ctx.jobSelector},instance="${i}"}`,
         legendFormat: '{{bucket}} , {{index}}',
-        labelFilters: { instance: i },
-        extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
         unit,
     });
 }
@@ -132,7 +124,6 @@ function singleDetailPanelAggregated(ctx: MetricContext, metric: string, title: 
     return ctx.panel(metric, title, {
         expr: `${metric}{${ctx.jobSelector}}`,
         legendFormat: '{{bucket}} , {{index}}',
-        extraFields: ['d.labels.`bucket`', 'd.labels.`index`'],
         unit,
     });
 }

@@ -1,12 +1,8 @@
 import { SceneFlexItem } from '@grafana/scenes';
 
 /**
- * Declarative spec for a single panel. Both modes accept the same shape.
- *
- * `labelFilters`, `extraFields`, `transformFunction` are SQL++ forwarding
- * concerns consumed only by the single-mode `ctx.panel` (which routes to
- * `createMetricPanel`). The overlap-mode `ctx.panel` is PromQL-only and
- * silently ignores them.
+ * Declarative spec for a single panel: a PromQL expression plus display
+ * options. Both modes accept the same shape.
  */
 export interface PanelSpec {
     expr: string;
@@ -14,10 +10,6 @@ export interface PanelSpec {
     unit?: string;
     width?: string | number;
     height?: number;
-
-    labelFilters?: Record<string, string | string[]>;
-    extraFields?: string[];
-    transformFunction?: string;
 }
 
 /**
