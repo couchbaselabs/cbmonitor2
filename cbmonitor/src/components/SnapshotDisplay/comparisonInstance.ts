@@ -66,7 +66,6 @@ function CompareHeaderContainer(props: CompareHeaderContainerProps) {
             sceneCacheService.clearAll();
             invalidateComparisonTabs();
         },
-        showDataSourceSection: false,
         showClusterSection: false,
         showHideEmptySection: true,
     }), []);
