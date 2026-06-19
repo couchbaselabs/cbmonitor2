@@ -53,11 +53,6 @@
       "path": "/plugins/%PLUGIN_ID%",
       "role": "Admin",
       "addToNav": true
-    },
-    {
-      "type": "datasource",
-      "name": "couchbase-datasource",
-      "path": "couchbase-datasource/plugin.json"
     }
   ],
   "iam": {
