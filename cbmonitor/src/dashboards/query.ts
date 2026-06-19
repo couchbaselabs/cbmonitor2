@@ -22,15 +22,11 @@ export const queryBuilder: ServiceBuilder = (ctx) => {
         ctx.panel('sysproc_cpu_seconds_total', `Query Engine CPU Usage (cores)${ctx.titleSuffix}`, {
             expr: `sum by (${ctx.sumBy()}) (rate(sysproc_cpu_seconds_total{${ctx.jobSelector},proc="cbq-engine"${ctx.instanceFilter}}[$__rate_interval]))`,
             legendFormat: ctx.legend(),
-            labelFilters: { proc: 'cbq-engine' },
-            extraFields: ['d.labels.`instance`', 'd.labels.`mode`'],
-            transformFunction: 'rate',
             unit: 'short',
         }),
         ctx.panel('sysproc_mem_resident', `Query Engine Resident Memory (Bytes)${ctx.titleSuffix}`, {
             expr: `sum by (${ctx.sumBy()}) (sysproc_mem_resident{${ctx.jobSelector},proc="cbq-engine"${ctx.instanceFilter}})`,
             legendFormat: ctx.legend(),
-            labelFilters: { proc: 'cbq-engine' },
             unit: 'bytes',
         }),
 
@@ -58,7 +54,6 @@ export const queryBuilder: ServiceBuilder = (ctx) => {
                   or label_replace(sum by (${ctx.sumBy()}) (n1ql_request_timer_p99{${ctx.jobSelector}}),  "quantile", "p99", "", "")
                 `.trim(),
                 legendFormat: ctx.legend('quantile'),
-                extraFields: ['d.labels.`instance`', 'd.labels.`quantile`'],
                 unit: 'ns',
             }),
             ctx.panel('n1ql_request_timer_mean_max', 'Query Request Time — mean / max', {
@@ -67,7 +62,6 @@ export const queryBuilder: ServiceBuilder = (ctx) => {
                   or label_replace(sum by (${ctx.sumBy()}) (n1ql_request_timer_max{${ctx.jobSelector}}),  "stat", "max",  "", "")
                 `.trim(),
                 legendFormat: ctx.legend('stat'),
-                extraFields: ['d.labels.`instance`', 'd.labels.`stat`'],
                 unit: 'ns',
             }),
         ]),

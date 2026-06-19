@@ -15,14 +15,11 @@ export const ftsBuilder: ServiceBuilder = (ctx) => {
         ctx.panel('sysproc_cpu_seconds_total', `Search CPU Usage (cores)${ctx.titleSuffix}`, {
             expr: `sum by (${ctx.sumBy()}) (rate(sysproc_cpu_seconds_total{${ctx.jobSelector},proc="cbft"${ctx.instanceFilter}}[$__rate_interval]))`,
             legendFormat: ctx.legend(),
-            labelFilters: { proc: 'cbft' },
-            transformFunction: 'rate',
             unit: 'short',
         }),
         ctx.panel('sysproc_mem_resident', `Search Resident Memory (Bytes)${ctx.titleSuffix}`, {
             expr: `sum by (${ctx.sumBy()}) (sysproc_mem_resident{${ctx.jobSelector},proc="cbft"${ctx.instanceFilter}})`,
             legendFormat: ctx.legend(),
-            labelFilters: { proc: 'cbft' },
             unit: 'bytes',
         }),
 
@@ -47,7 +44,6 @@ function simpleFtsPanel(ctx: MetricContext, metric: string, title: string, unit:
     return ctx.panel(metric, `${title}${ctx.titleSuffix}`, {
         expr: `sum by (${ctx.sumBy()}) (${series})`,
         legendFormat: ctx.legend(),
-        ...(rate ? { transformFunction: 'rate' } : {}),
         unit,
     });
 }
