@@ -1,48 +1,31 @@
 import { SceneQueryRunner } from '@grafana/scenes';
-import { CBQueryBuilder } from '../utils/utils.cbquery';
-import { dataSourceService } from './datasourceService';
 import { clusterFilterService } from './clusterFilterService';
 import { instanceFilterService } from './instanceFilterService';
-import { DataSourceType } from '../types/datasource';
 import { PROXY_PROM_DATASOURCE_REF, PROM_DATASOURCE_REF } from '../constants';
 import { injectClusterFilter, injectInstanceFilter } from '../utils/utils.panel';
 
 export function getInstancesFromMetricRunner(snapshotId: string, metricName = 'sys_cpu_utilization_rate'): SceneQueryRunner {
-  const ds = dataSourceService.getCurrentDataSource();
   const clusterFilter = clusterFilterService.getCurrentCluster();
   const instanceFilter = instanceFilterService.getCurrentInstance();
 
-  if (ds === DataSourceType.Prometheus) {
-    // PromQL path: hardcoded expression, then apply active filters so the
-    // instance discovery query only returns nodes inside the active scope.
-    let expr = `group by (instance) (${metricName}{job="${snapshotId}"})`;
-    if (clusterFilter) {
-      expr = injectClusterFilter(expr, clusterFilter);
-    }
-    if (instanceFilter) {
-      expr = injectInstanceFilter(expr, instanceFilter);
-    }
-    return new SceneQueryRunner({
-      datasource: PROM_DATASOURCE_REF,
-      queries: [{
-        refId: 'instances',
-        expr,
-        legendFormat: '{{instance}}',
-        instant: true,
-      }],
-    });
-  }
-
-  // SQL++ path: use CBQueryBuilder
-  const builder = new CBQueryBuilder(snapshotId, metricName);
-  builder.setExtraFields(['d.labels.instance']);
+  // Discover instances via PromQL, applying active filters so the query only
+  // returns nodes inside the active scope.
+  let expr = `group by (instance) (${metricName}{job="${snapshotId}"})`;
   if (clusterFilter) {
-    builder.addLabelFilter('cluster', clusterFilter);
+    expr = injectClusterFilter(expr, clusterFilter);
   }
   if (instanceFilter) {
-    builder.addLabelFilter('instance', instanceFilter);
+    expr = injectInstanceFilter(expr, instanceFilter);
   }
-  return builder.buildQueryRunner();
+  return new SceneQueryRunner({
+    datasource: PROM_DATASOURCE_REF,
+    queries: [{
+      refId: 'instances',
+      expr,
+      legendFormat: '{{instance}}',
+      instant: true,
+    }],
+  });
 }
 
 /**
