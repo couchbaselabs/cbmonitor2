@@ -5,6 +5,7 @@ import { CB_DATASOURCE_REF, PROM_DATASOURCE_REF } from '../../constants';
 import { SceneApp, useSceneApp } from '@grafana/scenes';
 import { Alert } from '@grafana/ui';
 import { PluginPropsContext } from 'utils/utils.plugin';
+import { AppNavHeader } from '../AppNavHeader/AppNavHeader';
 import { snapshotSearchPage, snapshotViewPage } from '../../pages/snapshotViewPage';
 import { preferencesPage } from '../../pages/preferencesPage';
 import { comparisonPage } from '../../components/SnapshotDisplay/comparisonInstance';
@@ -55,6 +56,7 @@ function CBMonitorHome() {
         </Alert>
       )}
 
+      <AppNavHeader />
       {/* Render the app and its pages */}
       <scene.Component model={scene} />
     </>
