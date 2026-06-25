@@ -1,0 +1,110 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release-plugin:
+    name: Build cbmonitor plugin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: cbmonitor/package-lock.json
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Install mage
+        run: go install github.com/magefile/mage@latest
+
+      - name: Build plugin
+        run: |
+          cd cbmonitor
+          npm ci
+          npm run build
+          mage build:linux build:linuxARM64 build:darwin build:darwinARM64
+
+      - name: Package plugin
+        id: package
+        run: |
+          cd cbmonitor
+          PLUGIN_ID=$(jq -r .id dist/plugin.json)
+          PLUGIN_VERSION=$(jq -r .info.version dist/plugin.json)
+          ARCHIVE="${PLUGIN_ID}-${PLUGIN_VERSION}.zip"
+          mv dist "${PLUGIN_ID}"
+          zip -r "${ARCHIVE}" "${PLUGIN_ID}/"
+          echo "archive=${ARCHIVE}" >> $GITHUB_OUTPUT
+
+      - name: Upload plugin archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: cbmonitor-plugin
+          path: cbmonitor/${{ steps.package.outputs.archive }}
+
+  release-config-manager:
+    name: Build config-manager (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: |
+          mkdir -p bin
+          cd config-manager
+          go build -ldflags="-s -w" -o ../bin/config-manager-${{ matrix.goos }}-${{ matrix.goarch }} .
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: config-manager-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: bin/config-manager-${{ matrix.goos }}-${{ matrix.goarch }}
+
+  create-release:
+    name: Create GitHub Release
+    needs: [release-plugin, release-config-manager]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: release-artifacts
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-artifacts/**/*
+          generate_release_notes: true
+          prerelease: true
