@@ -20,9 +20,10 @@ type Product struct {
 
 	// ResolveSDPath returns the URL path (and optional query string)
 	// that completes a service-discovery URL. The full URL is built as
-	// {scheme}://{host}:{port}{ResolveSDPath(scheme)}. Return "" (or
-	// leave nil) to indicate the product has no default SD path; the
-	// caller must then supply sd_path explicitly when using type=sd.
+	// {scheme}://{host}:{port}{ResolveSDPath(scheme, useAltAddresses)}.
+	// Return "" (or leave nil) to indicate the product has no default
+	// SD path; the caller must then supply sd_path explicitly when
+	// using type=sd.
 	ResolveSDPath func(scheme string, useAltAddresses bool) string
 
 	// DefaultStaticPath is the metrics path the product exposes on its
