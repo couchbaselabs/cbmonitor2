@@ -23,7 +23,7 @@ type Product struct {
 	// {scheme}://{host}:{port}{ResolveSDPath(scheme)}. Return "" (or
 	// leave nil) to indicate the product has no default SD path; the
 	// caller must then supply sd_path explicitly when using type=sd.
-	ResolveSDPath func(scheme string) string
+	ResolveSDPath func(scheme string, useAltAddresses bool) string
 
 	// DefaultStaticPath is the metrics path the product exposes on its
 	// static targets (e.g. "/_expvar" for SGW). Recorded for future

@@ -42,12 +42,13 @@ type SnapshotResponse struct {
 // when Type=="sd" AND Product != "couchbase" (e.g. "/sd/targets"). It must
 // begin with "/" and may include a query string.
 type ConfigObject struct {
-	Hostnames []string `json:"hostnames"`
-	Type      string   `json:"type,omitempty"`
-	Port      int      `json:"port"`
-	Product   string   `json:"product,omitempty"`
-	SDPath    string   `json:"sd_path,omitempty"`
-	Scheme    string   `json:"scheme,omitempty"`
+	Hostnames       []string `json:"hostnames"`
+	Type            string   `json:"type,omitempty"`
+	Port            int      `json:"port"`
+	Product         string   `json:"product,omitempty"`
+	SDPath          string   `json:"sd_path,omitempty"`
+	Scheme          string   `json:"scheme,omitempty"`
+	UseAltAddresses bool     `json:"use_alt_addresses,omitempty"`
 }
 
 // DisplaySnapshot represents the snapshot structure for GET responses or display purposes
