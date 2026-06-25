@@ -35,6 +35,15 @@ jobs:
           npm run build
           mage build:linux build:linuxARM64 build:darwin build:darwinARM64
 
+      - name: Verify version matches tag
+        run: |
+          PLUGIN_VERSION=$(jq -r .info.version cbmonitor/dist/plugin.json)
+          TAG_VERSION=${GITHUB_REF_NAME#v}
+          if [[ "${PLUGIN_VERSION}" != "${TAG_VERSION}" ]]; then
+            echo "plugin.json version (${PLUGIN_VERSION}) does not match tag (${TAG_VERSION})"
+            exit 1
+          fi
+
       - name: Package plugin
         id: package
         run: |
