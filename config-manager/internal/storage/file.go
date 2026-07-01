@@ -120,6 +120,8 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 		}
 		bucket := bucketFor(configScheme)
 
+		useAltAddresses, _ := config["use_alt_addresses"].(bool)
+
 		switch configType := config["type"].(string); configType {
 		case "sd":
 			product, _ := config["product"].(string)
@@ -130,7 +132,7 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 			path := sdPath
 			if path == "" {
 				if p := products.Get(product); p != nil && p.ResolveSDPath != nil {
-					path = p.ResolveSDPath(configScheme)
+					path = p.ResolveSDPath(configScheme, useAltAddresses)
 				}
 			}
 			for _, hostname := range hostnames {

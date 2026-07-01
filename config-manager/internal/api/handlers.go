@@ -55,12 +55,13 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 	configs := make([]interface{}, len(req.Configs))
 	for i, config := range req.Configs {
 		configs[i] = map[string]interface{}{
-			"hostnames": config.Hostnames,
-			"type":      config.Type,
-			"port":      config.Port,
-			"product":   config.Product,
-			"sd_path":   config.SDPath,
-			"scheme":    config.Scheme,
+			"hostnames":         config.Hostnames,
+			"type":              config.Type,
+			"port":              config.Port,
+			"product":           config.Product,
+			"sd_path":           config.SDPath,
+			"scheme":            config.Scheme,
+			"use_alt_addresses": config.UseAltAddresses,
 		}
 	}
 
