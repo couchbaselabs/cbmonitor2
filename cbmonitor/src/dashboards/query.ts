@@ -3,8 +3,9 @@ import type { MetricContext, ServiceBuilder } from './types';
 
 /**
  * Unified panel emitter for the Query Engine service. Twelve panels are
- * shared with overlap (process resources + n1ql_* counters/gauges); two
- * tail-latency overlay panels (p50/p95/p99 and mean/max via
+ * shared with overlap (process resources + n1ql_* counters/gauges — all
+ * counters are plotted as rates, `n1ql_active_requests` is the only gauge);
+ * two tail-latency overlay panels (p50/p95/p99 and mean/max via
  * `label_replace`) are single-only and gated by `ctx.modeOnly(['single'])`.
  *
  * Tail-latency overlays preserve the original divergence — they use
@@ -35,16 +36,19 @@ export const queryBuilder: ServiceBuilder = (ctx) => {
         }),
 
         // n1ql counters / gauges — all share the same plain-aggregate shape.
-        simpleN1qlPanel(ctx, 'n1ql_requests',         'Query Requests',           'short'),
-        simpleN1qlPanel(ctx, 'n1ql_selects',          'Query Selects',            'short'),
-        simpleN1qlPanel(ctx, 'n1ql_active_requests',  'Query Active Requests',    'short'),
-        simpleN1qlPanel(ctx, 'n1ql_requests_250ms',   'Query Requests > 250ms',   'short'),
-        simpleN1qlPanel(ctx, 'n1ql_requests_500ms',   'Query Requests > 500ms',   'short'),
-        simpleN1qlPanel(ctx, 'n1ql_requests_1000ms',  'Query Requests > 1000ms',  'short'),
-        simpleN1qlPanel(ctx, 'n1ql_errors',           'Query Errors',             'short'),
-        simpleN1qlPanel(ctx, 'n1ql_result_count',     'Query Result Count',       'short'),
-        simpleN1qlPanel(ctx, 'n1ql_result_size',      'Query Result Size (Bytes)', 'bytes'),
-        simpleN1qlPanel(ctx, 'n1ql_invalid_requests', 'Query Invalid Requests',   'short'),
+        // Per the query-service metrics reference, all of these except
+        // n1ql_active_requests are counters, so they're plotted as
+        // per-second rates rather than raw cumulative totals.
+        simpleN1qlPanel(ctx, 'n1ql_requests',         'Query Requests/Sec',           'short', true),
+        simpleN1qlPanel(ctx, 'n1ql_selects',          'Query Selects/Sec',            'short', true),
+        simpleN1qlPanel(ctx, 'n1ql_active_requests',  'Query Active Requests',        'short', false),
+        simpleN1qlPanel(ctx, 'n1ql_requests_250ms',   'Query Requests > 250ms/Sec',   'short', true),
+        simpleN1qlPanel(ctx, 'n1ql_requests_500ms',   'Query Requests > 500ms/Sec',   'short', true),
+        simpleN1qlPanel(ctx, 'n1ql_requests_1000ms',  'Query Requests > 1000ms/Sec',  'short', true),
+        simpleN1qlPanel(ctx, 'n1ql_errors',           'Query Errors/Sec',             'short', true),
+        simpleN1qlPanel(ctx, 'n1ql_result_count',     'Query Result Count/Sec',       'short', true),
+        simpleN1qlPanel(ctx, 'n1ql_result_size',      'Query Result Size/Sec',        'Bps',  true),
+        simpleN1qlPanel(ctx, 'n1ql_invalid_requests', 'Query Invalid Requests/Sec',   'short', true),
 
         // Request-time tail latency. Server exports these as pre-computed
         // gauges (ns), plotted directly via label_replace overlay. Single
@@ -74,9 +78,11 @@ export const queryBuilder: ServiceBuilder = (ctx) => {
     ];
 };
 
-function simpleN1qlPanel(ctx: MetricContext, metric: string, title: string, unit: string): SceneFlexItem {
+function simpleN1qlPanel(ctx: MetricContext, metric: string, title: string, unit: string, rate: boolean): SceneFlexItem {
+    const inner = `${metric}{${ctx.jobSelector}${ctx.instanceFilter}}`;
+    const series = rate ? `rate(${inner}[$__rate_interval])` : inner;
     return ctx.panel(metric, `${title}${ctx.titleSuffix}`, {
-        expr: `sum by (${ctx.sumBy()}) (${metric}{${ctx.jobSelector}${ctx.instanceFilter}})`,
+        expr: `sum by (${ctx.sumBy()}) (${series})`,
         legendFormat: ctx.legend(),
         unit,
     });
