@@ -2,11 +2,13 @@ import { SceneFlexItem } from '@grafana/scenes';
 import type { MetricContext, ServiceBuilder } from './types';
 
 /**
- * Unified panel emitter for the Query Engine service. Twelve panels are
+ * Unified panel emitter for the Query Engine service. Most panels are
  * shared with overlap (process resources + n1ql_* counters/gauges — all
- * counters are plotted as rates, `n1ql_active_requests` is the only gauge);
- * two tail-latency overlay panels (p50/p95/p99 and mean/max via
- * `label_replace`) are single-only and gated by `ctx.modeOnly(['single'])`.
+ * counters are plotted as rates; n1ql_active_requests, n1ql_temp_usage,
+ * n1ql_load, n1ql_load_factor, n1ql_queued_requests, n1ql_node_memory and
+ * n1ql_node_rss are gauges plotted raw); two tail-latency overlay panels
+ * (p50/p95/p99 and mean/max via `label_replace`) are single-only and gated
+ * by `ctx.modeOnly(['single'])`.
  *
  * Tail-latency overlays preserve the original divergence — they use
  * `sum by (instance)` and a hardcoded snapshot job selector which don't
@@ -49,6 +51,28 @@ export const queryBuilder: ServiceBuilder = (ctx) => {
         simpleN1qlPanel(ctx, 'n1ql_result_count',     'Query Result Count/Sec',       'short', true),
         simpleN1qlPanel(ctx, 'n1ql_result_size',      'Query Result Size/Sec',        'Bps',  true),
         simpleN1qlPanel(ctx, 'n1ql_invalid_requests', 'Query Invalid Requests/Sec',   'short', true),
+
+        // Reliability & spill signals.
+        simpleN1qlPanel(ctx, 'n1ql_timeouts',         'Query Timeouts/Sec',           'short', true),
+        simpleN1qlPanel(ctx, 'n1ql_warnings',         'Query Warnings/Sec',           'short', true),
+        simpleN1qlPanel(ctx, 'n1ql_temp_usage',       'Query Temp Space Usage',       'short', false),
+        simpleN1qlPanel(ctx, 'n1ql_spills_order',     'Query Order-By Spills/Sec',    'short', true),
+
+        // Index-scan & DML workload.
+        simpleN1qlPanel(ctx, 'n1ql_primary_scans',    'Query Primary Index Scans/Sec',   'short', true),
+        simpleN1qlPanel(ctx, 'n1ql_index_scans',      'Query Secondary Index Scans/Sec', 'short', true),
+        simpleN1qlPanel(ctx, 'n1ql_mutations',        'Query Mutations/Sec',             'short', true),
+        simpleN1qlPanel(ctx, 'n1ql_inserts',          'Query Inserts/Sec',               'short', true),
+        simpleN1qlPanel(ctx, 'n1ql_updates',          'Query Updates/Sec',               'short', true),
+        simpleN1qlPanel(ctx, 'n1ql_deletes',          'Query Deletes/Sec',               'short', true),
+        simpleN1qlPanel(ctx, 'n1ql_prepared',         'Query Prepared Statements/Sec',   'short', true),
+
+        // Node capacity & backpressure.
+        simpleN1qlPanel(ctx, 'n1ql_load',             'Query Node Load',              'short', false),
+        simpleN1qlPanel(ctx, 'n1ql_load_factor',      'Query Node Load Factor',       'short', false),
+        simpleN1qlPanel(ctx, 'n1ql_queued_requests',  'Query Queued Requests',        'short', false),
+        simpleN1qlPanel(ctx, 'n1ql_node_memory',      'Query Node Document Memory',   'bytes', false),
+        simpleN1qlPanel(ctx, 'n1ql_node_rss',         'Query Node RSS',               'bytes', false),
 
         // Request-time tail latency. Server exports these as pre-computed
         // gauges (ns), plotted directly via label_replace overlay. Single
