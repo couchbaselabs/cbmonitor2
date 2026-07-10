@@ -42,6 +42,13 @@ export interface LoadedSnapshot {
  * Load a single snapshot with caching.
  * Checks local cache first, then fetches from API if needed.
  *
+ * A cached copy is never trusted while the snapshot is still live
+ * (`ts_end` is the "now"-relative sentinel, not a fixed timestamp). Its
+ * services/phases/end time are still changing, so a stale cached copy
+ * from an earlier page load would show an incomplete picture. Once the
+ * run finishes and ts_end becomes a real timestamp, the cache is used
+ * normally again.
+ *
  * @param snapshotId - Snapshot ID to load
  * @returns Promise with loaded snapshot data
  *
@@ -51,6 +58,9 @@ export interface LoadedSnapshot {
  */
 export async function loadSnapshot(snapshotId: string): Promise<LoadedSnapshot> {
     let snapshot = snapshotService.getStoredSnapshotData(snapshotId);
+    if (snapshot?.metadata.ts_end?.startsWith('now')) {
+        snapshot = null;
+    }
 
     if (!snapshot) {
         try {

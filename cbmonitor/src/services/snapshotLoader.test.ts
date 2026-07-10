@@ -6,6 +6,7 @@ jest.mock('./snapshotService', () => ({
         getStoredSnapshotData: jest.fn(),
         getSnapshot: jest.fn(),
         storeSnapshotData: jest.fn(),
+        syncPhaseAnnotations: jest.fn(),
     },
 }));
 
@@ -107,5 +108,55 @@ describe('loadSnapshot fallback behavior', () => {
         const loaded = await loadSnapshot('real');
         expect(loaded.metadata).toEqual(real.metadata);
         expect(mockedSnapshotService.storeSnapshotData).toHaveBeenCalledWith('real', real);
+    });
+
+    it('bypasses a cached copy that is still live (ts_end="now") and re-fetches', async () => {
+        const staleLiveCopy = {
+            metadata: {
+                snapshotId: 'live',
+                services: ['kv'],
+                version: '7.6',
+                ts_start: '2025-02-01T00:00:00Z',
+                ts_end: 'now',
+                phases: [],
+            },
+            data: {},
+        };
+        const fresh = {
+            metadata: {
+                ...staleLiveCopy.metadata,
+                services: ['kv', 'index'],
+                phases: [{ label: 'access', ts_start: '2025-02-01T00:10:00Z', ts_end: '2025-02-01T00:40:00Z' }],
+            },
+            data: {},
+        };
+        mockedSnapshotService.getStoredSnapshotData.mockReturnValue(staleLiveCopy);
+        mockedSnapshotService.getSnapshot.mockResolvedValue(fresh);
+
+        const loaded = await loadSnapshot('live');
+
+        expect(mockedSnapshotService.getSnapshot).toHaveBeenCalledWith('live');
+        expect(loaded.metadata).toEqual(fresh.metadata);
+        expect(mockedSnapshotService.storeSnapshotData).toHaveBeenCalledWith('live', fresh);
+    });
+
+    it('trusts a cached copy once ts_end is a real timestamp (no longer live)', async () => {
+        const finished = {
+            metadata: {
+                snapshotId: 'finished',
+                services: ['kv'],
+                version: '7.6',
+                ts_start: '2025-02-01T00:00:00Z',
+                ts_end: '2025-02-01T01:00:00Z',
+                phases: [],
+            },
+            data: {},
+        };
+        mockedSnapshotService.getStoredSnapshotData.mockReturnValue(finished);
+
+        const loaded = await loadSnapshot('finished');
+
+        expect(mockedSnapshotService.getSnapshot).not.toHaveBeenCalled();
+        expect(loaded.metadata).toEqual(finished.metadata);
     });
 });

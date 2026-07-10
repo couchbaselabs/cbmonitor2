@@ -9,7 +9,7 @@ import (
 // deduplicate repeated live lookups (server queries, Prometheus HTTP
 // calls) for the same key within a short window. A single snapshot view
 // triggers several independent fetches of the same data in close
-// succession — the main snapshot handler, each metric/summary request's
+// succession, the main snapshot handler, each metric/summary request's
 // time-window resolution, metric-name discovery, and the annotation-sync
 // path all ask for the same snapshot within moments of each other.
 type ttlCache[K comparable, V any] struct {
