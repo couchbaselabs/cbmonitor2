@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
@@ -73,12 +75,53 @@ type annotationSyncResult struct {
 	SnapshotID string `json:"snapshotId"`
 	Deleted    int    `json:"deleted"`
 	Created    int    `json:"created"`
+	Unchanged  int    `json:"unchanged"`
 }
 
-// sync replaces this snapshot's phase annotations: it removes the ones written
-// by a prior sync (matched by the cbmonitor-phase + job tags) then creates one
-// region annotation per phase with a parseable start and end. Idempotent — safe
-// to call on every snapshot open.
+// existingAnnotation is the slice of a Grafana annotation's fields sync
+// needs to tell whether it already matches a desired phase annotation.
+type existingAnnotation struct {
+	ID       int64
+	Time     int64
+	TimeEnd  int64
+	Text     string
+	ColorIdx int
+	HasColor bool
+}
+
+// desiredAnnotation is what sync() wants displayed for one phase.
+type desiredAnnotation struct {
+	Start    time.Time
+	End      time.Time
+	Label    string
+	ColorIdx int
+}
+
+// key identifies an annotation's content for diffing, ignoring its
+// Grafana-assigned id. Two annotations with the same key are
+// interchangeable from the UI's point of view.
+func (e existingAnnotation) key() string {
+	if !e.HasColor {
+		// No parseable phaseidx tag, can't be the product of a current
+		// sync (which always tags one). Give it a key that can never
+		// match a desired entry, so it's always treated as stale.
+		return fmt.Sprintf("legacy:%d", e.ID)
+	}
+	return fmt.Sprintf("%d:%d:%s:%d", e.Time, e.TimeEnd, e.Text, e.ColorIdx)
+}
+
+func (d desiredAnnotation) key() string {
+	return fmt.Sprintf("%d:%d:%s:%d", d.Start.UnixMilli(), d.End.UnixMilli(), d.Label, d.ColorIdx)
+}
+
+// sync reconciles this snapshot's phase annotations against what's already
+// in Grafana's annotation store (matched by the cbmonitor-phase + job
+// tags): annotations that already match a desired phase are left alone,
+// stale ones (phase removed or its window/label/color changed) are
+// deleted, and missing ones are created. Only the delta touches the
+// annotation API, calling this repeatedly with unchanged phases is a
+// no-op. Deletes and creates each run concurrently since the requests
+// within a group are independent of one another.
 func (s *phaseAnnotationSyncer) sync(ctx context.Context, snapshotID string, phases []models.Phase) (annotationSyncResult, error) {
 	result := annotationSyncResult{SnapshotID: snapshotID}
 	jobTag := "job:" + snapshotID
@@ -87,33 +130,91 @@ func (s *phaseAnnotationSyncer) sync(ctx context.Context, snapshotID string, pha
 	if err != nil {
 		return result, err
 	}
-	for _, id := range existing {
-		if err := s.delete(ctx, id); err != nil {
-			sdklog.DefaultLogger.Warn("cbmonitor phase annotation delete failed", "id", id, "error", err.Error())
-			continue
-		}
-		result.Deleted++
-	}
 
 	// Color by position in the phases array (matching the builtin layer, which
 	// increments its palette index for every phase — including those skipped
 	// here for lacking an end — so subsequent phases keep the same colors).
+	desired := make([]desiredAnnotation, 0, len(phases))
 	for i, p := range phases {
 		start, end, ok := parsePhaseWindow(p.TSStart, p.TSEnd)
 		if !ok {
 			continue
 		}
-		if err := s.create(ctx, start, end, p.Label, jobTag, i%phasePaletteSize); err != nil {
-			sdklog.DefaultLogger.Warn("cbmonitor phase annotation create failed", "label", p.Label, "error", err.Error())
+		desired = append(desired, desiredAnnotation{Start: start, End: end, Label: p.Label, ColorIdx: i % phasePaletteSize})
+	}
+
+	desiredSet := desiredKeySet(desired)
+
+	// Walk existing once, keeping only the first annotation seen per key.
+	// Anything sharing a key with one already kept is a duplicate (e.g.
+	// left over from a prior sync race) and gets deleted alongside the
+	// genuinely stale entries.
+	seenKeys := make(map[string]bool, len(existing))
+	var toDelete []int64
+	for _, e := range existing {
+		k := e.key()
+		if seenKeys[k] {
+			toDelete = append(toDelete, e.ID)
 			continue
 		}
-		result.Created++
+		seenKeys[k] = true
+		if !desiredSet[k] {
+			toDelete = append(toDelete, e.ID)
+		}
 	}
+	var toCreate []desiredAnnotation
+	for _, d := range desired {
+		if !seenKeys[d.key()] {
+			toCreate = append(toCreate, d)
+		}
+	}
+	result.Unchanged = len(desired) - len(toCreate)
+
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	wg.Add(len(toDelete) + len(toCreate))
+
+	for _, id := range toDelete {
+		go func(id int64) {
+			defer wg.Done()
+			if err := s.delete(ctx, id); err != nil {
+				sdklog.DefaultLogger.Warn("cbmonitor phase annotation delete failed", "id", id, "error", err.Error())
+				return
+			}
+			mu.Lock()
+			result.Deleted++
+			mu.Unlock()
+		}(id)
+	}
+	for _, d := range toCreate {
+		go func(d desiredAnnotation) {
+			defer wg.Done()
+			if err := s.create(ctx, d.Start, d.End, d.Label, jobTag, d.ColorIdx); err != nil {
+				sdklog.DefaultLogger.Warn("cbmonitor phase annotation create failed", "label", d.Label, "error", err.Error())
+				return
+			}
+			mu.Lock()
+			result.Created++
+			mu.Unlock()
+		}(d)
+	}
+	wg.Wait()
+
 	return result, nil
 }
 
-// findExisting returns the ids of annotations previously written for this job.
-func (s *phaseAnnotationSyncer) findExisting(ctx context.Context, jobTag string) ([]int64, error) {
+// desiredKeySet is a small helper so sync doesn't build the same set twice.
+func desiredKeySet(desired []desiredAnnotation) map[string]bool {
+	set := make(map[string]bool, len(desired))
+	for _, d := range desired {
+		set[d.key()] = true
+	}
+	return set
+}
+
+// findExisting returns the annotations previously written for this job,
+// with enough of each one's fields to diff against the desired set.
+func (s *phaseAnnotationSyncer) findExisting(ctx context.Context, jobTag string) ([]existingAnnotation, error) {
 	q := url.Values{}
 	q.Add("tags", phaseAnnotationTag)
 	q.Add("tags", jobTag)
@@ -132,16 +233,45 @@ func (s *phaseAnnotationSyncer) findExisting(ctx context.Context, jobTag string)
 		return nil, fmt.Errorf("list annotations status %d: %s", resp.StatusCode, readBodySnippet(resp.Body))
 	}
 	var items []struct {
-		ID int64 `json:"id"`
+		ID      int64    `json:"id"`
+		Time    int64    `json:"time"`
+		TimeEnd int64    `json:"timeEnd"`
+		Text    string   `json:"text"`
+		Tags    []string `json:"tags"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&items); err != nil {
 		return nil, err
 	}
-	ids := make([]int64, 0, len(items))
+	out := make([]existingAnnotation, 0, len(items))
 	for _, it := range items {
-		ids = append(ids, it.ID)
+		colorIdx, hasColor := parseColorIdxTag(it.Tags)
+		out = append(out, existingAnnotation{
+			ID:       it.ID,
+			Time:     it.Time,
+			TimeEnd:  it.TimeEnd,
+			Text:     it.Text,
+			ColorIdx: colorIdx,
+			HasColor: hasColor,
+		})
 	}
-	return ids, nil
+	return out, nil
+}
+
+// parseColorIdxTag extracts the "phaseidx:<n>" tag this plugin's create()
+// always writes. hasColor is false when the tag is missing or unparseable
+// (e.g. an annotation from a much older sync format).
+func parseColorIdxTag(tags []string) (colorIdx int, hasColor bool) {
+	const prefix = "phaseidx:"
+	for _, t := range tags {
+		if strings.HasPrefix(t, prefix) {
+			n, err := strconv.Atoi(strings.TrimPrefix(t, prefix))
+			if err != nil {
+				return 0, false
+			}
+			return n, true
+		}
+	}
+	return 0, false
 }
 
 func (s *phaseAnnotationSyncer) delete(ctx context.Context, id int64) error {
@@ -263,7 +393,7 @@ func (a *App) handleSyncSnapshotAnnotations(w http.ResponseWriter, req *http.Req
 		return
 	}
 
-	sdklog.DefaultLogger.Info("cbmonitor phase annotations synced", "snapshot", snapshotID, "created", result.Created, "deleted", result.Deleted)
+	sdklog.DefaultLogger.Info("cbmonitor phase annotations synced", "snapshot", snapshotID, "created", result.Created, "deleted", result.Deleted, "unchanged", result.Unchanged)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(result); err != nil {
