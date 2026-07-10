@@ -2,10 +2,7 @@ import type { ServiceBuilder } from './types';
 
 /**
  * Unified panel emitter for the System service. Drives both the
- * single-snapshot dashboard (5 aggregated base panels + 2 per-instance
- * disk panels per discovered instance, with an aggregated fallback when
- * no instances are reported) and the overlap dashboard (7 panels per
- * instance group, with `{{job}}` prefix on legends).
+ * single-snapshot dashboard and the overlap dashboard.
  *
  * Mode divergences are expressed inline:
  * - The two disk rate panels appear in `branch:'base'` only when running
@@ -21,6 +18,11 @@ export const systemBuilder: ServiceBuilder = (ctx) => {
                 expr: `sum by (${ctx.sumBy()}) (sys_cpu_utilization_rate{${ctx.jobSelector}${ctx.instanceFilter}})`,
                 legendFormat: ctx.legend(),
                 unit: 'percent',
+            }),
+            ctx.panel('sys_cpu_cores_available', `CPU Cores Available${ctx.titleSuffix}`, {
+                expr: `sum by (${ctx.sumBy()}) (sys_cpu_cores_available{${ctx.jobSelector}${ctx.instanceFilter}})`,
+                legendFormat: ctx.legend(),
+                unit: 'short',
             }),
             ctx.panel('sys_mem_free_sys', `Free Memory (Bytes)${ctx.titleSuffix}`, {
                 expr: `sum by (${ctx.sumBy()}) (sys_mem_free_sys{${ctx.jobSelector}${ctx.instanceFilter}})`,

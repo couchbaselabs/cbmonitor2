@@ -3,9 +3,9 @@ import type { ServiceBuilder } from './types';
 // TODO: Revisit this dashboard to make it more useful.
 
 /**
- * Unified panel emitter for the Cluster Manager service. Five aggregated
- * base panels (ns_server CPU/mem, Prometheus CPU/mem, CPU cores) plus
- * one HTTP-requests panel that lives in different branches per mode:
+ * Unified panel emitter for the Cluster Manager service. Four aggregated
+ * base panels (ns_server CPU/mem, Prometheus CPU/mem) plus one
+ * HTTP-requests panel that lives in different branches per mode:
  * - Single: a full-width per-instance breakdown by HTTP `method`, with
  *   an aggregated fallback when no instances are discovered.
  * - Overlap: a single full-width panel rendered per instance group with
@@ -39,11 +39,6 @@ export const clusterManagerBuilder: ServiceBuilder = (ctx) => {
                 legendFormat: ctx.legend(),
                 labelFilters: { proc: 'prometheus' },
                 unit: 'bytes',
-            }),
-            ctx.panel('sys_cpu_cores_available', `CPU Cores Available${ctx.titleSuffix}`, {
-                expr: `sum by (${ctx.sumBy()}) (sys_cpu_cores_available{${ctx.jobSelector}${ctx.instanceFilter}})`,
-                legendFormat: ctx.legend(),
-                unit: 'short',
             }),
             // HTTP requests aggregated in overlap base; single mode emits
             // a per-instance method breakdown (and a stripped fallback)
