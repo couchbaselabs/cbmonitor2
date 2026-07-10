@@ -1,7 +1,7 @@
 import React from 'react';
 import { SceneAppPage, SceneRefreshPicker, EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneObjectBase, SceneObjectState } from '@grafana/scenes';
 import { dateTime } from '@grafana/data';
-import { ROUTES, ROUTE_PATHS, prefixRoute } from '../utils/utils.routing';
+import { ROUTES, ROUTE_PATHS, prefixRoute, isSnapshotViewerPath } from '../utils/utils.routing';
 import { getDashboardsForServices } from '../pages';
 import { locationService } from '@grafana/runtime';
 import { SnapshotSearchScene } from './SnapshotSearch';
@@ -10,6 +10,7 @@ import { SettingsDropdown } from '../components/SettingsDropdown/SettingsDropdow
 import { ClusterToggle } from '../components/ClusterSelector/ClusterToggle';
 import { DashboardHeader } from '../components/DashboardHeader/DashboardHeader';
 import { ExploreButton } from '../components/DashboardHeader/actions/ExploreButton';
+import { CompareButton } from '../components/DashboardHeader/actions/CompareButton';
 import { MetricsDrilldownButton } from '../components/DashboardHeader/actions/MetricsDrilldownButton';
 import { ProductDashboardsButton } from '../components/DashboardHeader/actions/ProductDashboardsButton';
 import { createNoUrlSyncTimeRange, initializeTimeRange } from '../utils/timeRange';
@@ -115,13 +116,23 @@ snapshotViewPage.addActivationHandler(() => {
   let currentLoadedSnapshotId: string | null = null;
 
   const loadSnapshotFromUrl = () => {
+    const pathname = locationService.getLocation().pathname;
+
+    if (!isSnapshotViewerPath(pathname)) {
+      // Navigated away to an entirely different route (e.g. Compare,
+      // Preferences, or Grafana chrome) while this page's history listener
+      // was still subscribed. This page is being torn down, there's
+      // nothing to load, and definitely nowhere to redirect to; the
+      // destination route already owns rendering the new URL.
+      return;
+    }
+
     const params = locationService.getSearchObject();
-    const snapshotId = getSnapshotIdFromViewerPath(locationService.getLocation().pathname);
+    const snapshotId = getSnapshotIdFromViewerPath(pathname);
 
     if (!snapshotId) {
-      // Viewer URL with no snapshotId — should not happen given the routePath
-      // requires :snapshotId. If it does (e.g. someone hits the placeholder),
-      // bounce to search.
+      // Still under /snapshots/ but couldn't parse an id out of it (e.g.
+      // someone hits the literal placeholder segment), bounce to search.
       locationService.replace(prefixRoute(ROUTE_PATHS.search()));
       return;
     }
@@ -311,6 +322,7 @@ snapshotViewPage.addActivationHandler(() => {
               clusterToggle,
               settingsDropdown,
               actions: [
+                { key: 'compare', render: () => React.createElement(CompareButton, { snapshotId }) },
                 { key: 'explore', render: () => React.createElement(ExploreButton, { snapshotId, timeRange }) },
                 { key: 'metricsDrilldown', render: () => React.createElement(MetricsDrilldownButton, { snapshotId, timeRange }) },
                 { key: 'productDashboards', render: () => React.createElement(ProductDashboardsButton, { snapshotId, timeRange, products: metadata.products }) },

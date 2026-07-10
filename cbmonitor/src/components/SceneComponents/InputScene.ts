@@ -3,6 +3,7 @@ import { SceneObjectBase, SceneObjectState, SceneComponentProps } from '@grafana
 import { Alert, Button, Input, useStyles2, Icon } from '@grafana/ui';
 import { locationService } from '@grafana/runtime';
 import { prefixRoute, ROUTE_PATHS } from '../../utils/utils.routing';
+import { seedInputValues } from './inputSeed';
 
 /**
  * State for InputScene component
@@ -15,6 +16,10 @@ export interface InputSceneState extends SceneObjectState {
     submitLabel?: string;
     errorMessage?: string;
     onSubmit?: (values: string[]) => void;
+    // Pre-fills the input row(s), e.g. a "Compare" link that already knows
+    // one snapshot id. Padded with empty slots up to minInputs; the user
+    // fills in the rest.
+    initialValues?: string[];
     // Branding options for a polished landing page
     title?: string;           // Large heading
     subtitle?: string;        // Descriptive text below title
@@ -57,6 +62,7 @@ export class InputScene extends SceneObjectBase<InputSceneState> {
             submitLabel: options.submitLabel || 'Submit',
             errorMessage: options.errorMessage,
             onSubmit: options.onSubmit,
+            initialValues: options.initialValues,
             title: options.title,
             subtitle: options.subtitle,
             iconName: options.iconName,
@@ -76,7 +82,7 @@ export class InputScene extends SceneObjectBase<InputSceneState> {
  * Renderer component for InputScene
  */
 function InputSceneRenderer({ model }: SceneComponentProps<InputScene>) {
-    const { mode, minInputs, maxInputs, placeholder, submitLabel, errorMessage, onSubmit, title, subtitle, iconName, iconSize } = model.useState();
+    const { mode, minInputs, maxInputs, placeholder, submitLabel, errorMessage, onSubmit, initialValues, title, subtitle, iconName, iconSize } = model.useState();
 
     const s = useStyles2((theme) => ({
         container: {
@@ -158,7 +164,7 @@ function InputSceneRenderer({ model }: SceneComponentProps<InputScene>) {
     }));
 
     const initialCount = mode === 'multiple' ? (minInputs || 2) : 1;
-    const [ids, setIds] = React.useState<string[]>(Array(initialCount).fill(''));
+    const [ids, setIds] = React.useState<string[]>(() => seedInputValues(initialValues, initialCount));
     const [localError, setLocalError] = React.useState<string | undefined>(undefined);
 
     const handleSubmit = () => {

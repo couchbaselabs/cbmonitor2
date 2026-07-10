@@ -174,9 +174,11 @@ comparisonPage.addActivationHandler(() => {
     const loadSnapshotsFromUrl = () => {
         const snapshotIds = getSnapshotIdsFromParams();
 
-        // When snapshot count is invalid, show input page instead of error
+        // When snapshot count is invalid, show input page instead of error.
+        // A single id (e.g. from the single-snapshot view's "Compare" button)
+        // pre-fills the first input instead of starting from a blank form.
         if (snapshotIds.length < 2 || snapshotIds.length > 6) {
-            showCompareInput();
+            showCompareInput(undefined, snapshotIds.length === 1 ? snapshotIds : undefined);
             currentLoadedSnapshotIds = [];
             return;
         }
@@ -201,7 +203,7 @@ comparisonPage.addActivationHandler(() => {
 
                 // Invalidate cached scenes when snapshot set changes
                 sceneCacheService.clearAll();
-                
+
                 // Fetch all snapshots using unified loader
                 const snapshots = await loadSnapshots(snapshotIds);
 
@@ -335,8 +337,10 @@ function showStatusMessage(message: string, status: 'success' | 'error' | 'info'
     });
 }
 
-// Helper: Show input page for entering snapshot IDs
-function showCompareInput(infoMessage?: string) {
+// Helper: Show input page for entering snapshot IDs. prefillIds seeds the
+// input row(s). Used when arriving via a single-snapshot id (e.g. the
+// "Compare" button on the snapshot view page).
+function showCompareInput(infoMessage?: string, prefillIds?: string[]) {
     comparisonPage.setState({
         title: '',
         subTitle: '',
@@ -355,6 +359,7 @@ function showCompareInput(infoMessage?: string) {
                             placeholder: 'Snapshot ID',
                             submitLabel: 'Compare',
                             errorMessage: infoMessage,
+                            initialValues: prefillIds,
                             // Branded header matching cbmonitor landing page
                             title: 'Compare Snapshots',
                             subtitle: 'Enter 2 to 6 snapshot IDs to compare performance metrics side by side.',

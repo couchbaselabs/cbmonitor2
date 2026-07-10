@@ -58,3 +58,15 @@ export function parseSnapshotIdFromPath(pathname: string): string | undefined {
   }
   return decodeURIComponent(segments[0]);
 }
+
+/**
+ * True while pathname is still nominally under the snapshot viewer's own
+ * route (`/snapshots/<something>`), regardless of whether an id could be
+ * parsed out of it. Used by the viewer page to distinguish "still here but
+ * malformed URL" (safe to redirect) from "navigated away to a different
+ * route entirely" (this page is being torn down, don't redirect anywhere,
+ * the destination route already owns rendering the new URL).
+ */
+export function isSnapshotViewerPath(pathname: string): boolean {
+  return pathname.startsWith(`${PLUGIN_BASE_URL}/${ROUTES.CBMonitor}/`);
+}
