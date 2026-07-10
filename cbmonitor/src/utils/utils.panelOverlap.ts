@@ -114,7 +114,7 @@ export function createOverlapMetricPanel(
     metricName: string,
     title: string,
     options: OverlapPanelOptions
-) : SceneFlexItem {
+): SceneFlexItem {
     const endTimeSeconds = resolveOverlapEndTimeSeconds(options.overlapEndTimeSeconds);
     const panelWidth = options.width ?? layoutService.getPanelWidth();
     const timeRange = createOverlapTimeRange(options.overlapEndTimeSeconds);

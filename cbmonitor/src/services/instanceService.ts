@@ -51,7 +51,7 @@ export function getInstancesFromMetricRunner(snapshotId: string, metricName = 's
  * and SQL++ responses where instance is a column.
  */
 export function parseInstancesFromFrames(frames: any[]): string[] {
-  if (!Array.isArray(frames) || frames.length === 0) return [];
+  if (!Array.isArray(frames) || frames.length === 0) {return [];}
   const set = new Set<string>();
   for (const frame of frames) {
     const fields = frame?.fields ?? [];
@@ -69,7 +69,7 @@ export function parseInstancesFromFrames(frames: any[]): string[] {
       const rawValues = instanceField?.values ?? [];
       const arr = (rawValues && typeof rawValues.toArray === 'function') ? rawValues.toArray() : Array.from(rawValues);
       for (const v of arr) {
-        if (v) set.add(String(v));
+        if (v) {set.add(String(v));}
       }
     }
   }
