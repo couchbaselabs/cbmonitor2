@@ -11,13 +11,14 @@
     "lint:fix": "npm run lint -- --fix && prettier --write --list-different .",
     "e2e": "playwright test",
     "server": "docker compose up --build -d",
-    "sign": "npx --yes @grafana/sign-plugin@latest"
+    "sign": "sign-plugin"
   },
   "author": "Couchbase",
   "license": "Apache-2.0",
   "devDependencies": {
     "@grafana/eslint-config": "^8.2.0",
     "@grafana/plugin-e2e": "^2.2.0",
+    "@grafana/sign-plugin": "^3.2.2",
     "@grafana/tsconfig": "^2.0.0",
     "@playwright/test": "^1.52.0",
     "@stylistic/eslint-plugin-ts": "^2.9.0",
@@ -60,16 +61,21 @@
   },
   "dependencies": {
     "@emotion/css": "11.10.6",
-    "@grafana/data": "^11.4.8",
-    "@grafana/i18n": "^12.3.2",
-    "@grafana/runtime": "^11.4.8",
-    "@grafana/scenes": "^6.52.11",
-    "@grafana/schema": "^12.3.2",
-    "@grafana/ui": "^11.4.8",
+    "@grafana/data": "^13.1.0",
+    "@grafana/i18n": "^13.1.0",
+    "@grafana/runtime": "^13.1.0",
+    "@grafana/scenes": "^8.10.2",
+    "@grafana/schema": "^13.1.0",
+    "@grafana/ui": "^13.1.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-router-dom": "^6.22.0",
     "rxjs": "7.8.2"
   },
-  "packageManager": "npm@10.9.0"
+  "packageManager": "npm@10.9.0",
+  "overrides": {
+    "dompurify": "^3.4.11",
+    "js-cookie": "^3.0.8",
+    "uuid": "^13.0.2"
+  }
 }

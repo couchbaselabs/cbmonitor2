@@ -16,12 +16,20 @@ export const externals: ExternalsType = [
   'slate-plain-serializer',
   '@grafana/slate-react',
   'react',
+  'react/jsx-runtime',
+  'react/jsx-dev-runtime',
   'react-dom',
   'react-redux',
   'redux',
   'rxjs',
   'i18next',
   'react-router',
+  // @grafana/scenes needs real react-router-dom v6 APIs (e.g. `Routes`), but
+  // Grafana core's own 'react-router-dom' external is a v5-compat shim.
+  // Core's 'react-router' external is the real v6 build, so alias to that
+  // instead of bundling our own copy (which would create a second,
+  // context-incompatible Router instance).
+  { 'react-router-dom': 'react-router' },
   'd3',
   'angular',
   /^@grafana\/ui/i,
