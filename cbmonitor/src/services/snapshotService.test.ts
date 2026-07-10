@@ -57,6 +57,40 @@ describe('snapshotService refresh', () => {
         expect(snapshotService.getStoredSnapshotData('snap-1')?.metadata.version).toBe('v2');
     });
 
+    it('refresh bypasses the backend cache via ?refresh=true', async () => {
+        const calledUrls: string[] = [];
+        (globalThis as { fetch?: typeof fetch }).fetch = (async (url: string) => {
+            calledUrls.push(url);
+            return {
+                ok: true,
+                json: async () => ({ success: true, data: makeData('snap-1') }),
+            } as Response;
+        }) as typeof fetch;
+
+        await snapshotService.refresh('snap-1');
+
+        // refresh() also fires the (unrelated) annotation-sync POST; only
+        // the snapshot GET needs the cache-bypass param.
+        const snapshotGetUrl = calledUrls.find((u) => u.endsWith(`snap-1?refresh=true`));
+        expect(snapshotGetUrl).toBeDefined();
+    });
+
+    it('a plain getSnapshot call does not set the cache-bypass param', async () => {
+        const calledUrls: string[] = [];
+        (globalThis as { fetch?: typeof fetch }).fetch = (async (url: string) => {
+            calledUrls.push(url);
+            return {
+                ok: true,
+                json: async () => ({ success: true, data: makeData('snap-1') }),
+            } as Response;
+        }) as typeof fetch;
+
+        await snapshotService.getSnapshot('snap-1');
+
+        expect(calledUrls).toHaveLength(1);
+        expect(calledUrls[0]).not.toContain('refresh=true');
+    });
+
     it('refresh emits a snapshotRefreshed event with the snapshot id', async () => {
         mockFetchSequence(makeData('snap-1'));
 

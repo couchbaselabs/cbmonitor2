@@ -15,8 +15,9 @@ import (
 
 // fakeSnapshotService is a minimal in-memory snapshotFetcher for tests.
 type fakeSnapshotService struct {
-	byID  map[string]*models.SnapshotData
-	err   error
+	byID           map[string]*models.SnapshotData
+	err            error
+	invalidatedIDs []string
 }
 
 func (f *fakeSnapshotService) GetSnapshotByID(_ context.Context, id string) (*models.SnapshotData, error) {
@@ -27,6 +28,10 @@ func (f *fakeSnapshotService) GetSnapshotByID(_ context.Context, id string) (*mo
 		return data, nil
 	}
 	return nil, fmt.Errorf("snapshot not found: %s", id)
+}
+
+func (f *fakeSnapshotService) InvalidateCache(id string) {
+	f.invalidatedIDs = append(f.invalidatedIDs, id)
 }
 
 // fakeMetricSource records what it was called with and returns canned
@@ -74,6 +79,38 @@ func sampleSnapshotData() *models.SnapshotData {
 				{Label: "access", TSStart: "2025-01-01T00:10:00Z", TSEnd: "2025-01-01T00:40:00Z"},
 			},
 		},
+	}
+}
+
+func TestHandleGetSnapshot_success(t *testing.T) {
+	snap := &fakeSnapshotService{byID: map[string]*models.SnapshotData{"snap-1": sampleSnapshotData()}}
+	h := newTestHandler(t, "couchbase", snap, nil, nil)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/snapshots/snap-1", nil)
+	h.HandleGetSnapshot(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	if len(snap.invalidatedIDs) != 0 {
+		t.Errorf("expected no cache invalidation on a plain GET, got %v", snap.invalidatedIDs)
+	}
+}
+
+func TestHandleGetSnapshot_refreshParamInvalidatesCache(t *testing.T) {
+	snap := &fakeSnapshotService{byID: map[string]*models.SnapshotData{"snap-1": sampleSnapshotData()}}
+	h := newTestHandler(t, "couchbase", snap, nil, nil)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/snapshots/snap-1?refresh=true", nil)
+	h.HandleGetSnapshot(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	if len(snap.invalidatedIDs) != 1 || snap.invalidatedIDs[0] != "snap-1" {
+		t.Errorf("expected InvalidateCache(\"snap-1\") to be called once, got %v", snap.invalidatedIDs)
 	}
 }
 

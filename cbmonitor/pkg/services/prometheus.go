@@ -22,6 +22,7 @@ import (
 type PrometheusService struct {
 	baseURL    string
 	httpClient *http.Client
+	namesCache *ttlCache[metricNamesCacheKey, []string]
 }
 
 // NewPrometheusService validates baseURL is absolute and returns a
@@ -37,6 +38,7 @@ func NewPrometheusService(baseURL string, httpClient *http.Client) (*PrometheusS
 	return &PrometheusService{
 		baseURL:    strings.TrimRight(baseURL, "/"),
 		httpClient: httpClient,
+		namesCache: newTTLCache[metricNamesCacheKey, []string](metricNamesCacheTTL),
 	}, nil
 }
 
@@ -157,6 +159,14 @@ func (p *PrometheusService) ListMetricNames(ctx context.Context, snapshotID, nam
 		return nil, fmt.Errorf("snapshotID is required")
 	}
 
+	// Keyed on (snapshotID, nameRegex) only: the window is derived from
+	// snapshot metadata that's itself cached for the same TTL, so it's
+	// effectively stable for the life of this cache entry.
+	key := metricNamesCacheKey{snapshotID: snapshotID, nameRegex: nameRegex}
+	if cached, ok := p.namesCache.get(key); ok {
+		return cached, nil
+	}
+
 	matcher := fmt.Sprintf(`{job=%s}`, promQuote(snapshotID))
 	if nameRegex != "" {
 		matcher = fmt.Sprintf(`{job=%s,__name__=~%s}`, promQuote(snapshotID), promQuote(nameRegex))
@@ -204,6 +214,7 @@ func (p *PrometheusService) ListMetricNames(ctx context.Context, snapshotID, nam
 		return nil, fmt.Errorf("prometheus error (%s): %s", decoded.ErrorType, msg)
 	}
 
+	p.namesCache.set(key, decoded.Data)
 	return decoded.Data, nil
 }
 

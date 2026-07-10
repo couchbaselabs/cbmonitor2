@@ -63,6 +63,7 @@ func errMetricSourceUnavailable(msg string) error { return &metricSourceUnavaila
 // uses, so tests can inject a stub without standing up Couchbase.
 type snapshotFetcher interface {
 	GetSnapshotByID(ctx context.Context, snapshotID string) (*models.SnapshotData, error)
+	InvalidateCache(snapshotID string)
 }
 
 // SnapshotHandler handles all snapshot-related HTTP requests
@@ -160,6 +161,12 @@ func (h *SnapshotHandler) HandleGetSnapshot(w http.ResponseWriter, req *http.Req
 	if h.snapshotService == nil {
 		h.sendErrorResponse(w, "Snapshot service is not available", http.StatusServiceUnavailable)
 		return
+	}
+
+	// The "Refresh metadata" UI flow needs a guaranteed live read. Bypass
+	// the short-TTL cache instead of possibly serving what's already there.
+	if req.URL.Query().Get("refresh") == "true" {
+		h.snapshotService.InvalidateCache(snapshotID)
 	}
 
 	snapshotData, err := h.snapshotService.GetSnapshotByID(req.Context(), snapshotID)

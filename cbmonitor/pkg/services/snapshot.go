@@ -10,12 +10,21 @@ import (
 	"github.com/couchbase/gocb/v2"
 )
 
+// snapshotCacheTTL bounds how long a fetched snapshot document is reused
+// before the next request re-fetches. A single snapshot
+// view triggers several independent GetSnapshotByID calls in quick
+// succession (the main handler, per-metric time-window resolution, and
+// the fire-and-forget annotation-sync request), this dedupes those
+// without risking metadata going stale for long.
+const snapshotCacheTTL = 45 * time.Second
+
 // SnapshotService handles snapshot-related operations
 type SnapshotService struct {
 	cluster        *gocb.Cluster
 	bucket         *gocb.Bucket
 	scopeName      string
 	collectionName string
+	cache          *ttlCache[string, *models.SnapshotData]
 }
 
 // NewSnapshotService creates a new snapshot service instance.
@@ -62,11 +71,19 @@ func NewSnapshotService(connectionString, username, password, bucketName, scopeN
 		bucket:         bucket,
 		scopeName:      scopeName,
 		collectionName: collectionName,
+		cache:          newTTLCache[string, *models.SnapshotData](snapshotCacheTTL),
 	}, nil
 }
 
-// GetSnapshotByID fetches a snapshot document by its ID from Couchbase
+// GetSnapshotByID fetches a snapshot document by its ID from Couchbase.
+// Results are cached for snapshotCacheTTL — see that constant's comment
+// for why. Errors (not-found or transient) are never cached, so a bad
+// lookup doesn't stick around for the TTL window.
 func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID string) (*models.SnapshotData, error) {
+	if cached, ok := ss.cache.get(snapshotID); ok {
+		return cached, nil
+	}
+
 	collection := ss.bucket.Scope(ss.scopeName).Collection(ss.collectionName)
 
 	// Fetch the snapshot document
@@ -232,7 +249,15 @@ func (ss *SnapshotService) GetSnapshotByID(ctx context.Context, snapshotID strin
 
 	log.Printf("Successfully fetched snapshot: %s with %d services.", snapshotID, len(metadata.Services))
 
+	ss.cache.set(snapshotID, snapshotData)
 	return snapshotData, nil
+}
+
+// InvalidateCache evicts snapshotID's cached document, if any, so the next
+// GetSnapshotByID call is a guaranteed live fetch. Used by the "Refresh
+// metadata" flow, which must bypass the short-TTL cache.
+func (ss *SnapshotService) InvalidateCache(snapshotID string) {
+	ss.cache.delete(snapshotID)
 }
 
 // determineDashboards returns a list of dashboard IDs based on the services in the snapshot

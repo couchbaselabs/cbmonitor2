@@ -21,10 +21,13 @@ class SnapshotService {
   }
 
   /**
-   * Fetch snapshot metadata by snapshot ID
+   * Fetch snapshot metadata by snapshot ID. Pass bypassCache when the
+   * backend's short-TTL cache must not shadow a genuinely fresh read.
    */
-  async getSnapshot(snapshotId: string): Promise<SnapshotData> {
-    const url = `${API_BASE_URL}/snapshots/${snapshotId}`;
+  async getSnapshot(snapshotId: string, opts?: { bypassCache?: boolean }): Promise<SnapshotData> {
+    const url = opts?.bypassCache
+      ? `${API_BASE_URL}/snapshots/${snapshotId}?refresh=true`
+      : `${API_BASE_URL}/snapshots/${snapshotId}`;
 
     for (let attempt = 1; attempt <= this.maxSnapshotFetchAttempts; attempt++) {
       try {
@@ -88,7 +91,7 @@ class SnapshotService {
    */
   async refresh(snapshotId: string): Promise<SnapshotData> {
     await this.cache.delete(snapshotId);
-    const fresh = await this.getSnapshot(snapshotId);
+    const fresh = await this.getSnapshot(snapshotId, { bypassCache: true });
     await this.storeSnapshotData(snapshotId, fresh);
     this.syncPhaseAnnotations(snapshotId);
     this.emitRefresh(snapshotId);

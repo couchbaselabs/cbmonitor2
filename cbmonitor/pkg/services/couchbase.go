@@ -10,11 +10,23 @@ import (
 	"github.com/couchbase/gocb/v2"
 )
 
+// metricNamesCacheTTL bounds how long a metric-names discovery result is
+// reused. Mirrors snapshotCacheTTL, the same custom_panels regex is
+// typically re-resolved once per tab per snapshot open.
+const metricNamesCacheTTL = 45 * time.Second
+
+// metricNamesCacheKey identifies a cached ListMetricNames result.
+type metricNamesCacheKey struct {
+	snapshotID string
+	nameRegex  string
+}
+
 // CouchbaseService handles all Couchbase database operations
 type CouchbaseService struct {
 	cluster *gocb.Cluster
 	bucket  *gocb.Bucket
-	scope *gocb.Scope
+	scope   *gocb.Scope
+	cache   *ttlCache[metricNamesCacheKey, []string]
 }
 
 // NewCouchbaseService creates a new Couchbase service instance. An empty scopeName falls back to "_default".
@@ -49,6 +61,7 @@ func NewCouchbaseService(connectionString, username, password, bucketName, scope
 		cluster: cluster,
 		bucket:  bucket,
 		scope:   bucket.Scope(scopeName),
+		cache:   newTTLCache[metricNamesCacheKey, []string](metricNamesCacheTTL),
 	}, nil
 }
 
@@ -91,6 +104,11 @@ func (cs *CouchbaseService) ListMetricNames(ctx context.Context, snapshotID, nam
 		return nil, fmt.Errorf("snapshotID is required")
 	}
 
+	key := metricNamesCacheKey{snapshotID: snapshotID, nameRegex: nameRegex}
+	if cached, ok := cs.cache.get(key); ok {
+		return cached, nil
+	}
+
 	// SQL++ string literal escape: double single-quotes.
 	escapedJob := strings.ReplaceAll(snapshotID, "'", "''")
 	where := fmt.Sprintf("d.labels.job = '%s'", escapedJob)
@@ -128,6 +146,7 @@ func (cs *CouchbaseService) ListMetricNames(ctx context.Context, snapshotID, nam
 		return nil, fmt.Errorf("query execution error: %w", err)
 	}
 
+	cs.cache.set(key, names)
 	return names, nil
 }
 

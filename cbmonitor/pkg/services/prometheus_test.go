@@ -146,3 +146,56 @@ func TestQueryRange_contextCancel(t *testing.T) {
 		t.Fatal("expected cancellation error")
 	}
 }
+
+func TestListMetricNames_cachesWithinTTL(t *testing.T) {
+	var requests int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		_, _ = w.Write([]byte(`{"status":"success","data":["kv_ops","kv_get"]}`))
+	}))
+	defer srv.Close()
+
+	svc, _ := NewPrometheusService(srv.URL, srv.Client())
+	start := time.Unix(0, 0)
+	end := time.Unix(60, 0)
+
+	names1, err := svc.ListMetricNames(context.Background(), "snap-1", "", start, end)
+	if err != nil {
+		t.Fatalf("first call: %v", err)
+	}
+	names2, err := svc.ListMetricNames(context.Background(), "snap-1", "", start, end)
+	if err != nil {
+		t.Fatalf("second call: %v", err)
+	}
+
+	if requests != 1 {
+		t.Errorf("expected 1 HTTP request (second call served from cache), got %d", requests)
+	}
+	if len(names1) != 2 || len(names2) != 2 {
+		t.Errorf("unexpected results: %v / %v", names1, names2)
+	}
+}
+
+func TestListMetricNames_differentRegexBypassesCache(t *testing.T) {
+	var requests int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		_, _ = w.Write([]byte(`{"status":"success","data":["kv_ops"]}`))
+	}))
+	defer srv.Close()
+
+	svc, _ := NewPrometheusService(srv.URL, srv.Client())
+	start := time.Unix(0, 0)
+	end := time.Unix(60, 0)
+
+	if _, err := svc.ListMetricNames(context.Background(), "snap-1", "kv_.*", start, end); err != nil {
+		t.Fatalf("first call: %v", err)
+	}
+	if _, err := svc.ListMetricNames(context.Background(), "snap-1", "n1ql_.*", start, end); err != nil {
+		t.Fatalf("second call: %v", err)
+	}
+
+	if requests != 2 {
+		t.Errorf("expected 2 HTTP requests (distinct regex keys), got %d", requests)
+	}
+}
