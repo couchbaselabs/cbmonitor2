@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { css } from '@emotion/css';
 import { GrafanaTheme2 } from '@grafana/data';
 import { IconButton, useStyles2 } from '@grafana/ui';
@@ -26,6 +26,8 @@ export function HeaderTitle({ metadata }: HeaderTitleProps) {
     const styles = useStyles2(getStyles);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [liveMetadata, setLiveMetadata] = useState<SnapshotMetadata>(metadata);
+    const [copied, setCopied] = useState(false);
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         setLiveMetadata(metadata);
@@ -44,6 +46,27 @@ export function HeaderTitle({ metadata }: HeaderTitleProps) {
         return unsubscribe;
     }, [liveMetadata.snapshotId]);
 
+    useEffect(() => {
+        return () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+        };
+    }, []);
+
+    const onCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(liveMetadata.snapshotId);
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+            setCopied(true);
+            timeoutRef.current = setTimeout(() => setCopied(false), 1200);
+        } catch {
+            // ignore
+        }
+    };
+
     const labelText = liveMetadata.label;
     const labelIsUrl = isValidURL(labelText);
 
@@ -53,6 +76,13 @@ export function HeaderTitle({ metadata }: HeaderTitleProps) {
                 <span className={styles.id} title={liveMetadata.snapshotId}>
                     {liveMetadata.snapshotId}
                 </span>
+                <IconButton
+                    name={copied ? 'check' : 'copy'}
+                    tooltip={copied ? 'Copied' : 'Copy ID'}
+                    aria-label="Copy snapshot ID"
+                    onClick={onCopy}
+                    size="sm"
+                />
                 <span className={styles.sep}>·</span>
                 <span className={styles.version}>{liveMetadata.version}</span>
                 {labelText && (
