@@ -6,6 +6,7 @@ import { Alert, Button, Drawer, Icon, IconButton, useStyles2 } from '@grafana/ui
 import { SnapshotMetadata } from 'types/snapshot';
 import { nodeDrilldownUrl } from '../../pages/nodeDrilldownPage';
 import { snapshotService } from '../../services/snapshotService';
+import { normaliseProductList } from '../../config/products';
 
 interface SnapshotDetailsDrawerProps {
     metadata: SnapshotMetadata;
@@ -159,7 +160,7 @@ export function SnapshotDetailsDrawer({ metadata, onClose }: SnapshotDetailsDraw
                 {metadata.products && metadata.products.length > 0 && (
                     <Section label="Products">
                         <div className={styles.tags}>
-                            {metadata.products.map((p) => (
+                            {normaliseProductList(metadata.products).map((p) => (
                                 <span key={p} className={styles.tag}>{p}</span>
                             ))}
                         </div>

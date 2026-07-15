@@ -84,6 +84,15 @@ export function normaliseProductName(product: string): string {
     return aliasMatch?.key ?? normalised;
 }
 
+/**
+ * Normalise a snapshot's raw `metadata.products` list for display: resolves
+ * each entry to its canonical key and dedupes (e.g. `['couchbase']` and
+ * `['couchbase', 'couchbase-server']` both display as just `['couchbase-server']`).
+ */
+export function normaliseProductList(products: string[] | undefined): string[] {
+    return Array.from(new Set((products ?? []).map(normaliseProductName)));
+}
+
 /** Look up a product config by canonical key. */
 export function getProductConfig(productKey: string): ProductConfig | undefined {
     return PRODUCT_CONFIGS.find((c) => c.key === productKey);

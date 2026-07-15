@@ -17,6 +17,7 @@ import {
 import { buildProductDashboardUrl } from '../../utils/productDashboardUrl';
 import { openInNewTab } from '../../utils/openInNewTab';
 import type { Phase } from '../../types/snapshot';
+import { normaliseProductList } from '../../config/products';
 
 interface SnapshotOverviewState extends SceneObjectState {
     snapshotId: string;
@@ -62,7 +63,7 @@ function SnapshotOverviewRenderer({ model }: SceneComponentProps<SnapshotOvervie
         );
     }
 
-    const products = metadata.products ?? [];
+    const products = normaliseProductList(metadata.products);
     const openDashboard = (dashboard: ProductDashboard) => {
         const url = buildProductDashboardUrl({
             dashboardUrl: dashboard.url,
