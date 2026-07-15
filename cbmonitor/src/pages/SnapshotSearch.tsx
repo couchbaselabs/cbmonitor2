@@ -6,11 +6,47 @@ import { useStyles2, Button, Input, Icon, Alert } from '@grafana/ui';
 import { locationService } from '@grafana/runtime';
 import { prefixRoute, ROUTE_PATHS } from '../utils/utils.routing';
 import { getVersionInfo } from '../utils/utils.version';
-import { snapshotCacheStore } from '../services/snapshotCache';
+import { snapshotCacheStore, SnapshotCacheEntry } from '../services/snapshotCache';
 import { snapshotService } from '../services/snapshotService';
+
+// How many recent snapshots to show directly on the landing page.
+const RECENT_SNAPSHOTS_SHOWN = 5;
 
 interface SnapshotSearchSceneState extends SceneObjectState {
   errorMessage?: string;
+}
+
+function isValidURL(str?: string): boolean {
+  if (!str) {
+    return false;
+  }
+  try {
+    const url = new URL(str);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function formatRelative(ts: number): string {
+  const delta = Date.now() - ts;
+  if (delta < 0) {
+    return 'just now';
+  }
+  const seconds = Math.floor(delta / 1000);
+  if (seconds < 60) {
+    return `${seconds}s ago`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }
 
 export class SnapshotSearchScene extends SceneObjectBase<SnapshotSearchSceneState> {
@@ -27,20 +63,20 @@ function SnapshotSearchRenderer({ model }: SceneComponentProps<SnapshotSearchSce
   const { errorMessage } = model.useState();
   const s = useStyles2(getStyles);
   const [searchQuery, setSearchQuery] = useState('');
-  const [cachedCount, setCachedCount] = useState(0);
+  const [cachedEntries, setCachedEntries] = useState<SnapshotCacheEntry[]>([]);
   const versionInfo = getVersionInfo();
 
   useEffect(() => {
     let active = true;
-    const refreshCount = async () => {
+    const refreshList = async () => {
       const list = await snapshotCacheStore.list();
       if (active) {
-        setCachedCount(list.length);
+        setCachedEntries(list);
       }
     };
-    void refreshCount();
+    void refreshList();
     const unsubscribe = snapshotService.onSnapshotRefreshed(() => {
-      void refreshCount();
+      void refreshList();
     });
     return () => {
       active = false;
@@ -98,7 +134,7 @@ function SnapshotSearchRenderer({ model }: SceneComponentProps<SnapshotSearchSce
               autoFocus
             />
             <Button size="lg" onClick={handleSearch} className={s.searchButton}>
-              Search
+              Go
             </Button>
           </div>
         </div>
@@ -108,15 +144,45 @@ function SnapshotSearchRenderer({ model }: SceneComponentProps<SnapshotSearchSce
           Enter a snapshot ID to view performance metrics and dashboards
         </div>
 
-        {cachedCount > 0 && (
-          <button
-            type="button"
-            className={s.cacheLink}
-            onClick={() => locationService.push(prefixRoute(ROUTE_PATHS.preferences()))}
-          >
-            <Icon name="history" size="sm" />
-            View {cachedCount} cached snapshot{cachedCount === 1 ? '' : 's'}
-          </button>
+        {cachedEntries.length > 0 && (
+          <div className={s.recentContainer}>
+            <div className={s.recentHeader}>
+              <Icon name="history" size="sm" />
+              Recent snapshots
+            </div>
+            <div className={s.recentList}>
+              {cachedEntries.slice(0, RECENT_SNAPSHOTS_SHOWN).map((entry) => {
+                const label = entry.metadata.label;
+                const labelIsUrl = isValidURL(label);
+                return (
+                  <button
+                    key={entry.snapshotId}
+                    type="button"
+                    className={s.recentRow}
+                    onClick={() => locationService.push(prefixRoute(ROUTE_PATHS.snapshotView(entry.snapshotId)))}
+                    title={`Open ${entry.snapshotId}`}
+                  >
+                    <span className={s.recentId}>{entry.snapshotId}</span>
+                    {label && (
+                      <span className={labelIsUrl ? `${s.recentLabel} ${s.truncateStart}` : s.recentLabel}>
+                        <bdi>{label}</bdi>
+                      </span>
+                    )}
+                    <span className={s.recentTime}>{formatRelative(entry.lastAccessedAt)}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {cachedEntries.length > RECENT_SNAPSHOTS_SHOWN && (
+              <button
+                type="button"
+                className={s.cacheLink}
+                onClick={() => locationService.push(prefixRoute(ROUTE_PATHS.preferences()))}
+              >
+                View all {cachedEntries.length} cached snapshots
+              </button>
+            )}
+          </div>
         )}
 
         {/* Version Information */}
@@ -216,7 +282,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
   cacheLink: css`
     background: none;
     border: none;
-    margin-top: 16px;
+    margin-top: 12px;
     padding: 6px 12px;
     color: ${theme.colors.text.link};
     font-size: 14px;
@@ -229,6 +295,66 @@ const getStyles = (theme: GrafanaTheme2) => ({
       background: ${theme.colors.background.secondary};
       text-decoration: underline;
     }
+  `,
+  recentContainer: css`
+    margin-top: 24px;
+    width: 100%;
+    max-width: 600px;
+    text-align: left;
+  `,
+  recentHeader: css`
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: ${theme.colors.text.secondary};
+    margin-bottom: 8px;
+  `,
+  recentList: css`
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  `,
+  recentRow: css`
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    background: ${theme.colors.background.secondary};
+    border: 1px solid ${theme.colors.border.weak};
+    border-radius: ${theme.shape.radius.default};
+    padding: 8px 12px;
+    cursor: pointer;
+    text-align: left;
+    &:hover {
+      background: ${theme.colors.action.hover};
+      border-color: ${theme.colors.border.medium};
+    }
+  `,
+  recentId: css`
+    font-family: ${theme.typography.fontFamilyMonospace};
+    font-size: 13px;
+    color: ${theme.colors.text.primary};
+    flex-shrink: 0;
+  `,
+  recentLabel: css`
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: ${theme.colors.text.secondary};
+  `,
+  truncateStart: css`
+    direction: rtl;
+    text-align: left;
+  `,
+  recentTime: css`
+    flex-shrink: 0;
+    font-size: 12px;
+    color: ${theme.colors.text.secondary};
   `,
   versionInfo: css`
     margin-top: 48px;
