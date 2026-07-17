@@ -172,7 +172,6 @@ function sgwResourcePanel(ctx: MetricContext, [metric, title, unit, rate]: SgwMe
     return ctx.panel(metric, `${title}${ctx.titleSuffix}`, {
         expr,
         legendFormat: ctx.legend(),
-        ...(rate ? { transformFunction: 'rate' } : {}),
         unit,
     });
 }
@@ -193,8 +192,6 @@ function sgwDatabasePanel(ctx: MetricContext, [metric, title, unit, rate]: SgwMe
     return ctx.panel(metric, `${title}${ctx.titleSuffix}`, {
         expr: `sum by (${groupBy}) (${series})`,
         legendFormat: '{{instance}} , {{database}}',
-        extraFields: ['d.labels.instance', 'd.labels.`database`'],
-        ...(rate ? { transformFunction: 'rate' } : {}),
         unit,
     });
 }

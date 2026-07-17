@@ -469,42 +469,38 @@ func TestReconcile_PreservesClaimedDatasourceWithMissingConfig(t *testing.T) {
 }
 
 func TestClaimedDatasources_ReflectsEnabledFlags(t *testing.T) {
-	// claimedDatasources() ignores URL/connection-string presence — it's
-	// purely about user intent. Verifies the hardening pivot: "did the
-	// user ask for this feature to be on?" rather than "is it currently
-	// reconcilable?".
+	// claimedDatasources() ignores URL presence — it's purely about user
+	// intent ("did the user ask for this feature on?"). cbdatasource is retired
+	// and must never be claimed, so its leftover always gets orphan-deleted.
 	cases := []struct {
-		name string
-		s    PluginSettings
-		want map[string]bool
+		name     string
+		s        PluginSettings
+		wantProm bool
 	}{
 		{
-			name: "both enabled, both URLs/strings empty",
-			s: PluginSettings{
-				PrometheusDatasource: PrometheusDatasourceSettings{Enabled: true},
-				CouchbaseDatasource:  CouchbaseDatasourceSettings{Enabled: true},
-			},
-			want: map[string]bool{dsUIDPrometheus: true, dsUIDCouchbase: true},
+			name:     "prom enabled, url empty",
+			s:        PluginSettings{PrometheusDatasource: PrometheusDatasourceSettings{Enabled: true}},
+			wantProm: true,
 		},
 		{
-			name: "prom enabled, couchbase disabled",
-			s: PluginSettings{
-				PrometheusDatasource: PrometheusDatasourceSettings{Enabled: true, URL: "http://x"},
-				CouchbaseDatasource:  CouchbaseDatasourceSettings{Enabled: false},
-			},
-			want: map[string]bool{dsUIDPrometheus: true, dsUIDCouchbase: false},
+			name:     "prom enabled with url",
+			s:        PluginSettings{PrometheusDatasource: PrometheusDatasourceSettings{Enabled: true, URL: "http://x"}},
+			wantProm: true,
 		},
 		{
-			name: "neither enabled",
-			s:    PluginSettings{},
-			want: map[string]bool{dsUIDPrometheus: false, dsUIDCouchbase: false},
+			name:     "prom disabled",
+			s:        PluginSettings{},
+			wantProm: false,
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := tc.s.claimedDatasources()
-			if got[dsUIDPrometheus] != tc.want[dsUIDPrometheus] || got[dsUIDCouchbase] != tc.want[dsUIDCouchbase] {
-				t.Errorf("claimedDatasources() = %v, want %v", got, tc.want)
+			if got[dsUIDPrometheus] != tc.wantProm {
+				t.Errorf("claimed[prometheus] = %v, want %v", got[dsUIDPrometheus], tc.wantProm)
+			}
+			if got[dsUIDCouchbase] {
+				t.Error("cbdatasource must not be claimed (retired)")
 			}
 		})
 	}
@@ -531,18 +527,19 @@ func TestDesiredDatasources_OnlyIncludesEnabledWithRequiredFields(t *testing.T) 
 			wantUIDs: []string{},
 		},
 		{
-			name: "both enabled with required fields",
+			name: "both features enabled — only the prometheus DS (cbdatasource retired)",
 			s: PluginSettings{
 				PrometheusDatasource: PrometheusDatasourceSettings{Enabled: true, URL: "http://prom"},
 				CouchbaseDatasource:  CouchbaseDatasourceSettings{Enabled: true, Bucket: "cbmonitor"},
 				CouchbaseServer:      CouchbaseServerSettings{ConnectionString: "couchbase://x"},
 			},
-			wantUIDs: []string{"prometheus", "cbdatasource"},
+			wantUIDs: []string{"prometheus"},
 		},
 		{
-			name: "couchbase enabled but connection string missing — skipped",
+			name: "couchbase enabled, prometheus off — no datasource (cbdatasource retired)",
 			s: PluginSettings{
 				CouchbaseDatasource: CouchbaseDatasourceSettings{Enabled: true, Bucket: "cbmonitor"},
+				CouchbaseServer:     CouchbaseServerSettings{ConnectionString: "couchbase://x"},
 			},
 			wantUIDs: []string{},
 		},
@@ -561,11 +558,12 @@ func TestDesiredDatasources_OnlyIncludesEnabledWithRequiredFields(t *testing.T) 
 	}
 }
 
-func TestDesiredDatasources_PropagatesBucketScopeCollectionToCbdatasource(t *testing.T) {
-	// The whole point of these settings is for panel queries (and any
-	// UDFs) to know where the timeseries data lives. Verify they actually
-	// land in the cbdatasource JSONData the reconciler sends to Grafana.
+func TestDesiredDatasources_NeverCreatesCbdatasource(t *testing.T) {
+	// cbdatasource is retired: even with the Couchbase datasource feature fully
+	// enabled, no couchbase-datasource entry is produced — the gateway serves
+	// Couchbase-backed snapshots through the single prometheus datasource.
 	s := PluginSettings{
+		PrometheusDatasource: PrometheusDatasourceSettings{Enabled: true, URL: "http://prom:9090"},
 		CouchbaseDatasource: CouchbaseDatasourceSettings{
 			Enabled:    true,
 			Bucket:     "metrics-bucket",
@@ -577,44 +575,40 @@ func TestDesiredDatasources_PropagatesBucketScopeCollectionToCbdatasource(t *tes
 			Username:         "u",
 		},
 	}
-	got := s.desiredDatasources()
-	if len(got) != 1 || got[0].UID != "cbdatasource" {
-		t.Fatalf("expected exactly one cbdatasource desired entry, got %#v", got)
-	}
-	jd := got[0].JSONData
-	if jd["bucket"] != "metrics-bucket" {
-		t.Errorf("bucket not propagated, got %v", jd["bucket"])
-	}
-	if jd["scope"] != "metrics-scope" {
-		t.Errorf("scope not propagated, got %v", jd["scope"])
-	}
-	if jd["collection"] != "timeseries" {
-		t.Errorf("collection not propagated, got %v", jd["collection"])
+	for _, d := range s.desiredDatasources() {
+		if d.Type == "couchbase-datasource" || d.UID == dsUIDCouchbase {
+			t.Errorf("cbdatasource should no longer be produced, got %#v", d)
+		}
 	}
 }
 
-func TestDesiredDatasources_OmitsEmptyScopeCollection(t *testing.T) {
-	// When scope/collection are blank (user wants defaults), the
-	// JSONData shouldn't carry empty strings — the couchbase-datasource
-	// plugin / UDFs should see them as absent, not as "" (which can
-	// trigger different code paths).
-	s := PluginSettings{
-		CouchbaseDatasource: CouchbaseDatasourceSettings{
-			Enabled: true,
-			Bucket:  "metrics-bucket",
-		},
-		CouchbaseServer: CouchbaseServerSettings{
-			ConnectionString: "couchbase://cb",
-			Username:         "u",
-		},
+func TestDesiredDatasources_PrometheusTargetsGatewayWhenEnabled(t *testing.T) {
+	base := PluginSettings{
+		PrometheusDatasource: PrometheusDatasourceSettings{Enabled: true, URL: "http://mimir:9009/prometheus", IsDefault: true},
 	}
-	got := s.desiredDatasources()
-	jd := got[0].JSONData
-	if _, ok := jd["scope"]; ok {
-		t.Errorf("scope should be omitted when blank, got %v", jd["scope"])
+
+	// Pure-Prometheus mode: the datasource targets the upstream Mimir directly.
+	got := base.desiredDatasources()
+	if len(got) != 1 || got[0].UID != dsUIDPrometheus {
+		t.Fatalf("expected one prometheus DS, got %#v", got)
 	}
-	if _, ok := jd["collection"]; ok {
-		t.Errorf("collection should be omitted when blank, got %v", jd["collection"])
+	if got[0].URL != "http://mimir:9009/prometheus" {
+		t.Errorf("pure-Prometheus URL = %q, want the Mimir URL", got[0].URL)
+	}
+
+	// Gateway enabled: the same datasource now targets the gateway URL, still
+	// as a prometheus-typed datasource.
+	withGW := base
+	withGW.Gateway = GatewaySettings{Enabled: true, URL: "http://datasource-gateway:8090"}
+	got = withGW.desiredDatasources()
+	if len(got) != 1 || got[0].UID != dsUIDPrometheus {
+		t.Fatalf("expected one prometheus DS, got %#v", got)
+	}
+	if got[0].URL != "http://datasource-gateway:8090" {
+		t.Errorf("gateway-mode URL = %q, want the gateway URL", got[0].URL)
+	}
+	if got[0].Type != "prometheus" {
+		t.Errorf("DS type = %q, want prometheus", got[0].Type)
 	}
 }
 
