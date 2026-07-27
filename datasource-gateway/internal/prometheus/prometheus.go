@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -58,8 +60,8 @@ func (c *Client) HTTPClient() *http.Client { return c.http }
 
 // ReverseProxy returns a streaming reverse-proxy handler to the upstream
 // Prometheus API. Requests (e.g. /api/v1/*) are forwarded as-is over the
-// keep-alive transport. Later tasks add the snapshot time-window rewrite and
-// per-snapshot routing in front of this.
+// keep-alive transport; the api handlers do any snapshot routing and window
+// rewriting before delegating here.
 func (c *Client) ReverseProxy() http.Handler {
 	if c.proxy == nil {
 		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -67,6 +69,39 @@ func (c *Client) ReverseProxy() http.Handler {
 		})
 	}
 	return c.proxy
+}
+
+// QueryRange issues a /api/v1/query_range against the upstream and returns
+// the raw response body and status code. Used by the overlap fan-out, which
+// needs the decoded matrices rather than a streamed passthrough. step is
+// forwarded verbatim (Prometheus accepts both duration and float forms).
+func (c *Client) QueryRange(ctx context.Context, query string, start, end time.Time, step string) ([]byte, int, error) {
+	if c.baseURL == "" {
+		return nil, 0, fmt.Errorf("upstream Prometheus URL is not configured")
+	}
+	params := url.Values{}
+	params.Set("query", query)
+	params.Set("start", strconv.FormatInt(start.Unix(), 10))
+	params.Set("end", strconv.FormatInt(end.Unix(), 10))
+	params.Set("step", step)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.baseURL+"/api/v1/query_range", strings.NewReader(params.Encode()))
+	if err != nil {
+		return nil, 0, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, resp.StatusCode, err
+	}
+	return body, resp.StatusCode, nil
 }
 
 // Reachable probes the upstream with a trivial instant query. Used by the

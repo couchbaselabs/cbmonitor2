@@ -20,11 +20,17 @@ var jobSelectorRe = regexp.MustCompile(`job\s*=~?\s*"([^"]*)"`)
 // handleQueryRange serves /api/v1/query_range. It resolves the snapshot's route
 // (cached) and forks: Prometheus-backed snapshots are forwarded to the upstream
 // with start/end rewritten to the snapshot's stored window; Couchbase-backed
-// snapshots are translated and executed (wired in a later task). Multi-snapshot
-// (overlap) and job-less queries resolve to a plain passthrough.
+// snapshots are evaluated by the PromQL engine over SQL++-fetched samples.
+// Multi-snapshot job matchers (overlap) fan out per snapshot and merge on a
+// t=0-aligned axis; job-less queries resolve to a plain passthrough.
 func (h *Handler) handleQueryRange(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		writePromError(w, http.StatusBadRequest, "bad_data", "failed to parse request: "+err.Error())
+		return
+	}
+
+	if ids := splitJobs(r.Form.Get("query")); len(ids) > 1 {
+		h.serveOverlap(w, r, ids, true)
 		return
 	}
 
@@ -42,6 +48,89 @@ func (h *Handler) handleQueryRange(w http.ResponseWriter, r *http.Request) {
 	}
 	forwardForm(r)
 	h.prometheus.ReverseProxy().ServeHTTP(w, r)
+}
+
+// handleQuery serves instant /api/v1/query. Single Couchbase-backed snapshots
+// evaluate at the snapshot's end (instance-discovery queries arrive with the
+// dashboard's own time, which need not fall inside the stored window);
+// Prometheus-backed snapshots pass through with the evaluation time clamped
+// into the window. Multi-snapshot matchers fan out like overlap range queries
+// but keep absolute time — their consumers (instance discovery) only read
+// series labels, mirroring the pre-gateway proxy's behavior.
+func (h *Handler) handleQuery(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		writePromError(w, http.StatusBadRequest, "bad_data", "failed to parse request: "+err.Error())
+		return
+	}
+
+	if ids := splitJobs(r.Form.Get("query")); len(ids) > 1 {
+		h.serveOverlap(w, r, ids, false)
+		return
+	}
+
+	route := h.router.Resolve(r.Context(), singleJob(r.Form.Get("query")))
+
+	if route.Store == router.StoreCouchbase {
+		ts := time.Now()
+		if route.HasWindow {
+			ts = route.End
+		} else if t, ok := parseUnixSeconds(r.Form.Get("time")); ok {
+			ts = t
+		}
+		result, err := h.evaluator.InstantQuery(r.Context(), r.Form.Get("query"), ts)
+		if err != nil {
+			writePromError(w, http.StatusUnprocessableEntity, "execution", err.Error())
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(result)
+		return
+	}
+
+	if route.HasWindow {
+		r.Form.Set("time", strconv.FormatInt(route.End.Unix(), 10))
+	}
+	forwardForm(r)
+	h.prometheus.ReverseProxy().ServeHTTP(w, r)
+}
+
+// handleMetaEndpoint serves /api/v1/labels, /api/v1/series and
+// /api/v1/label/{name}/values. These stay passthrough, but when the request's
+// match[] selectors identify a single snapshot with a known window, start/end
+// are rewritten to it so the upstream's lookback covers the snapshot
+// regardless of the dashboard's time picker.
+func (h *Handler) handleMetaEndpoint(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		writePromError(w, http.StatusBadRequest, "bad_data", "failed to parse request: "+err.Error())
+		return
+	}
+
+	if id := singleJobFromMatchers(r.Form["match[]"]); id != "" {
+		if route := h.router.Resolve(r.Context(), id); route.HasWindow {
+			r.Form.Set("start", strconv.FormatInt(route.Start.Unix(), 10))
+			r.Form.Set("end", strconv.FormatInt(route.End.Unix(), 10))
+		}
+	}
+	forwardForm(r)
+	h.prometheus.ReverseProxy().ServeHTTP(w, r)
+}
+
+// singleJobFromMatchers returns the snapshot ID when every match[] selector
+// that carries a job matcher agrees on a single snapshot, else "".
+func singleJobFromMatchers(matchers []string) string {
+	id := ""
+	for _, m := range matchers {
+		j := singleJob(m)
+		if j == "" {
+			continue
+		}
+		if id != "" && id != j {
+			return ""
+		}
+		id = j
+	}
+	return id
 }
 
 // serveCouchbaseQueryRange evaluates the PromQL against Couchbase-backed

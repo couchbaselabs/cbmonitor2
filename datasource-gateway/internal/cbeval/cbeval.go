@@ -48,10 +48,12 @@ type ResultData struct {
 	Result     []SeriesJSON `json:"result"`
 }
 
-// SeriesJSON is one matrix series in Prometheus JSON form.
+// SeriesJSON is one series in Prometheus JSON form: Values carries matrix
+// points, Value the single vector point.
 type SeriesJSON struct {
 	Metric map[string]string `json:"metric"`
 	Values [][]interface{}   `json:"values,omitempty"`
+	Value  []interface{}     `json:"value,omitempty"`
 }
 
 // Evaluator runs the Prometheus query engine over Couchbase-backed samples.
@@ -93,8 +95,49 @@ func (e *Evaluator) RangeQuery(ctx context.Context, query string, start, end tim
 	return matrixToResult(matrix), nil
 }
 
+// InstantQuery evaluates a PromQL instant query at ts and returns the result
+// in Prometheus JSON form. Vector and matrix (range-selector) results are
+// supported. Every metric-selector query produces one of those; scalar/string
+// expressions (no selector, so nothing Couchbase-backed) are rejected.
+func (e *Evaluator) InstantQuery(ctx context.Context, query string, ts time.Time) (*Result, error) {
+	q, err := e.engine.NewInstantQuery(ctx, e.queryable(), nil, query, ts)
+	if err != nil {
+		return nil, err
+	}
+	defer q.Close()
+
+	res := q.Exec(ctx)
+	if res.Err != nil {
+		return nil, res.Err
+	}
+	switch v := res.Value.(type) {
+	case promql.Vector:
+		return vectorToResult(v), nil
+	case promql.Matrix:
+		return matrixToResult(v), nil
+	default:
+		return nil, fmt.Errorf("unsupported result type %s for instant query", res.Value.Type())
+	}
+}
+
 func (e *Evaluator) queryable() storage.Queryable {
 	return &couchbaseQueryable{querier: e.querier, keyspace: e.keyspace}
+}
+
+func vectorToResult(v promql.Vector) *Result {
+	out := &Result{Status: "success"}
+	out.Data.ResultType = "vector"
+	out.Data.Result = make([]SeriesJSON, 0, len(v))
+	for _, s := range v {
+		out.Data.Result = append(out.Data.Result, SeriesJSON{
+			Metric: s.Metric.Map(),
+			Value: []interface{}{
+				float64(s.T) / 1000,
+				strconv.FormatFloat(s.F, 'f', -1, 64),
+			},
+		})
+	}
+	return out
 }
 
 func matrixToResult(m promql.Matrix) *Result {

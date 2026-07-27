@@ -18,17 +18,20 @@ type couchbaseHealth interface {
 }
 
 // prometheusGateway is the slice of the Prometheus client the gateway needs:
-// health probing plus the reverse-proxy handler for the passthrough path.
+// health probing, the reverse-proxy handler for the passthrough path, and a
+// decoded query_range call for the overlap fan-out.
 type prometheusGateway interface {
 	URL() string
 	Reachable(ctx context.Context) bool
 	ReverseProxy() http.Handler
+	QueryRange(ctx context.Context, query string, start, end time.Time, step string) ([]byte, int, error)
 }
 
-// couchbaseEvaluator runs a PromQL range query against Couchbase-backed samples
-// (via the Prometheus engine) and returns the matrix result.
+// couchbaseEvaluator runs PromQL against Couchbase-backed samples (via the
+// Prometheus engine) and returns the result in Prometheus JSON form.
 type couchbaseEvaluator interface {
 	RangeQuery(ctx context.Context, query string, start, end time.Time, step time.Duration) (*cbeval.Result, error)
+	InstantQuery(ctx context.Context, query string, ts time.Time) (*cbeval.Result, error)
 }
 
 // Handler holds the gateway HTTP handlers: the health endpoint and the
@@ -46,12 +49,18 @@ func NewHandler(couchbase couchbaseHealth, prometheus prometheusGateway, router 
 }
 
 // Register wires the handler's routes onto the given mux: the gateway's own
-// /healthz; /api/v1/query_range (routed per snapshot); and a catch-all
-// /api/v1/ streaming reverse proxy for every other Prometheus-API endpoint.
+// /healthz; the snapshot-routed query endpoints (/api/v1/query_range and
+// /api/v1/query, both overlap-aware); the label/series endpoints with the
+// snapshot window rewritten when derivable; and a catch-all /api/v1/
+// streaming reverse proxy for every other Prometheus-API endpoint.
 func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/healthz", h.Health)
 	if h.prometheus != nil {
 		mux.HandleFunc("/api/v1/query_range", h.handleQueryRange)
+		mux.HandleFunc("/api/v1/query", h.handleQuery)
+		mux.HandleFunc("/api/v1/labels", h.handleMetaEndpoint)
+		mux.HandleFunc("/api/v1/series", h.handleMetaEndpoint)
+		mux.HandleFunc("/api/v1/label/", h.handleMetaEndpoint)
 		mux.Handle("/api/v1/", h.prometheus.ReverseProxy())
 	}
 }

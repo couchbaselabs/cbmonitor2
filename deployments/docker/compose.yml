@@ -12,3 +12,14 @@ services:
       - ${HOST_DATA_DIR:-../../data}:${CM_AGENT_DIRECTORY:-/root/data}
     environment:
       - CM_LOG_LEVEL=${CM_LOG_LEVEL:-info}
+
+  datasource-gateway:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile.datasource-gateway
+      args:
+        - DSG_SERVER_PORT=${DSG_SERVER_PORT:-8090}
+    ports:
+      - "${DSG_SERVER_PORT:-8090}:${DSG_SERVER_PORT:-8090}"
+    environment:
+      - DSG_LOG_LEVEL=${DSG_LOG_LEVEL:-info}

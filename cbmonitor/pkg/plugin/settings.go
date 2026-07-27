@@ -112,6 +112,9 @@ func defaultSettings() *PluginSettings {
 		},
 		Gateway: GatewaySettings{
 			Enabled: false,
+			// The gateway serves overlap natively; deployments can still
+			// switch the comparison affordance off explicitly.
+			Overlap: true,
 		},
 	}
 }

@@ -13,11 +13,10 @@ import (
 
 // Config holds the datasource-gateway service configuration.
 //
-// The gateway is a Prometheus-compatible sidecar: it serves a single
-// Grafana Prometheus datasource, passing PromQL through to Prometheus for
-// Prometheus-backed snapshots and (in later tasks) translating PromQL to
-// SQL++ for Couchbase-backed snapshots. The Prometheus and Couchbase sections
-// below are loaded now; their clients are wired in subsequent tasks.
+// The gateway is a Prometheus-compatible sidecar: it serves a single Grafana
+// Prometheus datasource, passing PromQL through to Prometheus for
+// Prometheus-backed snapshots and evaluating PromQL over SQL++-fetched
+// samples for Couchbase-backed snapshots.
 type Config struct {
 	Server struct {
 		Port int    `yaml:"port"`

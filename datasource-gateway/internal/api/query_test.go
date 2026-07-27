@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,39 +22,75 @@ import (
 type fakeCouchbase struct {
 	enabled bool
 	md      *couchbase.Metadata
+	mdByID  map[string]*couchbase.Metadata
 	err     error
 	calls   int
 }
 
 func (f *fakeCouchbase) Enabled() bool { return f.enabled }
 func (f *fakeCouchbase) Ready() bool   { return true }
-func (f *fakeCouchbase) GetSnapshotMetadata(_ context.Context, _ string) (*couchbase.Metadata, error) {
+func (f *fakeCouchbase) GetSnapshotMetadata(_ context.Context, id string) (*couchbase.Metadata, error) {
 	f.calls++
 	if f.err != nil {
 		return nil, f.err
 	}
+	if md, ok := f.mdByID[id]; ok {
+		return md, nil
+	}
 	return f.md, nil
 }
 
-type fakeProm struct{ proxy http.Handler }
+// rangeCall records one upstream QueryRange call made by the overlap fan-out.
+type rangeCall struct {
+	query      string
+	start, end time.Time
+	step       string
+}
+
+type fakeProm struct {
+	proxy http.Handler
+	// rangeBody maps the rewritten query to the upstream response body;
+	// unmatched queries get an empty success matrix.
+	rangeBody  map[string]string
+	rangeCalls []rangeCall
+	mu         sync.Mutex
+}
 
 func (f *fakeProm) URL() string                      { return "http://upstream" }
 func (f *fakeProm) Reachable(_ context.Context) bool { return true }
 func (f *fakeProm) ReverseProxy() http.Handler       { return f.proxy }
+func (f *fakeProm) QueryRange(_ context.Context, query string, start, end time.Time, step string) ([]byte, int, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.rangeCalls = append(f.rangeCalls, rangeCall{query: query, start: start, end: end, step: step})
+	if body, ok := f.rangeBody[query]; ok {
+		return []byte(body), http.StatusOK, nil
+	}
+	return []byte(`{"status":"success","data":{"resultType":"matrix","result":[]}}`), http.StatusOK, nil
+}
 
 type fakeEvaluator struct {
-	result   *cbeval.Result
-	err      error
-	called   bool
-	gotQuery string
-	gotStart time.Time
-	gotEnd   time.Time
-	gotStep  time.Duration
+	result     *cbeval.Result
+	err        error
+	called     bool
+	gotQuery   string
+	gotStart   time.Time
+	gotEnd     time.Time
+	gotStep    time.Duration
+	instCalled bool
+	instQuery  string
+	instTS     time.Time
 }
 
 func (f *fakeEvaluator) RangeQuery(_ context.Context, query string, start, end time.Time, step time.Duration) (*cbeval.Result, error) {
 	f.called = true
 	f.gotQuery, f.gotStart, f.gotEnd, f.gotStep = query, start, end, step
+	return f.result, f.err
+}
+
+func (f *fakeEvaluator) InstantQuery(_ context.Context, query string, ts time.Time) (*cbeval.Result, error) {
+	f.instCalled = true
+	f.instQuery, f.instTS = query, ts
 	return f.result, f.err
 }
 
@@ -74,7 +112,11 @@ func (rc *recorder) handler() http.Handler {
 }
 
 func newTestHandler(cb *fakeCouchbase, rc *recorder, ev couchbaseEvaluator) *Handler {
-	return NewHandler(cb, &fakeProm{proxy: rc.handler()}, router.New(cb), ev)
+	return newTestHandlerWithProm(cb, &fakeProm{proxy: rc.handler()}, ev)
+}
+
+func newTestHandlerWithProm(cb *fakeCouchbase, fp *fakeProm, ev couchbaseEvaluator) *Handler {
+	return NewHandler(cb, fp, router.New(cb), ev)
 }
 
 func postQueryRange(h *Handler, query, start, end string) *httptest.ResponseRecorder {
@@ -167,21 +209,256 @@ func TestQueryRangeCouchbaseEvaluatorErrorRendersEnvelope(t *testing.T) {
 	}
 }
 
-func TestQueryRangeOverlapForwardedUnchanged(t *testing.T) {
+// overlapMetadata returns per-snapshot metadata for two Prometheus-backed
+// snapshots with distinct one-hour windows a day apart.
+func overlapMetadata(storeA, storeB string) map[string]*couchbase.Metadata {
+	return map[string]*couchbase.Metadata{
+		"snap-1": {Store: storeA, TSStart: "2024-01-02T00:00:00Z", TSEnd: "2024-01-02T01:00:00Z"},
+		"snap-2": {Store: storeB, TSStart: "2024-01-03T00:00:00Z", TSEnd: "2024-01-03T02:00:00Z"},
+	}
+}
+
+func decodeEnvelope(t *testing.T, w *httptest.ResponseRecorder) promEnvelope {
+	t.Helper()
+	var env promEnvelope
+	if err := json.NewDecoder(w.Body).Decode(&env); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	return env
+}
+
+func TestQueryRangeOverlapFansOutAndShifts(t *testing.T) {
+	startA, _ := time.Parse(time.RFC3339, "2024-01-02T00:00:00Z")
+	startB, _ := time.Parse(time.RFC3339, "2024-01-03T00:00:00Z")
+	cb := &fakeCouchbase{enabled: true, mdByID: overlapMetadata("prometheus", "prometheus")}
+	fp := &fakeProm{rangeBody: map[string]string{
+		`rate(kv_ops{job="snap-1"}[5m])`: fmt.Sprintf(
+			`{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"job":"snap-1"},"values":[[%d,"1"],[%d,"2"]]}]}}`,
+			startA.Unix(), startA.Unix()+15),
+		`rate(kv_ops{job="snap-2"}[5m])`: fmt.Sprintf(
+			`{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"job":"snap-2"},"values":[[%d,"3"]]}]}}`,
+			startB.Unix()),
+	}}
+	h := newTestHandlerWithProm(cb, fp, &fakeEvaluator{})
+
+	w := postQueryRange(h, `rate(kv_ops{job=~"snap-1|snap-2"}[5m])`, "0", "7200")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("code = %d, want 200", w.Code)
+	}
+	if len(fp.rangeCalls) != 2 {
+		t.Fatalf("upstream calls = %d, want 2 (one per snapshot)", len(fp.rangeCalls))
+	}
+	for _, c := range fp.rangeCalls {
+		switch {
+		case strings.Contains(c.query, `job="snap-1"`):
+			if !c.start.Equal(startA) {
+				t.Errorf("snap-1 window start = %v, want %v", c.start, startA)
+			}
+		case strings.Contains(c.query, `job="snap-2"`):
+			if !c.start.Equal(startB) {
+				t.Errorf("snap-2 window start = %v, want %v", c.start, startB)
+			}
+		default:
+			t.Errorf("unexpected upstream query %q", c.query)
+		}
+		if c.step != "15" {
+			t.Errorf("step = %q, want request step 15", c.step)
+		}
+	}
+
+	env := decodeEnvelope(t, w)
+	if env.Status != "success" || env.Data.ResultType != "matrix" {
+		t.Fatalf("envelope = %+v", env)
+	}
+	if len(env.Data.Result) != 2 {
+		t.Fatalf("merged series = %d, want 2", len(env.Data.Result))
+	}
+	// Every sample must be shifted onto the 0-based axis.
+	for _, s := range env.Data.Result {
+		for _, v := range s.Values {
+			ts, ok := v[0].(float64) // JSON numbers decode as float64
+			if !ok || ts < 0 || ts > 7200 {
+				t.Errorf("series %v sample ts = %v, want 0-based offset", s.Metric, v[0])
+			}
+		}
+	}
+}
+
+func TestQueryRangeOverlapMixedStores(t *testing.T) {
+	cb := &fakeCouchbase{enabled: true, mdByID: overlapMetadata("prometheus", "couchbase")}
+	startB, _ := time.Parse(time.RFC3339, "2024-01-03T00:00:00Z")
+	ev := &fakeEvaluator{result: &cbeval.Result{Status: "success"}}
+	ev.result.Data.ResultType = "matrix"
+	ev.result.Data.Result = []cbeval.SeriesJSON{{
+		Metric: map[string]string{"job": "snap-2"},
+		Values: [][]interface{}{{float64(startB.Unix() + 30), "7"}},
+	}}
+	fp := &fakeProm{}
+	h := newTestHandlerWithProm(cb, fp, ev)
+
+	w := postQueryRange(h, `kv_ops{job=~"snap-1|snap-2"}`, "0", "7200")
+
+	if !ev.called {
+		t.Fatal("Couchbase-backed leg should run through the evaluator")
+	}
+	if !strings.Contains(ev.gotQuery, `job="snap-2"`) {
+		t.Errorf("evaluator query = %q, want single-snapshot matcher", ev.gotQuery)
+	}
+	if len(fp.rangeCalls) != 1 || !strings.Contains(fp.rangeCalls[0].query, `job="snap-1"`) {
+		t.Fatalf("upstream calls = %+v, want exactly the snap-1 leg", fp.rangeCalls)
+	}
+	env := decodeEnvelope(t, w)
+	// snap-1's leg returns the default empty matrix; snap-2 contributes one
+	// series whose sample lands on the 0-based axis (start+30s -> 30).
+	if len(env.Data.Result) != 1 {
+		t.Fatalf("merged series = %d, want 1", len(env.Data.Result))
+	}
+	if ts, _ := env.Data.Result[0].Values[0][0].(float64); ts != 30 {
+		t.Errorf("shifted ts = %v, want 30", env.Data.Result[0].Values[0][0])
+	}
+}
+
+func TestQueryRangeOverlapNoMetadataFallsBackToPassthrough(t *testing.T) {
 	rc := &recorder{}
-	cb := &fakeCouchbase{enabled: true, md: &couchbase.Metadata{Store: "couchbase"}}
+	cb := &fakeCouchbase{enabled: false}
 	h := newTestHandler(cb, rc, &fakeEvaluator{})
 
 	postQueryRange(h, `rate(kv_ops{job=~"snap-1|snap-2"}[5m])`, "1000", "2000")
 
 	if !rc.called {
-		t.Fatal("overlap query should pass through")
+		t.Fatal("overlap without metadata should degrade to passthrough")
 	}
 	if rc.start != "1000" || rc.end != "2000" {
-		t.Errorf("overlap window rewritten: start=%q end=%q, want 1000/2000", rc.start, rc.end)
+		t.Errorf("passthrough window rewritten: start=%q end=%q", rc.start, rc.end)
 	}
-	if cb.calls != 0 {
-		t.Errorf("metadata consulted for overlap query: %d calls", cb.calls)
+}
+
+func TestSplitJobs(t *testing.T) {
+	cases := []struct {
+		query string
+		want  []string
+	}{
+		{`kv_ops{job="snap-1"}`, []string{"snap-1"}},
+		{`kv_ops{job=~"snap-1|snap-2"}`, []string{"snap-1", "snap-2"}},
+		{`kv_ops{job=~"snap\.1|snap-2"}`, []string{"snap.1", "snap-2"}},
+		{`kv_ops{job=~"snap-1|snap-1|snap-2"}`, []string{"snap-1", "snap-2"}},
+		{`kv_ops`, nil},
+		{`kv_ops{job!="snap-1"}`, nil},
+	}
+	for _, c := range cases {
+		got := splitJobs(c.query)
+		if len(got) != len(c.want) {
+			t.Errorf("splitJobs(%q) = %v, want %v", c.query, got, c.want)
+			continue
+		}
+		for i := range got {
+			if got[i] != c.want[i] {
+				t.Errorf("splitJobs(%q) = %v, want %v", c.query, got, c.want)
+				break
+			}
+		}
+	}
+}
+
+func postQuery(h *Handler, query string, extra url.Values) *httptest.ResponseRecorder {
+	body := url.Values{"query": {query}}
+	for k, vs := range extra {
+		body[k] = vs
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/query", strings.NewReader(body.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	h.handleQuery(w, req)
+	return w
+}
+
+func TestInstantQueryCouchbaseBackedEvaluatesAtWindowEnd(t *testing.T) {
+	cb := &fakeCouchbase{enabled: true, md: &couchbase.Metadata{Store: "couchbase", TSStart: "2024-01-02T00:00:00Z", TSEnd: "2024-01-02T01:00:00Z"}}
+	ev := &fakeEvaluator{result: &cbeval.Result{Status: "success"}}
+	ev.result.Data.ResultType = "vector"
+	h := newTestHandler(cb, &recorder{}, ev)
+
+	w := postQuery(h, `group by (instance) (sys_cpu{job="snap-1"})`, url.Values{"time": {"12345"}})
+
+	if !ev.instCalled {
+		t.Fatal("instant evaluator not called for Couchbase-backed snapshot")
+	}
+	wantEnd, _ := time.Parse(time.RFC3339, "2024-01-02T01:00:00Z")
+	if !ev.instTS.Equal(wantEnd) {
+		t.Errorf("eval ts = %v, want snapshot end %v (not the request's own time)", ev.instTS, wantEnd)
+	}
+	if w.Code != http.StatusOK {
+		t.Errorf("code = %d, want 200", w.Code)
+	}
+}
+
+func TestInstantQueryPrometheusBackedClampsTime(t *testing.T) {
+	rc := &recorder{}
+	timeRecorder := &recorder{}
+	proxy := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rc.called = true
+		_ = r.ParseForm()
+		timeRecorder.start = r.Form.Get("time")
+		w.WriteHeader(http.StatusOK)
+	})
+	cb := &fakeCouchbase{enabled: true, md: &couchbase.Metadata{Store: "prometheus", TSStart: "2024-01-02T00:00:00Z", TSEnd: "2024-01-02T01:00:00Z"}}
+	h := newTestHandlerWithProm(cb, &fakeProm{proxy: proxy}, &fakeEvaluator{})
+
+	postQuery(h, `sys_cpu{job="snap-1"}`, url.Values{"time": {"12345"}})
+
+	if !rc.called {
+		t.Fatal("expected passthrough")
+	}
+	if want := unixOf(t, "2024-01-02T01:00:00Z"); timeRecorder.start != want {
+		t.Errorf("time = %q, want snapshot end %q", timeRecorder.start, want)
+	}
+}
+
+func TestInstantQueryOverlapKeepsAbsoluteTime(t *testing.T) {
+	startA, _ := time.Parse(time.RFC3339, "2024-01-02T00:00:00Z")
+	cb := &fakeCouchbase{enabled: true, mdByID: overlapMetadata("prometheus", "prometheus")}
+	fp := &fakeProm{rangeBody: map[string]string{
+		`group by (instance) (sys_cpu{job="snap-1"})`: fmt.Sprintf(
+			`{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"instance":"n1","job":"snap-1"},"values":[[%d,"1"]]}]}}`,
+			startA.Unix()),
+	}}
+	h := newTestHandlerWithProm(cb, fp, &fakeEvaluator{})
+
+	w := postQuery(h, `group by (instance) (sys_cpu{job=~"snap-1|snap-2"})`, nil)
+
+	if len(fp.rangeCalls) != 2 {
+		t.Fatalf("upstream calls = %d, want 2", len(fp.rangeCalls))
+	}
+	env := decodeEnvelope(t, w)
+	if len(env.Data.Result) != 1 {
+		t.Fatalf("merged series = %d, want 1", len(env.Data.Result))
+	}
+	// Instant-style discovery keeps absolute timestamps (no 0-based shift).
+	if ts, _ := env.Data.Result[0].Values[0][0].(float64); int64(ts) != startA.Unix() {
+		t.Errorf("ts = %v, want absolute %d", env.Data.Result[0].Values[0][0], startA.Unix())
+	}
+}
+
+func TestMetaEndpointRewritesWindowFromMatchers(t *testing.T) {
+	rc := &recorder{}
+	cb := &fakeCouchbase{enabled: true, md: &couchbase.Metadata{Store: "prometheus", TSStart: "2024-01-02T00:00:00Z", TSEnd: "2024-01-02T01:00:00Z"}}
+	h := newTestHandler(cb, rc, &fakeEvaluator{})
+
+	body := url.Values{"match[]": {`{job="snap-1"}`}, "start": {"1"}, "end": {"2"}}.Encode()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/labels", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	h.handleMetaEndpoint(w, req)
+
+	if !rc.called {
+		t.Fatal("meta endpoint should pass through")
+	}
+	if want := unixOf(t, "2024-01-02T00:00:00Z"); rc.start != want {
+		t.Errorf("start = %q, want snapshot window %q", rc.start, want)
+	}
+	if want := unixOf(t, "2024-01-02T01:00:00Z"); rc.end != want {
+		t.Errorf("end = %q, want snapshot window %q", rc.end, want)
 	}
 }
 

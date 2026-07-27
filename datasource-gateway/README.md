@@ -18,6 +18,20 @@ Because the interface is a strict superset of the Prometheus HTTP API, a
 deployment that doesn't need Couchbase or overlap can simply point its Grafana
 Prometheus datasource straight at Prometheus and skip the gateway entirely.
 
+## API surface
+
+| Endpoint | Behavior |
+|---|---|
+| `/api/v1/query_range` | Routed per snapshot: window rewritten to the snapshot's stored range; Couchbase-backed snapshots evaluated via SQL++; multi-snapshot matchers fan out and merge on the `t=0` axis. |
+| `/api/v1/query` | Same routing. Couchbase-backed snapshots evaluate at the snapshot's end; multi-snapshot matchers fan out over each full window without the time shift (instance discovery reads labels, not timestamps). |
+| `/api/v1/labels`, `/api/v1/series`, `/api/v1/label/{name}/values` | Passthrough, with `start`/`end` rewritten to the snapshot window when the `match[]` selectors identify a single snapshot. |
+| everything else under `/api/v1/` | Streaming passthrough to the upstream. |
+
+Known limitation: label/series endpoints are not served from Couchbase. For a
+Couchbase-backed snapshot they return whatever the upstream holds (typically
+nothing). This only affects Grafana Explore's metric browser against
+Couchbase-backed snapshots; panel queries are unaffected.
+
 ## Origin
 
 This service originates from the **[SyncedApp](https://github.com/m-tarhon/SyncedApp)**
@@ -38,6 +52,9 @@ make build-gateway
 
 # Docker (standalone compose project)
 docker compose -f deployments/docker/compose.datasource-gateway.yml up --build -d
+
+# Or as part of the main stack (runs config-manager + datasource-gateway)
+docker compose -f deployments/docker/compose.yml up --build -d
 ```
 
 `/healthz` returns `200 {"status":"ok"}` once it's up.

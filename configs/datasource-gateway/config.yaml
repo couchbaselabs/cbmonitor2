@@ -12,8 +12,7 @@ prometheus:
   url: "http://localhost:9009/prometheus"
 
 # Couchbase access for snapshot metadata (routing + time windows) and
-# metrics (the PromQL->SQL++ translation path). Clients are wired in a
-# later task; these values are loaded now.
+# metrics (the PromQL->SQL++ translation path).
 couchbase:
   enabled: true
   host: "localhost"
