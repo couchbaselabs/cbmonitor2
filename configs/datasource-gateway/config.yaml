@@ -19,6 +19,8 @@ couchbase:
   username: "Administrator"
   password: "password"
   metadata_bucket: "metadata"
+  metadata_scope: "_default"
+  metadata_collection: "_default"
   metrics_bucket: "cbmonitor"
   metrics_scope: "_default"
   metrics_collection: "_default"

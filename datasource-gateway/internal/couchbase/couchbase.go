@@ -14,14 +14,16 @@ const queryTimeout = 30 * time.Second
 
 // Config holds the Couchbase connection settings the gateway needs.
 type Config struct {
-	Enabled           bool
-	ConnectionString  string // e.g. "couchbase://localhost"
-	Username          string
-	Password          string
-	MetadataBucket    string // snapshot metadata documents (default collection)
-	MetricsBucket     string // metrics keyspace
-	MetricsScope      string
-	MetricsCollection string
+	Enabled            bool
+	ConnectionString   string // e.g. "couchbase://localhost"
+	Username           string
+	Password           string
+	MetadataBucket     string // snapshot metadata keyspace
+	MetadataScope      string
+	MetadataCollection string
+	MetricsBucket      string // metrics keyspace
+	MetricsScope       string
+	MetricsCollection  string
 }
 
 // Metadata is the subset of a snapshot's metadata document the gateway uses
@@ -73,17 +75,14 @@ func New(cfg Config) (*Client, error) {
 		return c, fmt.Errorf("connect to Couchbase: %w", err)
 	}
 
-	scopeName := cfg.MetricsScope
-	if scopeName == "" {
-		scopeName = "_default"
-	}
-
 	metaBucket := cluster.Bucket(cfg.MetadataBucket)
 	metricsBucket := cluster.Bucket(cfg.MetricsBucket)
 
 	c.cluster = cluster
-	c.metadataColl = metaBucket.DefaultCollection()
-	c.metricsScope = metricsBucket.Scope(scopeName)
+	c.metadataColl = metaBucket.
+		Scope(orDefault(cfg.MetadataScope)).
+		Collection(orDefault(cfg.MetadataCollection))
+	c.metricsScope = metricsBucket.Scope(orDefault(cfg.MetricsScope))
 
 	// Verify readiness in the background. gocb.Connect/Bucket do no network
 	// I/O; only WaitUntilReady blocks. Keeping it off the startup path means
@@ -203,6 +202,14 @@ func (c *Client) Close() error {
 		return c.cluster.Close(nil)
 	}
 	return nil
+}
+
+// orDefault maps an empty scope/collection name to "_default".
+func orDefault(name string) string {
+	if name == "" {
+		return "_default"
+	}
+	return name
 }
 
 // BuildConnectionString prepends the couchbase:// scheme to a bare host. A

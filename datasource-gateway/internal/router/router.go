@@ -95,8 +95,8 @@ func (r *Router) resolveUncached(ctx context.Context, snapshotID string) (Route,
 	return rt, true
 }
 
-// storeFromMetadata honours an explicit `store` field; absent that, a present
-// metadata document implies the metrics live in Couchbase too.
+// storeFromMetadata honours an explicit `store` field; absent that, the
+// metrics are assumed to live in Prometheus.
 func storeFromMetadata(md *couchbase.Metadata) Store {
 	switch Store(strings.ToLower(strings.TrimSpace(md.Store))) {
 	case StorePrometheus:
@@ -104,7 +104,7 @@ func storeFromMetadata(md *couchbase.Metadata) Store {
 	case StoreCouchbase:
 		return StoreCouchbase
 	default:
-		return StoreCouchbase
+		return StorePrometheus
 	}
 }
 

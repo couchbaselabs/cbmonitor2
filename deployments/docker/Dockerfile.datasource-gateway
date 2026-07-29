@@ -29,4 +29,19 @@ EXPOSE ${DSG_SERVER_PORT}
 ENV DSG_SERVER_PORT=${DSG_SERVER_PORT}
 ENV DSG_LOG_LEVEL=${DSG_LOG_LEVEL}
 
-CMD ["sh", "-c", "./datasource-gateway --config /root/config.yaml server.port=$DSG_SERVER_PORT logging.level=$DSG_LOG_LEVEL"]
+# Every DSG_* variable maps to a "section.field" config override; unset or
+# empty variables fall back to config.yaml.
+CMD ["sh", "-c", "exec ./datasource-gateway --config /root/config.yaml \
+    ${DSG_SERVER_PORT:+server.port=$DSG_SERVER_PORT} \
+    ${DSG_LOG_LEVEL:+logging.level=$DSG_LOG_LEVEL} \
+    ${DSG_PROMETHEUS_URL:+prometheus.url=$DSG_PROMETHEUS_URL} \
+    ${DSG_COUCHBASE_ENABLED:+couchbase.enabled=$DSG_COUCHBASE_ENABLED} \
+    ${DSG_COUCHBASE_HOST:+couchbase.host=$DSG_COUCHBASE_HOST} \
+    ${DSG_COUCHBASE_USERNAME:+couchbase.username=$DSG_COUCHBASE_USERNAME} \
+    ${DSG_COUCHBASE_PASSWORD:+couchbase.password=$DSG_COUCHBASE_PASSWORD} \
+    ${DSG_COUCHBASE_METADATA_BUCKET:+couchbase.metadata_bucket=$DSG_COUCHBASE_METADATA_BUCKET} \
+    ${DSG_COUCHBASE_METADATA_SCOPE:+couchbase.metadata_scope=$DSG_COUCHBASE_METADATA_SCOPE} \
+    ${DSG_COUCHBASE_METADATA_COLLECTION:+couchbase.metadata_collection=$DSG_COUCHBASE_METADATA_COLLECTION} \
+    ${DSG_COUCHBASE_METRICS_BUCKET:+couchbase.metrics_bucket=$DSG_COUCHBASE_METRICS_BUCKET} \
+    ${DSG_COUCHBASE_METRICS_SCOPE:+couchbase.metrics_scope=$DSG_COUCHBASE_METRICS_SCOPE} \
+    ${DSG_COUCHBASE_METRICS_COLLECTION:+couchbase.metrics_collection=$DSG_COUCHBASE_METRICS_COLLECTION}"]

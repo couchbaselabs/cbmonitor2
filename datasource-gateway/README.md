@@ -69,10 +69,27 @@ them from `DSG_*` environment variables):
 ./bin/datasource-gateway --config config.yaml server.port=8090 logging.level=debug
 ```
 
-| Setting | Default | Notes |
-|---|---|---|
-| `server.port` | `8090` | Deliberately off the Prometheus (9090) / Mimir (9009) defaults so it can share a host. |
-| `server.host` | `0.0.0.0` | |
-| `logging.level` | `info` | `debug` / `info` / `warn` / `error` |
-| `prometheus.url` | `http://localhost:9009/prometheus` | Upstream Prometheus-compatible store for the passthrough path. |
-| `couchbase.*` | — | Connection + metadata/metrics buckets for routing and the SQL++ path. |
+| Setting | Env var (Docker) | Default | Notes |
+|---|---|---|---|
+| `server.port` | `DSG_SERVER_PORT` | `8090` | Deliberately off the Prometheus (9090) / Mimir (9009) defaults so it can share a host. |
+| `server.host` | — | `0.0.0.0` | |
+| `logging.level` | `DSG_LOG_LEVEL` | `info` | `debug` / `info` / `warn` / `error` |
+| `prometheus.url` | `DSG_PROMETHEUS_URL` | `http://localhost:9009/prometheus` | Upstream Prometheus-compatible store for the passthrough path. |
+| `couchbase.enabled` | `DSG_COUCHBASE_ENABLED` | `true` | `false` serves the Prometheus path only. |
+| `couchbase.host` | `DSG_COUCHBASE_HOST` | `localhost` | |
+| `couchbase.username` | `DSG_COUCHBASE_USERNAME` | `Administrator` | |
+| `couchbase.password` | `DSG_COUCHBASE_PASSWORD` | `password` | |
+| `couchbase.metadata_bucket` | `DSG_COUCHBASE_METADATA_BUCKET` | `metadata` | Snapshot metadata for routing and time windows. |
+| `couchbase.metadata_scope` | `DSG_COUCHBASE_METADATA_SCOPE` | `_default` | |
+| `couchbase.metadata_collection` | `DSG_COUCHBASE_METADATA_COLLECTION` | `_default` | |
+| `couchbase.metrics_bucket` | `DSG_COUCHBASE_METRICS_BUCKET` | `cbmonitor` | Metrics keyspace for the SQL++ path. |
+| `couchbase.metrics_scope` | `DSG_COUCHBASE_METRICS_SCOPE` | `_default` | |
+| `couchbase.metrics_collection` | `DSG_COUCHBASE_METRICS_COLLECTION` | `_default` | |
+
+For example:
+
+```sh
+DSG_PROMETHEUS_URL=https://localhost/prometheus \
+DSG_COUCHBASE_ENABLED=false \
+docker compose -f deployments/docker/compose.datasource-gateway.yml up --build -d
+```

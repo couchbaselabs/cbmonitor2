@@ -66,9 +66,11 @@ func TestLoadConfigMissingFileErrors(t *testing.T) {
 
 func TestApplyFlagOverrides(t *testing.T) {
 	cfg, err := LoadConfig("", map[string]string{
-		"server.port":       "7070",
-		"couchbase.enabled": "false",
-		"logging.level":     "debug",
+		"server.port":               "7070",
+		"couchbase.enabled":         "false",
+		"logging.level":             "debug",
+		"prometheus.url":            "http://mimir:9009/prometheus",
+		"couchbase.metadata_bucket": "meta2",
 	})
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
@@ -81,6 +83,12 @@ func TestApplyFlagOverrides(t *testing.T) {
 	}
 	if cfg.Logging.Level != "debug" {
 		t.Errorf("Logging.Level = %q", cfg.Logging.Level)
+	}
+	if cfg.Prometheus.URL != "http://mimir:9009/prometheus" {
+		t.Errorf("Prometheus.URL = %q", cfg.Prometheus.URL)
+	}
+	if cfg.Couchbase.MetadataBucket != "meta2" {
+		t.Errorf("Couchbase.MetadataBucket = %q", cfg.Couchbase.MetadataBucket)
 	}
 }
 

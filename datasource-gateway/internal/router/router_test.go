@@ -52,11 +52,14 @@ func TestResolveExplicitPrometheusStore(t *testing.T) {
 	}
 }
 
-func TestResolveDefaultsToCouchbaseWhenStoreUnset(t *testing.T) {
+func TestResolveDefaultsToPrometheusWhenStoreUnset(t *testing.T) {
 	f := &fakeSource{enabled: true, md: &couchbase.Metadata{TSStart: "2024-01-02T00:00:00Z", TSEnd: "2024-01-02T01:00:00Z"}}
 	rt := New(f).Resolve(context.Background(), "snap-1")
-	if rt.Store != StoreCouchbase {
-		t.Errorf("store = %q, want couchbase", rt.Store)
+	if rt.Store != StorePrometheus {
+		t.Errorf("store = %q, want prometheus", rt.Store)
+	}
+	if !rt.HasWindow {
+		t.Error("expected the metadata window to be resolved")
 	}
 }
 

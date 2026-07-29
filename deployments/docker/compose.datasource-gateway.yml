@@ -11,4 +11,17 @@ services:
     ports:
       - "${DSG_SERVER_PORT:-8090}:${DSG_SERVER_PORT:-8090}"
     environment:
+      # Bare entries pass the host variable through only when it is set;
+      # anything unset falls back to the baked-in config.yaml.
       - DSG_LOG_LEVEL=${DSG_LOG_LEVEL:-info}
+      - DSG_PROMETHEUS_URL
+      - DSG_COUCHBASE_ENABLED
+      - DSG_COUCHBASE_HOST
+      - DSG_COUCHBASE_USERNAME
+      - DSG_COUCHBASE_PASSWORD
+      - DSG_COUCHBASE_METADATA_BUCKET
+      - DSG_COUCHBASE_METADATA_SCOPE
+      - DSG_COUCHBASE_METADATA_COLLECTION
+      - DSG_COUCHBASE_METRICS_BUCKET
+      - DSG_COUCHBASE_METRICS_SCOPE
+      - DSG_COUCHBASE_METRICS_COLLECTION

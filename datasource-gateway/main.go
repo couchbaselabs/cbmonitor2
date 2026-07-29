@@ -63,17 +63,18 @@ func main() {
 	promClient := prometheus.New(cfg.Prometheus.URL)
 
 	// Couchbase client (metadata + metrics). Non-blocking: a connect error or
-	// an unreachable cluster degrades to the Prometheus-only path rather than
-	// failing startup.
+	// an unreachable cluster degrades to the Prometheus-only path rather than failing startup.
 	cbClient, cbErr := couchbase.New(couchbase.Config{
-		Enabled:           cfg.Couchbase.Enabled,
-		ConnectionString:  couchbase.BuildConnectionString(cfg.Couchbase.Host),
-		Username:          cfg.Couchbase.Username,
-		Password:          cfg.Couchbase.Password,
-		MetadataBucket:    cfg.Couchbase.MetadataBucket,
-		MetricsBucket:     cfg.Couchbase.MetricsBucket,
-		MetricsScope:      cfg.Couchbase.MetricsScope,
-		MetricsCollection: cfg.Couchbase.MetricsCollection,
+		Enabled:            cfg.Couchbase.Enabled,
+		ConnectionString:   couchbase.BuildConnectionString(cfg.Couchbase.Host),
+		Username:           cfg.Couchbase.Username,
+		Password:           cfg.Couchbase.Password,
+		MetadataBucket:     cfg.Couchbase.MetadataBucket,
+		MetadataScope:      cfg.Couchbase.MetadataScope,
+		MetadataCollection: cfg.Couchbase.MetadataCollection,
+		MetricsBucket:      cfg.Couchbase.MetricsBucket,
+		MetricsScope:       cfg.Couchbase.MetricsScope,
+		MetricsCollection:  cfg.Couchbase.MetricsCollection,
 	})
 	if cbErr != nil {
 		logger.Error("Couchbase client init degraded; serving Prometheus path only", "error", cbErr)

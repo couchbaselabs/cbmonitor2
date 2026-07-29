@@ -33,14 +33,16 @@ type Config struct {
 	// Couchbase access for snapshot metadata (routing/time-windows) and
 	// metrics (the PromQL->SQL++ translation path).
 	Couchbase struct {
-		Enabled           bool   `yaml:"enabled"`
-		Host              string `yaml:"host"`
-		Username          string `yaml:"username"`
-		Password          string `yaml:"password"`
-		MetadataBucket    string `yaml:"metadata_bucket"`
-		MetricsBucket     string `yaml:"metrics_bucket"`
-		MetricsScope      string `yaml:"metrics_scope"`
-		MetricsCollection string `yaml:"metrics_collection"`
+		Enabled            bool   `yaml:"enabled"`
+		Host               string `yaml:"host"`
+		Username           string `yaml:"username"`
+		Password           string `yaml:"password"`
+		MetadataBucket     string `yaml:"metadata_bucket"`
+		MetadataScope      string `yaml:"metadata_scope"`
+		MetadataCollection string `yaml:"metadata_collection"`
+		MetricsBucket      string `yaml:"metrics_bucket"`
+		MetricsScope       string `yaml:"metrics_scope"`
+		MetricsCollection  string `yaml:"metrics_collection"`
 	} `yaml:"couchbase"`
 }
 
@@ -89,7 +91,8 @@ func ApplyFlagOverrides(config *Config, overrides map[string]string) error {
 	return nil
 }
 
-// setConfigValue sets a config value using a "section.field" path.
+// setConfigValue sets a config value using a "section.field" path. Names use
+// the same keys as the YAML file (e.g. "prometheus.url", "couchbase.metadata_bucket").
 func setConfigValue(config *Config, path, value string) error {
 	parts := strings.Split(path, ".")
 	if len(parts) < 2 {
@@ -100,7 +103,7 @@ func setConfigValue(config *Config, path, value string) error {
 	field := parts[1]
 
 	configValue := reflect.ValueOf(config).Elem()
-	sectionField := configValue.FieldByName(strings.Title(section))
+	sectionField := fieldByYAMLName(configValue, section)
 	if !sectionField.IsValid() {
 		return fmt.Errorf("unknown section: %s", section)
 	}
@@ -109,7 +112,7 @@ func setConfigValue(config *Config, path, value string) error {
 		return fmt.Errorf("section %s is not a struct", section)
 	}
 
-	fieldValue := sectionField.FieldByName(strings.Title(field))
+	fieldValue := fieldByYAMLName(sectionField, field)
 	if !fieldValue.IsValid() {
 		return fmt.Errorf("unknown field: %s in section: %s", field, section)
 	}
@@ -123,6 +126,20 @@ func setConfigValue(config *Config, path, value string) error {
 	}
 
 	return nil
+}
+
+// fieldByYAMLName resolves a struct field by its yaml tag, falling back to a
+// case-insensitive match on the Go field name.
+func fieldByYAMLName(structVal reflect.Value, name string) reflect.Value {
+	t := structVal.Type()
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		tag, _, _ := strings.Cut(f.Tag.Get("yaml"), ",")
+		if tag == name || strings.EqualFold(f.Name, name) {
+			return structVal.Field(i)
+		}
+	}
+	return reflect.Value{}
 }
 
 // setFieldValue sets a field value with proper type conversion.
@@ -188,6 +205,8 @@ func setDefaults(config *Config) {
 	config.Couchbase.Username = "Administrator"
 	config.Couchbase.Password = "password"
 	config.Couchbase.MetadataBucket = "metadata"
+	config.Couchbase.MetadataScope = "_default"
+	config.Couchbase.MetadataCollection = "_default"
 	config.Couchbase.MetricsBucket = "cbmonitor"
 	config.Couchbase.MetricsScope = "_default"
 	config.Couchbase.MetricsCollection = "_default"
