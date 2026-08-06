@@ -1,38 +1,72 @@
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { AppRootProps, PluginType } from '@grafana/data';
-import { render, waitFor } from '@testing-library/react';
+import { config } from '@grafana/runtime';
+import { render, screen, waitFor } from '@testing-library/react';
 import App from './App';
+import { PROM_DATASOURCE_REF } from '../../constants';
+
+const renderApp = () => {
+  const props = {
+    basename: 'a/cbmonitor',
+    meta: {
+      id: 'cbmonitor',
+      name: 'cbmonitor',
+      type: PluginType.app,
+      enabled: true,
+      jsonData: {},
+    },
+    query: {},
+    path: '',
+    onNavChanged: jest.fn(),
+  } as unknown as AppRootProps;
+
+  return render(
+    <MemoryRouter>
+      <App {...props} />
+    </MemoryRouter>
+  );
+};
 
 describe('Components/App', () => {
-  let props: AppRootProps;
+  const originalDatasources = config.datasources;
 
-  beforeEach(() => {
-    jest.resetAllMocks();
-
-    props = {
-      basename: 'a/sample-app',
-      meta: {
-        id: 'sample-app',
-        name: 'Sample App',
-        type: PluginType.app,
-        enabled: true,
-        jsonData: {},
-      },
-      query: {},
-      path: '',
-      onNavChanged: jest.fn(),
-    } as unknown as AppRootProps;
+  afterEach(() => {
+    config.datasources = originalDatasources;
   });
 
-  test('renders without an error"', async () => {
-    const { queryByText } = render(
-      <MemoryRouter>
-        <App {...props} />
-      </MemoryRouter>
-    );
+  test('renders without an error', async () => {
+    config.datasources = {
+      Prometheus: { uid: PROM_DATASOURCE_REF.uid, name: 'Prometheus', type: 'prometheus' },
+    } as unknown as typeof config.datasources;
 
-    // Application is lazy loaded, so we need to wait for the component and routes to be rendered
-    await waitFor(() => expect(queryByText(/this is page one./i)).toBeInTheDocument(), { timeout: 2000 });
+    renderApp();
+
+    await waitFor(() => expect(screen.getByRole('link', { name: /compare/i })).toBeInTheDocument());
+  });
+
+  // Every panel queries the single Prometheus datasource by this UID, so its
+  // absence is called out rather than left to fail per-panel.
+  test('warns when the Prometheus datasource is missing', async () => {
+    config.datasources = {
+      Other: { uid: 'something-else', name: 'Other', type: 'prometheus' },
+    } as unknown as typeof config.datasources;
+
+    renderApp();
+
+    await waitFor(() => expect(screen.getByText(/missing required datasource/i)).toBeInTheDocument());
+    // The available datasources are listed so the mismatch is diagnosable.
+    expect(screen.getByText(/Other \(something-else\)/)).toBeInTheDocument();
+  });
+
+  test('no warning when the Prometheus datasource is present', async () => {
+    config.datasources = {
+      Prometheus: { uid: PROM_DATASOURCE_REF.uid, name: 'Prometheus', type: 'prometheus' },
+    } as unknown as typeof config.datasources;
+
+    renderApp();
+
+    await waitFor(() => expect(screen.getByRole('link', { name: /compare/i })).toBeInTheDocument());
+    expect(screen.queryByText(/missing required datasource/i)).not.toBeInTheDocument();
   });
 });

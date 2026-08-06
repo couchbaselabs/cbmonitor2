@@ -642,6 +642,21 @@ function validate(state: State): string | null {
       return 'Prometheus URL must be a valid URL (e.g. http://prometheus:9090).';
     }
   }
+  // Mirrors the backend's own validation, so a missing gateway URL is reported
+  // here rather than rejected after saving.
+  if (state.gateway.enabled) {
+    if (!state.gateway.url) {
+      return 'Gateway URL is required when queries are routed through the gateway.';
+    }
+    try {
+      const u = new URL(state.gateway.url);
+      if (!u.protocol || !u.host) {
+        return 'Gateway URL must be absolute (e.g. http://datasource-gateway:8090).';
+      }
+    } catch {
+      return 'Gateway URL must be a valid URL (e.g. http://datasource-gateway:8090).';
+    }
+  }
   return null;
 }
 
