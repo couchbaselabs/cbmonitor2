@@ -26,6 +26,9 @@ type Route struct {
 	Start     time.Time
 	End       time.Time
 	HasWindow bool
+	// Live is true when the snapshot is still running (its metadata carries no
+	// final ts_end), so End is "as of now" rather than a settled boundary.
+	Live bool
 }
 
 // metadataSource is the slice of the Couchbase client the router needs.
@@ -37,6 +40,9 @@ type metadataSource interface {
 const (
 	cacheSize = 4096
 	cacheTTL  = 6 * time.Hour
+	// metadataFetchTimeout bounds the shared metadata lookup, which runs
+	// detached from any single caller's cancellation.
+	metadataFetchTimeout = 30 * time.Second
 )
 
 // Router decides, per snapshot, whether its metrics come from Couchbase or the
@@ -72,7 +78,12 @@ func (r *Router) Resolve(ctx context.Context, snapshotID string) Route {
 		if rt, ok := r.cache.Get(snapshotID); ok {
 			return rt, nil
 		}
-		rt, cacheable := r.resolveUncached(ctx, snapshotID)
+		// The shared fetch must not inherit the first caller's cancellation:
+		// every waiter would then get the fallback route because one panel's
+		// request happened to be cancelled mid-flight.
+		fetchCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), metadataFetchTimeout)
+		defer cancel()
+		rt, cacheable := r.resolveUncached(fetchCtx, snapshotID)
 		if cacheable {
 			r.cache.Add(snapshotID, rt)
 		}
@@ -81,6 +92,10 @@ func (r *Router) Resolve(ctx context.Context, snapshotID string) Route {
 	return v.(Route)
 }
 
+// resolveUncached fetches and interprets a snapshot's metadata. The bool
+// reports whether the result is safe to cache: a failed lookup is retried on
+// the next request, and a still-running snapshot's window keeps moving, so
+// neither is pinned for the cache TTL.
 func (r *Router) resolveUncached(ctx context.Context, snapshotID string) (Route, bool) {
 	md, err := r.cb.GetSnapshotMetadata(ctx, snapshotID)
 	if err != nil {
@@ -89,10 +104,14 @@ func (r *Router) resolveUncached(ctx context.Context, snapshotID string) (Route,
 		return Route{Snapshot: snapshotID, Store: StorePrometheus}, false
 	}
 	rt := Route{Snapshot: snapshotID, Store: storeFromMetadata(md)}
-	if start, end, ok := parseWindow(md); ok {
-		rt.Start, rt.End, rt.HasWindow = start, end, true
+	start, end, live, ok := parseWindow(md)
+	if !ok {
+		// An unparseable window is usually a metadata doc still being written;
+		// retry rather than pinning a windowless route.
+		return rt, false
 	}
-	return rt, true
+	rt.Start, rt.End, rt.HasWindow, rt.Live = start, end, true, live
+	return rt, !live
 }
 
 // storeFromMetadata honours an explicit `store` field; absent that, the
@@ -110,13 +129,29 @@ func storeFromMetadata(md *couchbase.Metadata) Store {
 
 // parseWindow parses the snapshot's [start,end] from its metadata timestamps,
 // tolerating RFC3339, a zone-less layout, and the space-separated variant.
-func parseWindow(md *couchbase.Metadata) (time.Time, time.Time, bool) {
-	start, ok1 := parseTime(md.TSStart)
-	end, ok2 := parseTime(md.TSEnd)
-	if !ok1 || !ok2 {
-		return time.Time{}, time.Time{}, false
+//
+// A snapshot that is still running carries the sentinel ts_end "now" (written
+// by config-manager until end-of-life stamps a real time) or no ts_end at all.
+// Those resolve to the current time and are reported as live, so a running
+// snapshot gets a usable window instead of being treated as windowless.
+func parseWindow(md *couchbase.Metadata) (start, end time.Time, live bool, ok bool) {
+	start, ok = parseTime(md.TSStart)
+	if !ok {
+		return time.Time{}, time.Time{}, false, false
 	}
-	return start, end, true
+	if isOpenEnded(md.TSEnd) {
+		return start, time.Now().UTC(), true, true
+	}
+	end, ok = parseTime(md.TSEnd)
+	if !ok {
+		return time.Time{}, time.Time{}, false, false
+	}
+	return start, end, false, true
+}
+
+// isOpenEnded reports whether a ts_end value means "still running".
+func isOpenEnded(ts string) bool {
+	return strings.EqualFold(strings.TrimSpace(ts), "now") || strings.TrimSpace(ts) == ""
 }
 
 func parseTime(s string) (time.Time, bool) {

@@ -8,9 +8,17 @@ import (
 	"time"
 
 	"github.com/couchbase/gocb/v2"
+
+	"github.com/couchbase/datasource-gateway/internal/logger"
 )
 
-const queryTimeout = 30 * time.Second
+const (
+	queryTimeout = 30 * time.Second
+	// Readiness is probed in the background and retried, so each probe stays
+	// short and the gap between them keeps an unreachable cluster cheap.
+	readyProbeTimeout  = 10 * time.Second
+	readyRetryInterval = 15 * time.Second
+)
 
 // Config holds the Couchbase connection settings the gateway needs.
 type Config struct {
@@ -92,19 +100,35 @@ func New(cfg Config) (*Client, error) {
 	return c, nil
 }
 
+// waitUntilReady polls the buckets until they all become reachable. It keeps
+// retrying because Couchbase routinely starts after the gateway (both in
+// compose and on a host reboot); giving up on the first failure would pin
+// Ready() false, and so /healthz for the life of the process.
 func (c *Client) waitUntilReady(buckets ...*gocb.Bucket) {
+	unique := make([]*gocb.Bucket, 0, len(buckets))
 	seen := make(map[string]bool)
 	for _, b := range buckets {
 		if b == nil || seen[b.Name()] {
 			continue
 		}
 		seen[b.Name()] = true
-		if err := b.WaitUntilReady(30*time.Second, nil); err != nil {
-			// Stays not-ready; the health endpoint reflects it.
+		unique = append(unique, b)
+	}
+
+	for {
+		allReady := true
+		for _, b := range unique {
+			if err := b.WaitUntilReady(readyProbeTimeout, nil); err != nil {
+				allReady = false
+				break
+			}
+		}
+		c.ready.Store(allReady)
+		if allReady {
 			return
 		}
+		time.Sleep(readyRetryInterval)
 	}
-	c.ready.Store(true)
 }
 
 // Enabled reports whether the Couchbase path is configured on.
@@ -171,27 +195,39 @@ func (c *Client) GetSnapshotMetadata(ctx context.Context, snapshotID string) (*M
 	return md, nil
 }
 
-// ExecuteQuery runs a SQL++ statement under the configured metrics scope.
-func (c *Client) ExecuteQuery(ctx context.Context, query string) ([]map[string]interface{}, error) {
+// ExecuteQuery runs a SQL++ statement under the configured metrics scope,
+// binding params as named query parameters so values never reach the statement text.
+func (c *Client) ExecuteQuery(ctx context.Context, query string, params map[string]interface{}) ([]map[string]interface{}, error) {
 	if c.metricsScope == nil {
 		return nil, fmt.Errorf("couchbase metrics is unavailable")
 	}
-	results, err := c.metricsScope.Query(query, &gocb.QueryOptions{Context: ctx, Timeout: queryTimeout})
+	results, err := c.metricsScope.Query(query, &gocb.QueryOptions{
+		Context:         ctx,
+		Timeout:         queryTimeout,
+		NamedParameters: params,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("execute query: %w", err)
 	}
 	defer results.Close()
 
 	var rows []map[string]interface{}
+	var decodeErrs int
 	for results.Next() {
 		var row map[string]interface{}
 		if err := results.Row(&row); err != nil {
+			decodeErrs++
 			continue
 		}
 		rows = append(rows, row)
 	}
 	if err := results.Err(); err != nil {
 		return nil, fmt.Errorf("query error: %w", err)
+	}
+	if decodeErrs > 0 {
+		// Undecodable rows silently shrink a panel's sample set, so make the
+		// gap visible rather than reporting a clean success.
+		logger.Warn("Skipped undecodable query rows", "skipped", decodeErrs, "returned", len(rows))
 	}
 	return rows, nil
 }

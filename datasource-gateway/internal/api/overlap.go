@@ -12,12 +12,14 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"golang.org/x/sync/errgroup"
 
 	"github.com/couchbase/datasource-gateway/internal/cbeval"
+	"github.com/couchbase/datasource-gateway/internal/logger"
 	"github.com/couchbase/datasource-gateway/internal/router"
 )
 
@@ -31,6 +33,8 @@ type promEnvelope struct {
 	Data      promData `json:"data"`
 	ErrorType string   `json:"errorType,omitempty"`
 	Error     string   `json:"error,omitempty"`
+	// Warnings carries per-snapshot problems that didn't fail the whole comparison; Grafana surfaces these on the panel.
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 type promData struct {
@@ -88,9 +92,10 @@ func shiftEnvelope(env *promEnvelope, offsetSec int64) {
 }
 
 // mergeEnvelopes concatenates the successful per-snapshot results into one
-// matrix response. Failed or windowless legs are nil and skipped; nil is
-// returned only when no leg succeeded.
-func mergeEnvelopes(legs []*promEnvelope) *promEnvelope {
+// matrix response, carrying warnings so a snapshot missing from the comparison
+// is visible on the panel instead of silently absent. Failed or windowless legs
+// are nil and skipped; nil is returned only when no leg succeeded.
+func mergeEnvelopes(legs []*promEnvelope, warnings []string) *promEnvelope {
 	merged := &promEnvelope{Status: "success"}
 	merged.Data.ResultType = "matrix"
 	merged.Data.Result = []promSeries{}
@@ -104,10 +109,12 @@ func mergeEnvelopes(legs []*promEnvelope) *promEnvelope {
 			merged.Data.ResultType = leg.Data.ResultType
 		}
 		merged.Data.Result = append(merged.Data.Result, leg.Data.Result...)
+		merged.Warnings = append(merged.Warnings, leg.Warnings...)
 	}
 	if !any {
 		return nil
 	}
+	merged.Warnings = append(merged.Warnings, warnings...)
 	return merged
 }
 
@@ -137,12 +144,22 @@ func (h *Handler) serveOverlap(w http.ResponseWriter, r *http.Request, ids []str
 	}
 
 	legs := make([]*promEnvelope, len(ids))
+	legErrs := make([]string, len(ids))
 	g, ctx := errgroup.WithContext(r.Context())
 	g.SetLimit(maxOverlapSnapshots)
 	for i, id := range ids {
-		g.Go(func() error {
-			env, route := h.overlapLeg(ctx, query, id, step)
+		g.Go(func() (err error) {
+			// A panic in one leg must not take the process down with it: these goroutines
+			// are outside net/http's per-connection recovery, and errgroup does not recover either.
+			defer func() {
+				if rec := recover(); rec != nil {
+					logger.Error("Overlap leg panicked", "snapshot", id, "panic", rec)
+					legErrs[i] = fmt.Sprintf("snapshot %s: internal error evaluating query", id)
+				}
+			}()
+			env, route, legErr := h.overlapLeg(ctx, query, id, step)
 			if env == nil {
+				legErrs[i] = fmt.Sprintf("snapshot %s: %s", id, legErr)
 				return nil
 			}
 			if shift {
@@ -154,7 +171,13 @@ func (h *Handler) serveOverlap(w http.ResponseWriter, r *http.Request, ids []str
 	}
 	_ = g.Wait()
 
-	merged := mergeEnvelopes(legs)
+	warnings := make([]string, 0, len(legErrs))
+	for _, e := range legErrs {
+		if e != "" {
+			warnings = append(warnings, e)
+		}
+	}
+	merged := mergeEnvelopes(legs, warnings)
 	if merged == nil {
 		// No leg produced a result, typically no snapshot metadata is
 		// available (e.g. Couchbase disabled). Degrade to a plain passthrough
@@ -168,31 +191,37 @@ func (h *Handler) serveOverlap(w http.ResponseWriter, r *http.Request, ids []str
 	_ = json.NewEncoder(w).Encode(merged)
 }
 
-// overlapLeg runs the query for one snapshot over its stored window via its
-// own store. Returns a nil envelope when the snapshot has no window or the
-// query fails, a failed leg drops out of the comparison rather than failing it.
-func (h *Handler) overlapLeg(ctx context.Context, query, id, step string) (*promEnvelope, router.Route) {
+// overlapLeg runs the query for one snapshot over its stored window via its own store.
+// A leg that can't produce data returns a nil envelope plus the reason, so it drops out of the comparison rather than failing it.
+// but the reason reaches the caller as a warning instead of vanishing.
+func (h *Handler) overlapLeg(ctx context.Context, query, id, step string) (*promEnvelope, router.Route, string) {
 	route := h.router.Resolve(ctx, id)
 	if !route.HasWindow {
-		return nil, route
+		return nil, route, "no time window in snapshot metadata"
 	}
 	q := replaceJobMatcher(query, id)
 
 	if route.Store == router.StoreCouchbase {
 		res, err := h.evaluator.RangeQuery(ctx, q, route.Start, route.End, parseStepParam(step))
 		if err != nil {
-			return nil, route
+			return nil, route, "query failed: " + err.Error()
 		}
-		return fromCBResult(res), route
+		return fromCBResult(res), route, ""
 	}
 
 	body, status, err := h.prometheus.QueryRange(ctx, q, route.Start, route.End, step)
-	if err != nil || status != http.StatusOK {
-		return nil, route
+	if err != nil {
+		return nil, route, "upstream request failed: " + err.Error()
+	}
+	if status != http.StatusOK {
+		return nil, route, fmt.Sprintf("upstream returned HTTP %d", status)
 	}
 	var env promEnvelope
-	if err := json.Unmarshal(body, &env); err != nil || env.Status != "success" {
-		return nil, route
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil, route, "could not decode upstream response"
 	}
-	return &env, route
+	if env.Status != "success" {
+		return nil, route, "upstream reported: " + env.Error
+	}
+	return &env, route, ""
 }

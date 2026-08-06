@@ -28,12 +28,15 @@ import (
 const (
 	defaultMaxSamples = 50_000_000
 	defaultTimeout    = 2 * time.Minute
+	// defaultSubqueryStep is the evaluation interval used for a subquery that
+	// specifies no step of its own (e.g. `max_over_time(x[10m:])`), matching
+	// Prometheus' own default evaluation interval.
+	defaultSubqueryStep = time.Minute
 )
 
-// RowQuerier executes a SQL++ statement and returns the rows. The Couchbase
-// client satisfies this.
+// RowQuerier executes a SQL++ statement with its bound parameters and returns the rows. The Couchbase client satisfies this.
 type RowQuerier interface {
-	ExecuteQuery(ctx context.Context, query string) ([]map[string]interface{}, error)
+	ExecuteQuery(ctx context.Context, query string, params map[string]interface{}) ([]map[string]interface{}, error)
 }
 
 // Result is the Prometheus-API response shape produced by the evaluator.
@@ -71,6 +74,9 @@ func NewEvaluator(querier RowQuerier, keyspace string) *Evaluator {
 		Timeout:              defaultTimeout,
 		EnableAtModifier:     true,
 		EnableNegativeOffset: true,
+		// The engine calls this unconditionally for a step-less subquery, from
+		// a path outside its own panic recovery, so it must be set.
+		NoStepSubqueryIntervalFn: func(int64) int64 { return defaultSubqueryStep.Milliseconds() },
 	})
 	return &Evaluator{engine: engine, querier: querier, keyspace: keyspace}
 }
@@ -179,11 +185,11 @@ func (q *couchbaseQuerier) Select(ctx context.Context, sortSeries bool, hints *s
 	if hints != nil {
 		from, to = hints.Start, hints.End
 	}
-	sql, err := buildSelectorSQL(matchers, q.keyspace, from, to)
+	sql, params, err := buildSelectorSQL(matchers, q.keyspace, from, to)
 	if err != nil {
 		return storage.ErrSeriesSet(err)
 	}
-	rows, err := q.querier.ExecuteQuery(ctx, sql)
+	rows, err := q.querier.ExecuteQuery(ctx, sql, params)
 	if err != nil {
 		return storage.ErrSeriesSet(fmt.Errorf("couchbase query failed: %w", err))
 	}
@@ -331,16 +337,18 @@ func (s *sliceSeriesSet) Warnings() annotations.Annotations { return nil }
 // --- selector SQL ---
 
 // buildSelectorSQL turns one vector selector's label matchers into the SQL++
-// that fetches its raw samples over [fromMillis, toMillis]. The metric name
-// filters the document; label matchers (=, !=, =~, !~) reuse the shared label
-// clause builder; the window is bound into the _timeseries range.
-func buildSelectorSQL(matchers []*labels.Matcher, keyspace string, fromMillis, toMillis int64) (string, error) {
+// that fetches its raw samples over [fromMillis, toMillis], plus the named
+// parameters to bind. The metric name filters the document; label matchers
+// (=, !=, =~, !~) reuse the shared label clause builder; the window is bound
+// into the _timeseries range. Every value travels as a parameter, so no part of
+// a PromQL query can alter the statement's structure.
+func buildSelectorSQL(matchers []*labels.Matcher, keyspace string, fromMillis, toMillis int64) (string, map[string]interface{}, error) {
 	var metric string
 	var filters []querybuilder.LabelFilter
 	for _, m := range matchers {
 		if m.Name == labels.MetricName {
 			if m.Type != labels.MatchEqual {
-				return "", fmt.Errorf("metric name must use an equality matcher, got %q", m.String())
+				return "", nil, fmt.Errorf("metric name must use an equality matcher, got %q", m.String())
 			}
 			metric = m.Value
 			continue
@@ -348,19 +356,24 @@ func buildSelectorSQL(matchers []*labels.Matcher, keyspace string, fromMillis, t
 		filters = append(filters, querybuilder.LabelFilter{Name: m.Name, Value: m.Value, Op: matchOp(m.Type)})
 	}
 	if metric == "" {
-		return "", fmt.Errorf("selector has no metric name")
+		return "", nil, fmt.Errorf("selector has no metric name")
 	}
 
-	conds := []string{fmt.Sprintf("d.metric_name = '%s'", escapeSQL(metric))}
-	if lw := querybuilder.BuildLabelWhereClauseFromFilters(filters); lw != "" {
+	params := querybuilder.NewParams()
+	conds := []string{fmt.Sprintf("d.metric_name = %s", params.Add(metric))}
+	lw, err := querybuilder.BuildLabelWhereClauseFromFilters(filters, params)
+	if err != nil {
+		return "", nil, err
+	}
+	if lw != "" {
 		conds = append(conds, lw)
 	}
 
 	return fmt.Sprintf(
 		"SELECT MILLIS_TO_STR(t._t) AS time, t._v0 AS `value`, d.labels AS labels "+
-			"FROM %s AS d UNNEST _timeseries(d, {'ts_ranges':[%d, %d]}) AS t WHERE %s",
-		keyspace, fromMillis, toMillis, strings.Join(conds, " AND "),
-	), nil
+			"FROM %s AS d UNNEST _timeseries(d, {'ts_ranges':[%s, %s]}) AS t WHERE %s",
+		keyspace, params.Add(fromMillis), params.Add(toMillis), strings.Join(conds, " AND "),
+	), params.Values(), nil
 }
 
 func matchOp(t labels.MatchType) string {
@@ -375,5 +388,3 @@ func matchOp(t labels.MatchType) string {
 		return "="
 	}
 }
-
-func escapeSQL(s string) string { return strings.ReplaceAll(s, "'", "''") }

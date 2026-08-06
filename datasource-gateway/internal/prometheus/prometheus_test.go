@@ -68,3 +68,29 @@ func TestReverseProxyUpstreamDownReturnsPromError(t *testing.T) {
 		t.Errorf("status = %q, want error", resp["status"])
 	}
 }
+
+// An upstream URL is logged at startup and echoed by /healthz, so embedded
+// basic-auth credentials must not survive into either.
+func TestRedactURL(t *testing.T) {
+	cases := map[string]string{
+		"http://user:pass@mimir:9009/prometheus": "http://xxxxx@mimir:9009/prometheus",
+		"http://mimir:9009/prometheus":           "http://mimir:9009/prometheus",
+		"":                                       "",
+	}
+	for in, want := range cases {
+		if got := RedactURL(in); got != want {
+			t.Errorf("RedactURL(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if got := RedactURL("http://user:pass@mimir:9009"); strings.Contains(got, "pass") {
+		t.Errorf("password survived redaction: %q", got)
+	}
+}
+
+// Client.URL is the value that reaches logs and /healthz.
+func TestClientURLIsRedacted(t *testing.T) {
+	c := New("http://user:pass@mimir:9009/prometheus")
+	if strings.Contains(c.URL(), "pass") {
+		t.Errorf("Client.URL leaked credentials: %q", c.URL())
+	}
+}

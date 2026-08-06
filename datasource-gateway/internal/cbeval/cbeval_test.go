@@ -16,12 +16,14 @@ var base = time.Unix(1700000000, 0).UTC()
 // the dataset and the query so the returned rows are exactly the series the
 // engine should evaluate.
 type fakeRowQuerier struct {
-	rows    []map[string]interface{}
-	lastSQL string
+	rows       []map[string]interface{}
+	lastSQL    string
+	lastParams map[string]interface{}
 }
 
-func (f *fakeRowQuerier) ExecuteQuery(_ context.Context, sql string) ([]map[string]interface{}, error) {
+func (f *fakeRowQuerier) ExecuteQuery(_ context.Context, sql string, params map[string]interface{}) ([]map[string]interface{}, error) {
 	f.lastSQL = sql
+	f.lastParams = params
 	return f.rows, nil
 }
 
@@ -117,27 +119,70 @@ func TestBuildSelectorSQL(t *testing.T) {
 		mk(labels.MatchRegexp, "bucket", "a.*"),
 		mk(labels.MatchNotEqual, "mode", "idle"),
 	}
-	sql, err := buildSelectorSQL(matchers, "bkt.scp.col", 1000, 2000)
+	sql, params, err := buildSelectorSQL(matchers, "bkt.scp.col", 1000, 2000)
 	if err != nil {
 		t.Fatalf("buildSelectorSQL: %v", err)
 	}
 	for _, want := range []string{
 		"FROM bkt.scp.col AS d",
-		"d.metric_name = 'kv_ops'",
-		"d.labels.`job` = 'snap-1'",
-		"REGEXP_MATCHES(d.labels.`bucket`, '^(a.*)$')",
-		"d.labels.`mode` != 'idle'",
-		"_timeseries(d, {'ts_ranges':[1000, 2000]})",
+		"d.metric_name = $p0",
+		"IFMISSINGORNULL(TO_STRING(d.labels.`job`), '') = $p1",
+		"REGEXP_MATCHES(IFMISSINGORNULL(TO_STRING(d.labels.`bucket`), ''), $p2)",
+		"IFMISSINGORNULL(TO_STRING(d.labels.`mode`), '') != $p3",
+		"_timeseries(d, {'ts_ranges':[$p4, $p5]})",
 	} {
 		if !strings.Contains(sql, want) {
 			t.Errorf("SQL missing %q\nSQL: %s", want, sql)
+		}
+	}
+	wantParams := map[string]interface{}{
+		"p0": "kv_ops", "p1": "snap-1", "p2": "^(a.*)$", "p3": "idle",
+		"p4": int64(1000), "p5": int64(2000),
+	}
+	for k, v := range wantParams {
+		if params[k] != v {
+			t.Errorf("param %s = %#v, want %#v", k, params[k], v)
+		}
+	}
+
+	// No literal from the query survives in the statement text.
+	for _, leaked := range []string{"'kv_ops'", "'snap-1'", "'idle'", "'^(a.*)$'"} {
+		if strings.Contains(sql, leaked) {
+			t.Errorf("value %s was interpolated into the SQL: %s", leaked, sql)
 		}
 	}
 }
 
 func TestBuildSelectorSQLRequiresMetricName(t *testing.T) {
 	m, _ := labels.NewMatcher(labels.MatchEqual, "job", "s")
-	if _, err := buildSelectorSQL([]*labels.Matcher{m}, "k", 0, 1); err == nil {
+	if _, _, err := buildSelectorSQL([]*labels.Matcher{m}, "k", 0, 1); err == nil {
 		t.Error("expected an error when no metric name is present")
+	}
+}
+
+// A label name that could escape its backtick quoting is refused outright
+// rather than being interpolated into the statement.
+func TestBuildSelectorSQLRejectsUnsafeLabelName(t *testing.T) {
+	name := "a` = 'x' OR 1=1 OR d.labels.`b"
+	metric, _ := labels.NewMatcher(labels.MatchEqual, labels.MetricName, "kv_ops")
+	hostile, err := labels.NewMatcher(labels.MatchEqual, name, "y")
+	if err != nil {
+		t.Fatalf("matcher: %v", err)
+	}
+	if _, _, err := buildSelectorSQL([]*labels.Matcher{metric, hostile}, "k", 0, 1); err == nil {
+		t.Fatal("expected an error for an unsafe label name")
+	}
+}
+
+// A step-less subquery must not nil-deref the engine: the option it needs is
+// only consulted at evaluation time, from outside the engine's own recovery.
+func TestStepLessSubqueryDoesNotPanic(t *testing.T) {
+	q := &fakeRowQuerier{rows: counterRows("s", "n1", 60, 1)}
+	e := NewEvaluator(q, "k")
+
+	if _, err := e.RangeQuery(context.Background(),
+		`max_over_time(c{job="s"}[10m:])`,
+		base.Add(15*time.Minute), base.Add(20*time.Minute), time.Minute); err != nil {
+		t.Fatalf("RangeQuery: %v", err)
 	}
 }

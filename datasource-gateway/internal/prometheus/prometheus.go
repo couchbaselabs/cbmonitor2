@@ -51,8 +51,28 @@ func New(baseURL string) *Client {
 	return c
 }
 
-// URL returns the upstream base URL.
-func (c *Client) URL() string { return c.baseURL }
+// URL returns the upstream base URL with any embedded credentials redacted.
+// Embedding basic-auth userinfo is the only way to reach a protected upstream,
+// and this value is both logged at startup and echoed by /healthz.
+func (c *Client) URL() string { return RedactURL(c.baseURL) }
+
+// RedactURL replaces any userinfo in a URL with "xxxxx", leaving a value that
+// is safe to log or serve. A value that doesn't parse is returned unchanged
+// unless it looks like it carries userinfo, in which case it is withheld.
+func RedactURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		if strings.Contains(raw, "@") {
+			return "[unparseable url withheld]"
+		}
+		return raw
+	}
+	if u.User == nil {
+		return raw
+	}
+	u.User = url.User("xxxxx")
+	return u.String()
+}
 
 // HTTPClient exposes the keep-alive client for callers that need to issue
 // their own upstream requests.

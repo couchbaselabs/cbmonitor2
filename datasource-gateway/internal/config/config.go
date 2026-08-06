@@ -46,8 +46,29 @@ type Config struct {
 	} `yaml:"couchbase"`
 }
 
-// LoadConfig loads configuration from file (if provided) over the built-in
-// defaults, then applies any dot-notation flag overrides.
+// envOverrides maps the DSG_* environment variables to their config paths.
+// Reading secrets from the environment keeps them out of the process's argv,
+// where `ps` and `docker inspect` would expose them.
+var envOverrides = map[string]string{
+	"DSG_SERVER_PORT":                   "server.port",
+	"DSG_SERVER_HOST":                   "server.host",
+	"DSG_LOG_LEVEL":                     "logging.level",
+	"DSG_PROMETHEUS_URL":                "prometheus.url",
+	"DSG_COUCHBASE_ENABLED":             "couchbase.enabled",
+	"DSG_COUCHBASE_HOST":                "couchbase.host",
+	"DSG_COUCHBASE_USERNAME":            "couchbase.username",
+	"DSG_COUCHBASE_PASSWORD":            "couchbase.password",
+	"DSG_COUCHBASE_METADATA_BUCKET":     "couchbase.metadata_bucket",
+	"DSG_COUCHBASE_METADATA_SCOPE":      "couchbase.metadata_scope",
+	"DSG_COUCHBASE_METADATA_COLLECTION": "couchbase.metadata_collection",
+	"DSG_COUCHBASE_METRICS_BUCKET":      "couchbase.metrics_bucket",
+	"DSG_COUCHBASE_METRICS_SCOPE":       "couchbase.metrics_scope",
+	"DSG_COUCHBASE_METRICS_COLLECTION":  "couchbase.metrics_collection",
+}
+
+// LoadConfig builds the configuration by layering, in increasing precedence:
+// built-in defaults, the config file (if provided), DSG_* environment
+// variables, then dot-notation flag overrides.
 func LoadConfig(configPath string, flagOverrides map[string]string) (*Config, error) {
 	var config Config
 	setDefaults(&config)
@@ -58,6 +79,10 @@ func LoadConfig(configPath string, flagOverrides map[string]string) (*Config, er
 		}
 	}
 
+	if err := ApplyEnvOverrides(&config); err != nil {
+		return nil, fmt.Errorf("failed to apply environment overrides: %w", err)
+	}
+
 	if len(flagOverrides) > 0 {
 		if err := ApplyFlagOverrides(&config, flagOverrides); err != nil {
 			return nil, fmt.Errorf("failed to apply flag overrides: %w", err)
@@ -65,6 +90,21 @@ func LoadConfig(configPath string, flagOverrides map[string]string) (*Config, er
 	}
 
 	return &config, nil
+}
+
+// ApplyEnvOverrides applies any set DSG_* environment variables. An unset or
+// empty variable leaves the existing value alone.
+func ApplyEnvOverrides(config *Config) error {
+	for env, path := range envOverrides {
+		value, ok := os.LookupEnv(env)
+		if !ok || value == "" {
+			continue
+		}
+		if err := setConfigValue(config, path, value); err != nil {
+			return fmt.Errorf("%s: %w", env, err)
+		}
+	}
+	return nil
 }
 
 // LoadConfigFromFile loads configuration from a YAML file.

@@ -479,3 +479,106 @@ func TestQueryRangeCouchbaseDisabledForwardsUnchanged(t *testing.T) {
 		t.Errorf("metadata consulted while disabled: %d calls", cb.calls)
 	}
 }
+
+// A request whose range already sits inside the snapshot, a phase selection or
+// a drag-zoom, must be honoured. Substituting the full window would both
+// override the user's selection and leave the client's step sized for the
+// narrower range, overshooting the upstream's per-series point limit.
+func TestQueryRangeKeepsRequestedRangeInsideWindow(t *testing.T) {
+	rc := &recorder{}
+	cb := &fakeCouchbase{enabled: true, md: &couchbase.Metadata{
+		Store: "prometheus", TSStart: "2024-01-02T00:00:00Z", TSEnd: "2024-01-02T04:00:00Z",
+	}}
+	h := newTestHandler(cb, rc, &fakeEvaluator{})
+
+	phaseStart := unixOf(t, "2024-01-02T02:00:00Z")
+	phaseEnd := unixOf(t, "2024-01-02T02:10:00Z")
+	postQueryRange(h, `up{job="snap-1"}`, phaseStart, phaseEnd)
+
+	if rc.start != phaseStart || rc.end != phaseEnd {
+		t.Errorf("requested in-window range was overridden: got [%s, %s], want [%s, %s]",
+			rc.start, rc.end, phaseStart, phaseEnd)
+	}
+}
+
+// A range that only partly overlaps the snapshot is clipped to the snapshot's bounds rather than replaced outright.
+func TestQueryRangeClipsPartialOverlapToWindow(t *testing.T) {
+	rc := &recorder{}
+	cb := &fakeCouchbase{enabled: true, md: &couchbase.Metadata{
+		Store: "prometheus", TSStart: "2024-01-02T00:00:00Z", TSEnd: "2024-01-02T04:00:00Z",
+	}}
+	h := newTestHandler(cb, rc, &fakeEvaluator{})
+
+	// Starts an hour before the snapshot, ends two hours into it.
+	postQueryRange(h, `up{job="snap-1"}`,
+		unixOf(t, "2024-01-01T23:00:00Z"), unixOf(t, "2024-01-02T02:00:00Z"))
+
+	if want := unixOf(t, "2024-01-02T00:00:00Z"); rc.start != want {
+		t.Errorf("start = %q, want clipped to window start %q", rc.start, want)
+	}
+	if want := unixOf(t, "2024-01-02T02:00:00Z"); rc.end != want {
+		t.Errorf("end = %q, want the requested end %q", rc.end, want)
+	}
+}
+
+// A range entirely outside the snapshot is a stale or global time picker; the full snapshot window is the useful answer.
+func TestQueryRangeOutsideWindowFallsBackToFullWindow(t *testing.T) {
+	rc := &recorder{}
+	cb := &fakeCouchbase{enabled: true, md: &couchbase.Metadata{
+		Store: "prometheus", TSStart: "2024-01-02T00:00:00Z", TSEnd: "2024-01-02T04:00:00Z",
+	}}
+	h := newTestHandler(cb, rc, &fakeEvaluator{})
+
+	postQueryRange(h, `up{job="snap-1"}`,
+		unixOf(t, "2025-06-01T00:00:00Z"), unixOf(t, "2025-06-01T01:00:00Z"))
+
+	if want := unixOf(t, "2024-01-02T00:00:00Z"); rc.start != want {
+		t.Errorf("start = %q, want full window %q", rc.start, want)
+	}
+	if want := unixOf(t, "2024-01-02T04:00:00Z"); rc.end != want {
+		t.Errorf("end = %q, want full window %q", rc.end, want)
+	}
+}
+
+// A matcher whose alternation names one snapshot more than once still identifies that snapshot,
+// so it must route on it rather than falling through unrouted.
+func TestQueryRangeDuplicateJobAlternationStillRoutes(t *testing.T) {
+	for _, matcher := range []string{`up{job=~"snap-1|snap-1"}`, `up{job=~"snap-1|"}`} {
+		rc := &recorder{}
+		cb := &fakeCouchbase{enabled: true, md: &couchbase.Metadata{
+			Store: "prometheus", TSStart: "2024-01-02T00:00:00Z", TSEnd: "2024-01-02T01:00:00Z",
+		}}
+		h := newTestHandler(cb, rc, &fakeEvaluator{})
+
+		postQueryRange(h, matcher, "1", "2")
+
+		if want := unixOf(t, "2024-01-02T00:00:00Z"); rc.start != want {
+			t.Errorf("%s: start = %q, want the snapshot window %q (query went unrouted)", matcher, rc.start, want)
+		}
+	}
+}
+
+// A snapshot that can't contribute to a comparison must say so: dropping the
+// leg silently makes a missing run indistinguishable from one with no data.
+func TestOverlapReportsDroppedLegAsWarning(t *testing.T) {
+	fp := &fakeProm{proxy: (&recorder{}).handler()}
+	cb := &fakeCouchbase{enabled: true, mdByID: map[string]*couchbase.Metadata{
+		"snap-1": {Store: "prometheus", TSStart: "2024-01-02T00:00:00Z", TSEnd: "2024-01-02T01:00:00Z"},
+		// No parseable window: this leg cannot be evaluated.
+		"snap-2": {Store: "prometheus", TSStart: "nonsense", TSEnd: "nonsense"},
+	}}
+	h := newTestHandlerWithProm(cb, fp, &fakeEvaluator{})
+
+	w := postQueryRange(h, `up{job=~"snap-1|snap-2"}`, "1", "2")
+
+	var env promEnvelope
+	if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(env.Warnings) == 0 {
+		t.Fatal("expected a warning naming the dropped snapshot")
+	}
+	if !strings.Contains(strings.Join(env.Warnings, " "), "snap-2") {
+		t.Errorf("warnings = %v, want one mentioning snap-2", env.Warnings)
+	}
+}

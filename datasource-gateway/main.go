@@ -52,7 +52,7 @@ func main() {
 		"server_host", cfg.Server.Host,
 		"server_port", cfg.Server.Port,
 		"logging_level", cfg.Logging.Level,
-		"prometheus_url", cfg.Prometheus.URL,
+		"prometheus_url", prometheus.RedactURL(cfg.Prometheus.URL),
 		"couchbase_enabled", cfg.Couchbase.Enabled,
 		"couchbase_host", cfg.Couchbase.Host,
 		"couchbase_metadata_bucket", cfg.Couchbase.MetadataBucket,
