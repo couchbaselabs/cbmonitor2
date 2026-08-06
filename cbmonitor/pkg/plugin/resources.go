@@ -59,13 +59,19 @@ func (a *App) handleGetDatasourceConfig(w http.ResponseWriter, req *http.Request
 		settingsBlock["error"] = a.settingsError
 	}
 
+	// Gateway capabilities are reported only when the datasource that routes
+	// through it actually exists: with the Prometheus datasource disabled the
+	// reconciler creates nothing, and advertising overlap would offer the UI an
+	// affordance backed by no datasource at all.
+	gatewayUsable := a.settings.Gateway.Enabled && a.settings.PrometheusDatasource.Enabled
+
 	config := map[string]interface{}{
 		"defaultDataSource":   a.settings.DefaultDataSource(),
 		"prometheusAvailable": a.settings.PrometheusDatasource.Enabled,
 		"couchbaseAvailable":  a.settings.CouchbaseDatasource.Enabled,
-		"gatewayEnabled":      a.settings.Gateway.Enabled,
+		"gatewayEnabled":      gatewayUsable,
 		"gatewayUrl":          a.settings.Gateway.URL,
-		"overlapEnabled":      a.settings.Gateway.Enabled && a.settings.Gateway.Overlap,
+		"overlapEnabled":      gatewayUsable && a.settings.Gateway.Overlap,
 		"reconciliation":      a.getReconcileState(),
 		"settings":            settingsBlock,
 	}

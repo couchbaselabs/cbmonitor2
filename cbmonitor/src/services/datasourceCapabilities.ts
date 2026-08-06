@@ -39,8 +39,8 @@ class DatasourceCapabilitiesService {
     }
 
     /**
-     * Fetch capabilities once and cache them. Safe to call repeatedly — a
-     * second call while a fetch is in flight reuses the same promise, and
+     * Fetch capabilities once and cache them. Safe to call repeatedly.
+     * A second call while a fetch is in flight reuses the same promise, and
      * calls after a successful load resolve immediately.
      */
     load(): Promise<DatasourceCapabilities> {
@@ -61,10 +61,12 @@ class DatasourceCapabilitiesService {
                 return this.capabilities;
             })
             .catch(() => {
-                // Endpoint unavailable: keep the closed defaults so no
-                // gateway-only affordance is offered.
+                // Endpoint unavailable: keep the closed defaults so no gateway-only affordance is offered.
+                // The failure is not cached, a backend that was mid-restart would otherwise hide
+                // gateway features until a full page reload.
                 this.capabilities = DEFAULT_CAPABILITIES;
-                this.finishLoad();
+                this.inflight = null;
+                this.notify();
                 return this.capabilities;
             });
         return this.inflight;
@@ -80,6 +82,10 @@ class DatasourceCapabilitiesService {
     private finishLoad() {
         this.loaded = true;
         this.inflight = null;
+        this.notify();
+    }
+
+    private notify() {
         for (const listener of this.listeners) {
             listener(this.capabilities);
         }

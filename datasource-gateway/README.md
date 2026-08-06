@@ -18,14 +18,40 @@ Because the interface is a strict superset of the Prometheus HTTP API, a
 deployment that doesn't need Couchbase or overlap can simply point its Grafana
 Prometheus datasource straight at Prometheus and skip the gateway entirely.
 
+## Snapshot routing
+
+A snapshot's metadata document decides how its queries are served:
+
+| Field | Meaning |
+|---|---|
+| `ts_start` | Start of the snapshot's window. Required for any snapshot-aware behaviour. |
+| `ts_end` | End of the window. The sentinel `"now"` (or an absent value) marks a still-running snapshot, whose window ends at the current time and is re-resolved rather than cached. |
+| `store` | `"couchbase"` routes the snapshot's queries through the SQL++ path; anything else, including an absent field, serves it from the upstream Prometheus. |
+
+**The Couchbase path is currently dormant.** Nothing in this repo writes
+`store`, so every snapshot is served from Prometheus/Mimir today. The
+translation layer (`internal/cbeval`, `internal/querybuilder`) is maintained and
+tested but unexercised in production; enabling it means writing
+`store: "couchbase"` when a snapshot's samples are archived to Couchbase.
+
+A request's own time range is honoured wherever it overlaps the snapshot, so a
+phase selection or a drag-zoom keeps the resolution the client asked for. Only a
+range that misses the snapshot entirely — a stale or dashboard-global time
+picker — is replaced by the full window.
+
 ## API surface
 
 | Endpoint | Behavior |
 |---|---|
-| `/api/v1/query_range` | Routed per snapshot: window rewritten to the snapshot's stored range; Couchbase-backed snapshots evaluated via SQL++; multi-snapshot matchers fan out and merge on the `t=0` axis. |
-| `/api/v1/query` | Same routing. Couchbase-backed snapshots evaluate at the snapshot's end; multi-snapshot matchers fan out over each full window without the time shift (instance discovery reads labels, not timestamps). |
+| `/api/v1/query_range` | Routed per snapshot: the request's range is confined to the snapshot's window; Couchbase-backed snapshots evaluated via SQL++; multi-snapshot matchers fan out and merge on the `t=0` axis. |
+| `/api/v1/query` | Same routing. The evaluation instant is kept when it falls inside the snapshot, else clamped to the snapshot's end; multi-snapshot matchers fan out over each full window without the time shift (instance discovery reads labels, not timestamps). |
 | `/api/v1/labels`, `/api/v1/series`, `/api/v1/label/{name}/values` | Passthrough, with `start`/`end` rewritten to the snapshot window when the `match[]` selectors identify a single snapshot. |
 | everything else under `/api/v1/` | Streaming passthrough to the upstream. |
+
+A snapshot that can't contribute to an overlap comparison (no parseable window,
+or a failing upstream) drops out of the result rather than failing the whole
+query, and the reason is reported in the response's `warnings` so the panel
+shows it.
 
 Known limitation: label/series endpoints are not served from Couchbase. For a
 Couchbase-backed snapshot they return whatever the upstream holds (typically
@@ -61,18 +87,27 @@ docker compose -f deployments/docker/compose.yml up --build -d
 
 ## Configuration
 
-Defaults live in [`configs/datasource-gateway/config.yaml`](../configs/datasource-gateway/config.yaml)
-and can be overridden with `section.field=value` arguments (the container passes
-them from `DSG_*` environment variables):
+Settings are layered, each level overriding the one before it: built-in
+defaults, then the config file, then `DSG_*` environment variables, then
+`section.field=value` command-line arguments.
+
+Defaults live in [`configs/datasource-gateway/config.yaml`](../configs/datasource-gateway/config.yaml).
 
 ```sh
+# Environment (how the container is configured — secrets stay out of argv)
+DSG_PROMETHEUS_URL=http://mimir:9009/prometheus ./bin/datasource-gateway --config config.yaml
+
+# Command line, for ad-hoc overrides
 ./bin/datasource-gateway --config config.yaml server.port=8090 logging.level=debug
 ```
 
-| Setting | Env var (Docker) | Default | Notes |
+Prefer the environment for `couchbase.password`: an argument would be visible to
+anyone who can run `ps` or `docker inspect`.
+
+| Setting | Env var | Default | Notes |
 |---|---|---|---|
 | `server.port` | `DSG_SERVER_PORT` | `8090` | Deliberately off the Prometheus (9090) / Mimir (9009) defaults so it can share a host. |
-| `server.host` | — | `0.0.0.0` | |
+| `server.host` | `DSG_SERVER_HOST` | `0.0.0.0` | |
 | `logging.level` | `DSG_LOG_LEVEL` | `info` | `debug` / `info` / `warn` / `error` |
 | `prometheus.url` | `DSG_PROMETHEUS_URL` | `http://localhost:9009/prometheus` | Upstream Prometheus-compatible store for the passthrough path. |
 | `couchbase.enabled` | `DSG_COUCHBASE_ENABLED` | `true` | `false` serves the Prometheus path only. |

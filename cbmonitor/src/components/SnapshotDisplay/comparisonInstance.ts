@@ -61,9 +61,21 @@ function CompareHeaderContainer(props: CompareHeaderContainerProps) {
 
     // The overlap path routes `job=~"a|b"` to the gateway's overlap seam, so
     // the toggle is only offered when the gateway reports overlap support.
+    // load() is read for its result as well as subscribed to: capabilities may
+    // already have resolved between first render and this effect, and listeners
+    // are only notified on the fetch that completes the load.
     React.useEffect(() => {
-        datasourceCapabilitiesService.load();
-        return datasourceCapabilitiesService.subscribe((caps) => setOverlapAvailable(caps.overlapEnabled));
+        let active = true;
+        datasourceCapabilitiesService.load().then((caps) => {
+            if (active) {
+                setOverlapAvailable(caps.overlapEnabled);
+            }
+        });
+        const unsubscribe = datasourceCapabilitiesService.subscribe((caps) => setOverlapAvailable(caps.overlapEnabled));
+        return () => {
+            active = false;
+            unsubscribe();
+        };
     }, []);
 
     // If overlap support is absent but the mode was somehow left on, force it

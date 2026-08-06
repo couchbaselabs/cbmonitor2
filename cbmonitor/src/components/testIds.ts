@@ -20,6 +20,9 @@ export const testIds = {
     prometheusDsEnabled: 'data-testid ac-prom-enabled',
     prometheusDsDefault: 'data-testid ac-prom-default',
     prometheusDsUrl: 'data-testid ac-prom-url',
+    gatewayEnabled: 'data-testid ac-gateway-enabled',
+    gatewayUrl: 'data-testid ac-gateway-url',
+    gatewayOverlap: 'data-testid ac-gateway-overlap',
   },
   home: {
     container: 'data-testid home-container',
