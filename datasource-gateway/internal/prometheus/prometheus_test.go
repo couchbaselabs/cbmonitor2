@@ -94,3 +94,30 @@ func TestClientURLIsRedacted(t *testing.T) {
 		t.Errorf("Client.URL leaked credentials: %q", c.URL())
 	}
 }
+
+// TestReverseProxySendsEmbeddedCredentials verifies that userinfo embedded in
+// the upstream URL reaches the upstream as basic auth on the passthrough path,
+// matching what the HTTP client does for QueryRange and Reachable.
+func TestReverseProxySendsEmbeddedCredentials(t *testing.T) {
+	var gotUser, gotPass string
+	var gotOK bool
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUser, gotPass, gotOK = r.BasicAuth()
+		_, _ = io.WriteString(w, `{"status":"success"}`)
+	}))
+	defer upstream.Close()
+
+	withCreds := strings.Replace(upstream.URL, "http://", "http://mimir:s3cret@", 1)
+	c := New(withCreds + "/prometheus")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/query?query=1", nil)
+	rec := httptest.NewRecorder()
+	c.ReverseProxy().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if !gotOK || gotUser != "mimir" || gotPass != "s3cret" {
+		t.Errorf("upstream basic auth = (%q, %q, %v), want (mimir, s3cret, true)", gotUser, gotPass, gotOK)
+	}
+}

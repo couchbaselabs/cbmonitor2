@@ -44,7 +44,7 @@ picker — is replaced by the full window.
 | Endpoint | Behavior |
 |---|---|
 | `/api/v1/query_range` | Routed per snapshot: the request's range is confined to the snapshot's window; Couchbase-backed snapshots evaluated via SQL++; multi-snapshot matchers fan out and merge on the `t=0` axis. |
-| `/api/v1/query` | Same routing. The evaluation instant is kept when it falls inside the snapshot, else clamped to the snapshot's end; multi-snapshot matchers fan out over each full window without the time shift (instance discovery reads labels, not timestamps). |
+| `/api/v1/query` | Same routing. The evaluation instant is kept when it falls inside the snapshot, else clamped to the snapshot's end; multi-snapshot matchers fan out as one instant evaluation per snapshot at that snapshot's window end, keeping absolute time (instance discovery reads labels, not timestamps). If no snapshot in a comparison can be evaluated, the response is a Prometheus error envelope naming each snapshot's reason rather than a passthrough. |
 | `/api/v1/labels`, `/api/v1/series`, `/api/v1/label/{name}/values` | Passthrough, with `start`/`end` rewritten to the snapshot window when the `match[]` selectors identify a single snapshot. |
 | everything else under `/api/v1/` | Streaming passthrough to the upstream. |
 

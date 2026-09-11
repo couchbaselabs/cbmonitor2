@@ -47,13 +47,23 @@ type rangeCall struct {
 	step       string
 }
 
+// instantCall records one upstream instant Query call made by the overlap fan-out.
+type instantCall struct {
+	query string
+	ts    time.Time
+}
+
 type fakeProm struct {
 	proxy http.Handler
 	// rangeBody maps the rewritten query to the upstream response body;
 	// unmatched queries get an empty success matrix.
 	rangeBody  map[string]string
 	rangeCalls []rangeCall
-	mu         sync.Mutex
+	// instantBody maps the rewritten query to the upstream instant response
+	// body; unmatched queries get an empty success vector.
+	instantBody  map[string]string
+	instantCalls []instantCall
+	mu           sync.Mutex
 }
 
 func (f *fakeProm) URL() string                      { return "http://upstream" }
@@ -67,6 +77,16 @@ func (f *fakeProm) QueryRange(_ context.Context, query string, start, end time.T
 		return []byte(body), http.StatusOK, nil
 	}
 	return []byte(`{"status":"success","data":{"resultType":"matrix","result":[]}}`), http.StatusOK, nil
+}
+
+func (f *fakeProm) Query(_ context.Context, query string, ts time.Time) ([]byte, int, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.instantCalls = append(f.instantCalls, instantCall{query: query, ts: ts})
+	if body, ok := f.instantBody[query]; ok {
+		return []byte(body), http.StatusOK, nil
+	}
+	return []byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`), http.StatusOK, nil
 }
 
 type fakeEvaluator struct {
@@ -319,18 +339,27 @@ func TestQueryRangeOverlapMixedStores(t *testing.T) {
 	}
 }
 
-func TestQueryRangeOverlapNoMetadataFallsBackToPassthrough(t *testing.T) {
+func TestQueryRangeOverlapNoWindowsReturnsError(t *testing.T) {
 	rc := &recorder{}
 	cb := &fakeCouchbase{enabled: false}
 	h := newTestHandler(cb, rc, &fakeEvaluator{})
 
-	postQueryRange(h, `rate(kv_ops{job=~"snap-1|snap-2"}[5m])`, "1000", "2000")
+	w := postQueryRange(h, `rate(kv_ops{job=~"snap-1|snap-2"}[5m])`, "1000", "2000")
 
-	if !rc.called {
-		t.Fatal("overlap without metadata should degrade to passthrough")
+	if rc.called {
+		t.Fatal("overlap with no evaluable leg must not fall through to the passthrough")
 	}
-	if rc.start != "1000" || rc.end != "2000" {
-		t.Errorf("passthrough window rewritten: start=%q end=%q", rc.start, rc.end)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422", w.Code)
+	}
+	env := decodeEnvelope(t, w)
+	if env.Status != "error" || env.ErrorType != "execution" {
+		t.Errorf("envelope = %+v, want an execution error", env)
+	}
+	for _, id := range []string{"snap-1", "snap-2"} {
+		if !strings.Contains(env.Error, id) {
+			t.Errorf("error %q does not name %s", env.Error, id)
+		}
 	}
 }
 
@@ -415,28 +444,77 @@ func TestInstantQueryPrometheusBackedClampsTime(t *testing.T) {
 	}
 }
 
-func TestInstantQueryOverlapKeepsAbsoluteTime(t *testing.T) {
-	startA, _ := time.Parse(time.RFC3339, "2024-01-02T00:00:00Z")
+func TestInstantQueryOverlapEvaluatesAtEachWindowEnd(t *testing.T) {
+	endA, _ := time.Parse(time.RFC3339, "2024-01-02T01:00:00Z")
+	endB, _ := time.Parse(time.RFC3339, "2024-01-03T02:00:00Z")
 	cb := &fakeCouchbase{enabled: true, mdByID: overlapMetadata("prometheus", "prometheus")}
-	fp := &fakeProm{rangeBody: map[string]string{
+	fp := &fakeProm{instantBody: map[string]string{
 		`group by (instance) (sys_cpu{job="snap-1"})`: fmt.Sprintf(
-			`{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"instance":"n1","job":"snap-1"},"values":[[%d,"1"]]}]}}`,
-			startA.Unix()),
+			`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"instance":"n1","job":"snap-1"},"value":[%d,"1"]}]}}`,
+			endA.Unix()),
+		`group by (instance) (sys_cpu{job="snap-2"})`: fmt.Sprintf(
+			`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"instance":"n2","job":"snap-2"},"value":[%d,"1"]}]}}`,
+			endB.Unix()),
 	}}
 	h := newTestHandlerWithProm(cb, fp, &fakeEvaluator{})
 
 	w := postQuery(h, `group by (instance) (sys_cpu{job=~"snap-1|snap-2"})`, nil)
 
-	if len(fp.rangeCalls) != 2 {
-		t.Fatalf("upstream calls = %d, want 2", len(fp.rangeCalls))
+	// Instant discovery must not become a full-window range query: long
+	// snapshots would exceed the upstream's per-series point limit.
+	if len(fp.rangeCalls) != 0 {
+		t.Fatalf("upstream range calls = %d, want 0", len(fp.rangeCalls))
 	}
+	if len(fp.instantCalls) != 2 {
+		t.Fatalf("upstream instant calls = %d, want 2", len(fp.instantCalls))
+	}
+	gotTS := map[string]time.Time{}
+	for _, c := range fp.instantCalls {
+		gotTS[c.query] = c.ts
+	}
+	if ts := gotTS[`group by (instance) (sys_cpu{job="snap-1"})`]; !ts.Equal(endA) {
+		t.Errorf("snap-1 evaluated at %v, want window end %v", ts, endA)
+	}
+	if ts := gotTS[`group by (instance) (sys_cpu{job="snap-2"})`]; !ts.Equal(endB) {
+		t.Errorf("snap-2 evaluated at %v, want window end %v", ts, endB)
+	}
+
 	env := decodeEnvelope(t, w)
-	if len(env.Data.Result) != 1 {
-		t.Fatalf("merged series = %d, want 1", len(env.Data.Result))
+	if env.Status != "success" || env.Data.ResultType != "vector" {
+		t.Fatalf("envelope = %+v, want a success vector", env)
+	}
+	if len(env.Data.Result) != 2 {
+		t.Fatalf("merged series = %d, want 2", len(env.Data.Result))
 	}
 	// Instant-style discovery keeps absolute timestamps (no 0-based shift).
-	if ts, _ := env.Data.Result[0].Values[0][0].(float64); int64(ts) != startA.Unix() {
-		t.Errorf("ts = %v, want absolute %d", env.Data.Result[0].Values[0][0], startA.Unix())
+	if ts, _ := env.Data.Result[0].Value[0].(float64); int64(ts) != endA.Unix() {
+		t.Errorf("ts = %v, want absolute %d", env.Data.Result[0].Value[0], endA.Unix())
+	}
+}
+
+func TestInstantQueryOverlapCouchbaseLegUsesInstantEvaluator(t *testing.T) {
+	endA, _ := time.Parse(time.RFC3339, "2024-01-02T01:00:00Z")
+	cb := &fakeCouchbase{enabled: true, mdByID: overlapMetadata("couchbase", "prometheus")}
+	ev := &fakeEvaluator{result: &cbeval.Result{Status: "success"}}
+	ev.result.Data.ResultType = "vector"
+	ev.result.Data.Result = []cbeval.SeriesJSON{{
+		Metric: map[string]string{"instance": "n1", "job": "snap-1"},
+		Value:  []interface{}{float64(endA.Unix()), "1"},
+	}}
+	fp := &fakeProm{}
+	h := newTestHandlerWithProm(cb, fp, ev)
+
+	w := postQuery(h, `group by (instance) (sys_cpu{job=~"snap-1|snap-2"})`, nil)
+
+	if ev.called {
+		t.Error("Couchbase leg of an instant overlap query must not run a range query")
+	}
+	if !ev.instCalled || !ev.instTS.Equal(endA) {
+		t.Fatalf("instant evaluator called=%v at %v, want window end %v", ev.instCalled, ev.instTS, endA)
+	}
+	env := decodeEnvelope(t, w)
+	if len(env.Data.Result) != 1 || env.Data.Result[0].Value == nil {
+		t.Fatalf("merged result = %+v, want the Couchbase vector sample carried through", env.Data.Result)
 	}
 }
 

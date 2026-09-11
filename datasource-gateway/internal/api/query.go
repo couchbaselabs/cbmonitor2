@@ -30,7 +30,7 @@ func (h *Handler) handleQueryRange(w http.ResponseWriter, r *http.Request) {
 
 	ids := splitJobs(r.Form.Get("query"))
 	if len(ids) > 1 {
-		h.serveOverlap(w, r, ids, true)
+		h.serveOverlap(w, r, ids, false)
 		return
 	}
 
@@ -96,9 +96,9 @@ func soleJob(ids []string) string {
 // evaluate at the snapshot's end (instance-discovery queries arrive with the
 // dashboard's own time, which need not fall inside the stored window);
 // Prometheus-backed snapshots pass through with the evaluation time clamped
-// into the window. Multi-snapshot matchers fan out like overlap range queries
-// but keep absolute time — their consumers (instance discovery) only read
-// series labels, mirroring the pre-gateway proxy's behavior.
+// into the window. Multi-snapshot matchers fan out per snapshot, each leg
+// evaluated as an instant query at its own window end, and the vectors are
+// merged with absolute timestamps; their consumers (instance discovery) read series labels.
 func (h *Handler) handleQuery(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		writePromError(w, http.StatusBadRequest, "bad_data", "failed to parse request: "+err.Error())
@@ -107,7 +107,7 @@ func (h *Handler) handleQuery(w http.ResponseWriter, r *http.Request) {
 
 	ids := splitJobs(r.Form.Get("query"))
 	if len(ids) > 1 {
-		h.serveOverlap(w, r, ids, false)
+		h.serveOverlap(w, r, ids, true)
 		return
 	}
 

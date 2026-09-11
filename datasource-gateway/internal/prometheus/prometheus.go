@@ -96,17 +96,30 @@ func (c *Client) ReverseProxy() http.Handler {
 // needs the decoded matrices rather than a streamed passthrough. step is
 // forwarded verbatim (Prometheus accepts both duration and float forms).
 func (c *Client) QueryRange(ctx context.Context, query string, start, end time.Time, step string) ([]byte, int, error) {
-	if c.baseURL == "" {
-		return nil, 0, fmt.Errorf("upstream Prometheus URL is not configured")
-	}
 	params := url.Values{}
 	params.Set("query", query)
 	params.Set("start", strconv.FormatInt(start.Unix(), 10))
 	params.Set("end", strconv.FormatInt(end.Unix(), 10))
 	params.Set("step", step)
+	return c.postForm(ctx, "/api/v1/query_range", params)
+}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		c.baseURL+"/api/v1/query_range", strings.NewReader(params.Encode()))
+// Query issues an instant /api/v1/query against the upstream evaluated at ts
+// and returns the raw response body and status code. Used by the overlap
+// fan-out for multi-snapshot instant queries, which evaluate once per snapshot at that snapshot's window end.
+func (c *Client) Query(ctx context.Context, query string, ts time.Time) ([]byte, int, error) {
+	params := url.Values{}
+	params.Set("query", query)
+	params.Set("time", strconv.FormatInt(ts.Unix(), 10))
+	return c.postForm(ctx, "/api/v1/query", params)
+}
+
+// postForm POSTs form params to the upstream path and returns the body and status.
+func (c *Client) postForm(ctx context.Context, path string, params url.Values) ([]byte, int, error) {
+	if c.baseURL == "" {
+		return nil, 0, fmt.Errorf("upstream Prometheus URL is not configured")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, strings.NewReader(params.Encode()))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -154,13 +167,25 @@ func (c *Client) Close() error {
 // transport. The request path is joined onto the target's path (so an upstream
 // behind a prefix like /prometheus works), and upstream failures are rendered
 // as a Prometheus error envelope rather than plain text.
+//
+// Credentials embedded in the target URL are sent as basic auth on every proxied request.
+// The stock director copies only scheme, host and path from the target, and the proxy drives
+// the transport directly, so the URL userinfo  that http.Client applies for QueryRange and
+// Reachable would otherwise never reach the upstream on the passthrough path.
 func newReverseProxy(target *url.URL, transport http.RoundTripper) *httputil.ReverseProxy {
 	rp := httputil.NewSingleHostReverseProxy(target)
 	rp.Transport = transport
 	defaultDirector := rp.Director
+	var password string
+	if target.User != nil {
+		password, _ = target.User.Password()
+	}
 	rp.Director = func(req *http.Request) {
 		defaultDirector(req)
 		req.Host = target.Host
+		if target.User != nil {
+			req.SetBasicAuth(target.User.Username(), password)
+		}
 	}
 	rp.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, err error) {
 		writePromError(w, http.StatusBadGateway, "bad_gateway", fmt.Sprintf("upstream request failed: %v", err))

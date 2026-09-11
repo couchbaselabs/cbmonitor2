@@ -1,12 +1,13 @@
 // Overlap (multi-snapshot comparison) evaluation. A query whose job matcher
 // targets several snapshots (job=~"a|b") fans out into one query per
-// snapshot: the matcher is rewritten to that snapshot alone, the window is
-// replaced by the snapshot's stored [ts_start, ts_end], and the query runs
+// snapshot: the matcher is rewritten to that snapshot alone and the query runs
 // through the snapshot's own store (Mimir passthrough or the Couchbase
-// evaluator) with the request's shared step. Sample timestamps are then
-// shifted down by ts_start so every snapshot starts at t=0. The axis the
-// overlap panels pin, and the per-snapshot matrices are concatenated. Series
-// stay distinguishable by their original job label.
+// evaluator). A range query evaluates over the snapshot's stored
+// [ts_start, ts_end] with the request's shared step, and sample timestamps are
+// shifted down by ts_start so every snapshot starts at t=0, the axis the
+// overlap panels pin. An instant query evaluates once at the snapshot's
+// ts_end and keeps absolute time. The per-snapshot results are concatenated;
+// series stay distinguishable by their original job label.
 package api
 
 import (
@@ -15,6 +16,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -124,16 +126,18 @@ func fromCBResult(res *cbeval.Result) *promEnvelope {
 	env.Data.ResultType = res.Data.ResultType
 	env.Data.Result = make([]promSeries, 0, len(res.Data.Result))
 	for _, s := range res.Data.Result {
-		env.Data.Result = append(env.Data.Result, promSeries{Metric: s.Metric, Values: s.Values})
+		env.Data.Result = append(env.Data.Result, promSeries{Metric: s.Metric, Values: s.Values, Value: s.Value})
 	}
 	return env
 }
 
-// serveOverlap fans a multi-snapshot query out per snapshot and writes the
-// merged result. shift controls the t=0 alignment: range queries shift so the
-// overlap panels' 0-based axis lines up; instant-style discovery queries
-// (whose consumers only read labels) keep absolute time.
-func (h *Handler) serveOverlap(w http.ResponseWriter, r *http.Request, ids []string, shift bool) {
+// serveOverlap fans a multi-snapshot query out per snapshot and writes the merged result.
+// A range query (instant=false) evaluates each leg over its snapshot's window and shifts
+// it to t=0 so the overlap panels' 0-based axis lines up. An instant query (instant=true)
+// evaluates each leg once at its  snapshot's window end and keeps absolute time: its consumers (instance
+// discovery) read labels, and a single evaluation per snapshot avoids pulling the whole window as a matrix,
+// which for long snapshots exceeds the upstream's per-series point limit.
+func (h *Handler) serveOverlap(w http.ResponseWriter, r *http.Request, ids []string, instant bool) {
 	if len(ids) > maxOverlapSnapshots {
 		ids = ids[:maxOverlapSnapshots]
 	}
@@ -157,12 +161,12 @@ func (h *Handler) serveOverlap(w http.ResponseWriter, r *http.Request, ids []str
 					legErrs[i] = fmt.Sprintf("snapshot %s: internal error evaluating query", id)
 				}
 			}()
-			env, route, legErr := h.overlapLeg(ctx, query, id, step)
+			env, route, legErr := h.overlapLeg(ctx, query, id, step, instant)
 			if env == nil {
 				legErrs[i] = fmt.Sprintf("snapshot %s: %s", id, legErr)
 				return nil
 			}
-			if shift {
+			if !instant {
 				shiftEnvelope(env, route.Start.Unix())
 			}
 			legs[i] = env
@@ -179,11 +183,11 @@ func (h *Handler) serveOverlap(w http.ResponseWriter, r *http.Request, ids []str
 	}
 	merged := mergeEnvelopes(legs, warnings)
 	if merged == nil {
-		// No leg produced a result, typically no snapshot metadata is
-		// available (e.g. Couchbase disabled). Degrade to a plain passthrough
-		// rather than failing, matching the gateway's other fallbacks.
-		forwardForm(r)
-		h.prometheus.ReverseProxy().ServeHTTP(w, r)
+		// No leg produced a result. Forwarding the multi-snapshot query to the
+		// upstream would overlay absolute-time series as if they were aligned,
+		// or return an empty success, and either hides the cause. Report it.
+		writePromError(w, http.StatusUnprocessableEntity, "execution",
+			"no snapshot in the comparison could be evaluated: "+strings.Join(warnings, "; "))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -191,10 +195,12 @@ func (h *Handler) serveOverlap(w http.ResponseWriter, r *http.Request, ids []str
 	_ = json.NewEncoder(w).Encode(merged)
 }
 
-// overlapLeg runs the query for one snapshot over its stored window via its own store.
-// A leg that can't produce data returns a nil envelope plus the reason, so it drops out of the comparison rather than failing it.
-// but the reason reaches the caller as a warning instead of vanishing.
-func (h *Handler) overlapLeg(ctx context.Context, query, id, step string) (*promEnvelope, router.Route, string) {
+// overlapLeg runs the query for one snapshot via its own store: over the
+// snapshot's stored window for a range query, or at the window's end for an
+// instant query. A leg that can't produce data returns a nil envelope plus the
+// reason, so it drops out of the comparison rather than failing it, and the
+// reason reaches the caller as a warning instead of vanishing.
+func (h *Handler) overlapLeg(ctx context.Context, query, id, step string, instant bool) (*promEnvelope, router.Route, string) {
 	route := h.router.Resolve(ctx, id)
 	if !route.HasWindow {
 		return nil, route, "no time window in snapshot metadata"
@@ -202,14 +208,20 @@ func (h *Handler) overlapLeg(ctx context.Context, query, id, step string) (*prom
 	q := replaceJobMatcher(query, id)
 
 	if route.Store == router.StoreCouchbase {
-		res, err := h.evaluator.RangeQuery(ctx, q, route.Start, route.End, parseStepParam(step))
+		var res *cbeval.Result
+		var err error
+		if instant {
+			res, err = h.evaluator.InstantQuery(ctx, q, route.End)
+		} else {
+			res, err = h.evaluator.RangeQuery(ctx, q, route.Start, route.End, parseStepParam(step))
+		}
 		if err != nil {
 			return nil, route, "query failed: " + err.Error()
 		}
 		return fromCBResult(res), route, ""
 	}
 
-	body, status, err := h.prometheus.QueryRange(ctx, q, route.Start, route.End, step)
+	body, status, err := h.upstreamLeg(ctx, q, route.Start, route.End, step, instant)
 	if err != nil {
 		return nil, route, "upstream request failed: " + err.Error()
 	}
@@ -224,4 +236,12 @@ func (h *Handler) overlapLeg(ctx context.Context, query, id, step string) (*prom
 		return nil, route, "upstream reported: " + env.Error
 	}
 	return &env, route, ""
+}
+
+// upstreamLeg issues the leg's upstream call: query_range over [start, end] with step, or an instant query at end.
+func (h *Handler) upstreamLeg(ctx context.Context, q string, start, end time.Time, step string, instant bool) ([]byte, int, error) {
+	if instant {
+		return h.prometheus.Query(ctx, q, end)
+	}
+	return h.prometheus.QueryRange(ctx, q, start, end, step)
 }

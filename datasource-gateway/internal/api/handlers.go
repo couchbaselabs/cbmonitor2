@@ -18,13 +18,14 @@ type couchbaseHealth interface {
 }
 
 // prometheusGateway is the slice of the Prometheus client the gateway needs:
-// health probing, the reverse-proxy handler for the passthrough path, and a
-// decoded query_range call for the overlap fan-out.
+// health probing, the reverse-proxy handler for the passthrough path, and
+// decoded query_range / query calls for the overlap fan-out.
 type prometheusGateway interface {
 	URL() string
 	Reachable(ctx context.Context) bool
 	ReverseProxy() http.Handler
 	QueryRange(ctx context.Context, query string, start, end time.Time, step string) ([]byte, int, error)
+	Query(ctx context.Context, query string, ts time.Time) ([]byte, int, error)
 }
 
 // couchbaseEvaluator runs PromQL against Couchbase-backed samples (via the
