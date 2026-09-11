@@ -260,7 +260,7 @@ func TestReconcile_SkipsDesiredWithEmptyURL(t *testing.T) {
 	r := newTestReconciler(srv)
 	desired := []DesiredDatasource{{
 		UID: "prometheus", Name: "Prometheus", Type: "prometheus", Access: "proxy",
-		URL: "", // forbidden — must not be POSTed
+		URL:      "", // forbidden — must not be POSTed
 		JSONData: map[string]any{},
 	}}
 
@@ -508,8 +508,8 @@ func TestClaimedDatasources_ReflectsEnabledFlags(t *testing.T) {
 
 func TestDesiredDatasources_OnlyIncludesEnabledWithRequiredFields(t *testing.T) {
 	cases := []struct {
-		name   string
-		s      PluginSettings
+		name     string
+		s        PluginSettings
 		wantUIDs []string
 	}{
 		{
@@ -609,6 +609,32 @@ func TestDesiredDatasources_PrometheusTargetsGatewayWhenEnabled(t *testing.T) {
 	}
 	if got[0].Type != "prometheus" {
 		t.Errorf("DS type = %q, want prometheus", got[0].Type)
+	}
+}
+
+// TestPrometheusURL_FollowsGateway pins the single source for the endpoint the plugin's Prometheus
+// consumers target: the reconciled datasource and the metric-discovery service both read it,
+// so enabling the gateway with a blank upstream URL leaves neither of them without a backend.
+func TestPrometheusURL_FollowsGateway(t *testing.T) {
+	s := PluginSettings{
+		PrometheusDatasource: PrometheusDatasourceSettings{Enabled: true, URL: "http://mimir:9009/prometheus"},
+	}
+	if got := s.PrometheusURL(); got != "http://mimir:9009/prometheus" {
+		t.Errorf("without gateway = %q, want the upstream URL", got)
+	}
+
+	s.Gateway = GatewaySettings{Enabled: true, URL: "http://datasource-gateway:8090"}
+	if got := s.PrometheusURL(); got != "http://datasource-gateway:8090" {
+		t.Errorf("with gateway = %q, want the gateway URL", got)
+	}
+
+	// A blank upstream URL is fine once the gateway owns the endpoint.
+	s.PrometheusDatasource.URL = ""
+	if got := s.PrometheusURL(); got != "http://datasource-gateway:8090" {
+		t.Errorf("with gateway and blank upstream = %q, want the gateway URL", got)
+	}
+	if ds := s.desiredDatasources(); len(ds) != 1 || ds[0].URL != "http://datasource-gateway:8090" {
+		t.Errorf("desiredDatasources = %#v, want one DS at the gateway URL", ds)
 	}
 }
 

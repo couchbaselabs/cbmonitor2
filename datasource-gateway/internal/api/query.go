@@ -13,8 +13,9 @@ import (
 
 // jobSelectorRe captures the value of a positive job matcher (job="..." or
 // job=~"...") in a PromQL query. Negative matchers (!=, !~) don't match
-// because the '!' breaks the `job\s*=` prefix.
-var jobSelectorRe = regexp.MustCompile(`job\s*=~?\s*"([^"]*)"`)
+// because the '!' breaks the `job\s*=` prefix. The leading word boundary
+// keeps labels that merely end in "job" (sub_job, xdcr_job) from being taken for the snapshot matcher.
+var jobSelectorRe = regexp.MustCompile(`\bjob\s*=~?\s*"([^"]*)"`)
 
 // handleQueryRange serves /api/v1/query_range. It resolves the snapshot's route
 // (cached) and forks: Prometheus-backed snapshots are forwarded to the upstream

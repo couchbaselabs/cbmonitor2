@@ -127,10 +127,11 @@ func (a *App) initServices() {
 		}
 	}
 
-	if a.settings.PrometheusDatasource.Enabled && a.settings.PrometheusDatasource.URL != "" {
-		prom := a.settings.PrometheusDatasource
-		sdklog.DefaultLogger.Info("initServices: opening Prometheus metrics service", "url", prom.URL)
-		p, err := services.NewPrometheusService(prom.URL, nil)
+	// Metric discovery targets the same endpoint as the reconciled Prometheus
+	// datasource (the gateway when enabled), so the two cannot disagree on where a snapshot's metrics live.
+	if promURL := a.settings.PrometheusURL(); a.settings.PrometheusDatasource.Enabled && promURL != "" {
+		sdklog.DefaultLogger.Info("initServices: opening Prometheus metrics service", "url", promURL)
+		p, err := services.NewPrometheusService(promURL, nil)
 		if err != nil {
 			sdklog.DefaultLogger.Error("initServices: PrometheusService init failed", "error", err.Error())
 		} else {

@@ -61,6 +61,17 @@ type GatewaySettings struct {
 	Overlap bool `json:"overlap"`
 }
 
+// PrometheusURL returns the URL the plugin's Prometheus-API consumers target:
+// the gateway when it is enabled, otherwise the upstream Prometheus/Mimir.
+// The reconciled Prometheus datasource and the plugin's own metric-discovery
+// service both use this, so they always speak to the same endpoint.
+func (s *PluginSettings) PrometheusURL() string {
+	if s.Gateway.Enabled {
+		return s.Gateway.URL
+	}
+	return s.PrometheusDatasource.URL
+}
+
 // secureFieldCouchbasePassword is the secureJsonData key that holds the
 // Couchbase server password.
 const secureFieldCouchbasePassword = "couchbasePassword"

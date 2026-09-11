@@ -374,6 +374,10 @@ func TestSplitJobs(t *testing.T) {
 		{`kv_ops{job=~"snap-1|snap-1|snap-2"}`, []string{"snap-1", "snap-2"}},
 		{`kv_ops`, nil},
 		{`kv_ops{job!="snap-1"}`, nil},
+		// Labels that merely end in "job" are not the snapshot matcher.
+		{`kv_ops{sub_job="x", job="snap-1"}`, []string{"snap-1"}},
+		{`kv_ops{job=~"snap-1|snap-2", sub_job=~"a|b"}`, []string{"snap-1", "snap-2"}},
+		{`kv_ops{sub_job="x"}`, nil},
 	}
 	for _, c := range cases {
 		got := splitJobs(c.query)
@@ -387,6 +391,14 @@ func TestSplitJobs(t *testing.T) {
 				break
 			}
 		}
+	}
+}
+
+func TestReplaceJobMatcherLeavesOtherLabelsAlone(t *testing.T) {
+	got := replaceJobMatcher(`kv_ops{job=~"snap-1|snap-2", sub_job=~"a|b"}`, "snap-1")
+	want := `kv_ops{job="snap-1", sub_job=~"a|b"}`
+	if got != want {
+		t.Errorf("replaceJobMatcher = %q, want %q", got, want)
 	}
 }
 

@@ -19,3 +19,12 @@ func TestBuildConnectionString(t *testing.T) {
 		}
 	}
 }
+
+func TestKeyspaceDefaultsEmptyScopeAndCollection(t *testing.T) {
+	if got, want := Keyspace("cbmonitor", "", ""), "`cbmonitor`.`_default`.`_default`"; got != want {
+		t.Errorf("Keyspace = %s, want %s", got, want)
+	}
+	if got, want := Keyspace("cbmonitor", "s", "c"), "`cbmonitor`.`s`.`c`"; got != want {
+		t.Errorf("Keyspace = %s, want %s", got, want)
+	}
+}

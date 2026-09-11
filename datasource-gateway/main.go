@@ -86,7 +86,7 @@ func main() {
 
 	// Couchbase query evaluator: runs the Prometheus engine over samples
 	// fetched from the metrics keyspace (bucket.scope.collection).
-	metricsKeyspace := fmt.Sprintf("`%s`.`%s`.`%s`",
+	metricsKeyspace := couchbase.Keyspace(
 		cfg.Couchbase.MetricsBucket, cfg.Couchbase.MetricsScope, cfg.Couchbase.MetricsCollection)
 	evaluator := cbeval.NewEvaluator(cbClient, metricsKeyspace)
 

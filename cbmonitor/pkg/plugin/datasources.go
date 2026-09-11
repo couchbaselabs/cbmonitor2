@@ -389,10 +389,7 @@ func (s *PluginSettings) desiredDatasources() []DesiredDatasource {
 	// serve overlap); otherwise straight at the upstream Prometheus/Mimir
 	// (pure-Prometheus mode). Either way it's a prometheus-typed datasource
 	// speaking the Prometheus HTTP API, so the jsonData below is unchanged.
-	promURL := s.PrometheusDatasource.URL
-	if s.Gateway.Enabled {
-		promURL = s.Gateway.URL
-	}
+	promURL := s.PrometheusURL()
 	if s.PrometheusDatasource.Enabled && promURL != "" {
 		out = append(out, DesiredDatasource{
 			UID:       dsUIDPrometheus,

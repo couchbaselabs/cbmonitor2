@@ -2,6 +2,7 @@ package couchbase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync/atomic"
@@ -145,7 +146,7 @@ func (c *Client) GetSnapshotMetadata(ctx context.Context, snapshotID string) (*M
 	}
 	res, err := c.metadataColl.Get(snapshotID, &gocb.GetOptions{Context: ctx, Timeout: queryTimeout})
 	if err != nil {
-		if err == gocb.ErrDocumentNotFound {
+		if errors.Is(err, gocb.ErrDocumentNotFound) {
 			return nil, fmt.Errorf("snapshot not found: %s", snapshotID)
 		}
 		return nil, fmt.Errorf("fetch snapshot metadata: %w", err)
@@ -246,6 +247,12 @@ func orDefault(name string) string {
 		return "_default"
 	}
 	return name
+}
+
+// Keyspace returns the backtick-quoted `bucket`.`scope`.`collection` path for SQL++ statements,
+// with an empty scope or collection mapped to "_default" the same way the client resolves the scope it queries under.
+func Keyspace(bucket, scope, collection string) string {
+	return fmt.Sprintf("`%s`.`%s`.`%s`", bucket, orDefault(scope), orDefault(collection))
 }
 
 // BuildConnectionString prepends the couchbase:// scheme to a bare host. A
