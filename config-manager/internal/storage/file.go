@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -89,16 +90,31 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 	username := credentials["username"].(string)
 	password := credentials["password"].(string)
 
+	// One job per (scheme, metric-relabel) pair: a product declaring
+	// metric_relabel_configs gets a job of its own so its rules only see
+	// its own series. Everything else shares the per-scheme job.
 	type scrapeBucket struct {
+		scheme string
+		// product is set only on a product-specific bucket.
+		product       string
+		metricRelabel []products.RelabelRule
 		httpSDConfigs []map[string]interface{}
 		staticConfigs []map[string]interface{}
 	}
 	buckets := map[string]*scrapeBucket{}
-	bucketFor := func(scheme string) *scrapeBucket {
-		b, ok := buckets[scheme]
+	bucketFor := func(scheme, product string) *scrapeBucket {
+		var rules []products.RelabelRule
+		if p := products.Get(product); p != nil {
+			rules = p.MetricRelabelConfigs
+		}
+		key, owner := scheme, ""
+		if len(rules) > 0 {
+			key, owner = scheme+"/"+product, product
+		}
+		b, ok := buckets[key]
 		if !ok {
-			b = &scrapeBucket{}
-			buckets[scheme] = b
+			b = &scrapeBucket{scheme: scheme, product: owner, metricRelabel: rules}
+			buckets[key] = b
 		}
 		return b
 	}
@@ -118,13 +134,13 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 		if configScheme == "" {
 			configScheme = "http"
 		}
-		bucket := bucketFor(configScheme)
+		product, _ := config["product"].(string)
+		bucket := bucketFor(configScheme, product)
 
 		useAltAddresses, _ := config["use_alt_addresses"].(bool)
 
 		switch configType := config["type"].(string); configType {
 		case "sd":
-			product, _ := config["product"].(string)
 			sdPath, _ := config["sd_path"].(string)
 			// Caller-supplied sd_path wins; otherwise fall back to the
 			// product registry's default. The validator has already
@@ -162,22 +178,31 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 		}
 	}
 
-	// Emit one Prometheus job per scheme bucket. When the file contains
-	// more than one bucket, suffix job_name with the scheme so each job is
-	// uniquely named, and use relabel_configs to rewrite the scraped `job`
-	// label back to the snapshot id — cbmonitor's PromQL selects by
-	// job="<id>" and must stay green across both halves.
-	jobs := []map[string]interface{}{}
-	multiBucket := len(buckets) > 1
-	for _, scheme := range []string{"http", "https"} {
-		bucket, ok := buckets[scheme]
-		if !ok {
-			continue
+	// Fixed job order: http before https ("http" sorts first as a prefix
+	// of "https"), shared bucket before product-specific ones. With more
+	// than one job, job_name is suffixed to stay unique and
+	// relabel_configs rewrites the scraped `job` label back to the
+	// snapshot id — cbmonitor's PromQL selects by job="<id>".
+	ordered := make([]*scrapeBucket, 0, len(buckets))
+	for _, bucket := range buckets {
+		ordered = append(ordered, bucket)
+	}
+	sort.Slice(ordered, func(i, j int) bool {
+		if ordered[i].scheme != ordered[j].scheme {
+			return ordered[i].scheme < ordered[j].scheme
 		}
+		return ordered[i].product < ordered[j].product
+	})
 
+	jobs := make([]map[string]interface{}, 0, len(ordered))
+	multiBucket := len(ordered) > 1
+	for _, bucket := range ordered {
 		jobName := id
 		if multiBucket {
-			jobName = id + "-" + scheme
+			jobName = id + "-" + bucket.scheme
+			if bucket.product != "" {
+				jobName += "-" + bucket.product
+			}
 		}
 
 		yamlConfig := map[string]interface{}{
@@ -186,10 +211,10 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 				"username": username,
 				"password": password,
 			},
-			"scheme": scheme,
+			"scheme": bucket.scheme,
 		}
 
-		if scheme == "https" {
+		if bucket.scheme == "https" {
 			yamlConfig["tls_config"] = map[string]interface{}{"insecure_skip_verify": true}
 		}
 
@@ -199,6 +224,10 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 
 		if len(bucket.staticConfigs) > 0 {
 			yamlConfig["static_configs"] = bucket.staticConfigs
+		}
+
+		if len(bucket.metricRelabel) > 0 {
+			yamlConfig["metric_relabel_configs"] = bucket.metricRelabel
 		}
 
 		if multiBucket {

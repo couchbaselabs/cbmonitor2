@@ -1,9 +1,10 @@
 package products
 
-// sgwProduct is the registry entry for Sync Gateway. Today it only
-// declares its expected metrics path; no SD discovery, no metadata fetcher.
+// sgwProduct is the registry entry for self-managed Sync Gateway, where
+// each node is scraped directly as its own static target. Capella App
+// Services is the managed form — see appservice.go.
 var sgwProduct = &Product{
-	Name:              "sgw",
+	Name:              "syncgateway",
 	DefaultStaticPath: "/metrics",
 }
 

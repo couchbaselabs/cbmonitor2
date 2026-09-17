@@ -6,6 +6,8 @@
 //   - the default metrics path on static targets (stored for now; not
 //     yet wired into the emitted vmagent YAML)
 //   - a metadata fetcher (e.g. /pools/nodes for couchbase)
+//   - the products it implies (e.g. appservice implies syncgateway)
+//   - any metric_relabel_configs its targets need
 //
 // Adding a new product is one file in this package; no other callers
 // need to special-case it.
@@ -35,6 +37,27 @@ type Product struct {
 	// a single hostname. Returns (nil, nil) when there's nothing to
 	// report (the handler treats that the same as "no fetcher").
 	GetMetadata func(scheme, hostname string, port int, username, password string) (*Metadata, error)
+
+	// Implies lists extra product identifiers recorded in the snapshot's
+	// `products` alongside this one, so dashboards and tabs keyed on the
+	// broader product match too. These land verbatim in the metadata
+	// document, where cbmonitor compares them against a dashboard UID's
+	// first hyphen-separated segment.
+	Implies []string
+
+	// MetricRelabelConfigs are the vmagent `metric_relabel_configs` rules
+	// this product's targets need. A product declaring any is scraped by
+	// a job of its own, so the rules only see that product's series.
+	MetricRelabelConfigs []RelabelRule
+}
+
+// RelabelRule is one vmagent relabel rule; empty fields are omitted.
+type RelabelRule struct {
+	SourceLabels []string `yaml:"source_labels,omitempty"`
+	Regex        string   `yaml:"regex,omitempty"`
+	TargetLabel  string   `yaml:"target_label,omitempty"`
+	Replacement  string   `yaml:"replacement,omitempty"`
+	Action       string   `yaml:"action,omitempty"`
 }
 
 // Metadata is the per-host result of GetMetadata. For backward

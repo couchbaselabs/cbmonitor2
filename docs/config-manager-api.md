@@ -46,6 +46,10 @@ Creates a configuration snapshot for one or more Couchbase clusters and saves it
   - `hostnames` (required): Array of hostnames or IP addresses for the cluster/service
   - `port` (required): Port number for the cluster/service
   - `type` (optional): Service discovery type. Defaults to `"sd"` if not specified. Use `"static"` for static targets.
+  - `product` (optional): What is at the target, so config-manager knows how to scrape it and what to record on the snapshot. See [Products](#products). Defaults to `"couchbase"` on `type: "sd"` configs; blank on static ones.
+  - `sd_path` (optional): Discovery endpoint path appended to `{scheme}://{host}:{port}` on `type: "sd"` configs. Must start with `/`. Required when the product has no default SD path.
+  - `scheme` (optional): Per-config override of the top-level `scheme`.
+  - `use_alt_addresses` (optional): Request alternate (external) node addresses from service discovery.
 - `credentials` (required): Authentication credentials
   - `username` (required): Username for cluster authentication
   - `password` (required): Password for cluster authentication
@@ -93,6 +97,53 @@ curl -X POST http://localhost:8085/api/v1/snapshot \
 - Configuration files are saved with the naming convention: `{uuid}.yml` in the directory specified by the agent configuration.
 - The provided credentilas are used for metrics scraping, services discovery and cluster metadata collection.
 - Service discovery URLs include `clusterLabels=uuidOnly` so cluster UUID labels are emitted for cluster registration.
+
+### Products
+
+`product` names what is at a target. Known products carry their own defaults —
+a service-discovery path, a metadata fetcher, scrape-time relabelling — so
+callers only send the name. An unknown value is accepted and recorded, it just
+gets none of those defaults.
+
+| `product` | Notes |
+|---|---|
+| `couchbase` | Default for `type: "sd"`. Supplies the SD path and collects `/pools/nodes` metadata. |
+| `syncgateway` | Self-managed Sync Gateway, scraped per node as static targets. |
+| `appservice` | Capella App Services: managed Sync Gateway behind one metrics endpoint. |
+
+Each snapshot's metadata records the distinct set of products it scrapes, in
+`products`. cbmonitor uses that set to decide which builtin tabs apply and
+which of the user-maintained dashboards in Grafana's `products/` folder to
+offer.
+
+**App Services.** Capella App Services fronts every Sync Gateway node behind a
+single metrics endpoint, so a snapshot has one scrape target no matter how many
+nodes are deployed — `instance` identifies the endpoint, not the node, and a
+panel keyed on `instance` collapses the whole deployment into one series. The
+endpoint labels every series with `couchbaseNode`, so `product: "appservice"`:
+
+1. records both `appservice` and `syncgateway` in the snapshot's `products`, so
+   Sync Gateway dashboards and tabs keep matching while App-Services-specific
+   ones can select the narrower product;
+2. scrapes the target in a job of its own carrying
+
+   ```yaml
+   metric_relabel_configs:
+     - source_labels: [couchbaseNode]
+       regex: (.+)
+       target_label: instance
+       replacement: $1
+   ```
+
+   which promotes the per-node identity into `instance`. The job is kept
+   separate so the rewrite only ever sees App Services' series. `regex: (.+)`
+   does not match an empty source label, so a target without `couchbaseNode`
+   keeps its `instance` unchanged.
+
+When a snapshot's configs need more than one job — mixed schemes, or a product
+with its own relabelling — `job_name` is suffixed to stay unique and a
+`relabel_configs` rule rewrites the scraped `job` label back to the snapshot id,
+so `job="<id>"` keeps selecting everything in the snapshot.
 
 ---
 

@@ -215,20 +215,32 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 // collectProducts returns the distinct, order-preserving set of products
 // across the request's configs. The validator has already defaulted each
 // SD config's product to "couchbase", so a typical Couchbase snapshot
-// yields ["couchbase"]; a mixed snapshot yields e.g. ["couchbase","sgw"].
+// yields ["couchbase"]; a mixed snapshot yields e.g.
+// ["couchbase","syncgateway"].
 // Blank products (e.g. a static config with no product) are skipped.
+//
+// A registered product's implied products follow it, so
+// `product: "appservice"` yields ["appservice","syncgateway"].
 func collectProducts(configs []models.ConfigObject) []string {
 	seen := make(map[string]struct{}, len(configs))
 	out := make([]string, 0, len(configs))
+	add := func(name string) {
+		if name == "" {
+			return
+		}
+		if _, ok := seen[name]; ok {
+			return
+		}
+		seen[name] = struct{}{}
+		out = append(out, name)
+	}
 	for _, c := range configs {
-		if c.Product == "" {
-			continue
+		add(c.Product)
+		if p := products.Get(c.Product); p != nil {
+			for _, implied := range p.Implies {
+				add(implied)
+			}
 		}
-		if _, ok := seen[c.Product]; ok {
-			continue
-		}
-		seen[c.Product] = struct{}{}
-		out = append(out, c.Product)
 	}
 	return out
 }
