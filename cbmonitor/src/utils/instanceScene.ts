@@ -1,5 +1,5 @@
 import { EmbeddedScene, SceneFlexLayout, SceneFlexItem, SceneDataLayerSet } from '@grafana/scenes';
-import { getInstancesFromMetricRunner, getInstancesFromProxyPromMetricRunner, parseInstancesFromFrames } from 'services/instanceService';
+import { getInstancesFromMetricRunner, getInstancesFromOverlapMetricRunner, parseInstancesFromFrames } from 'services/instanceService';
 import { layoutService } from '../services/layoutService';
 import { SnapshotPhaseRegionsLayer } from '../layers/SnapshotPhaseRegionsLayer';
 import { createOverlapMetricPanel } from './utils.panelOverlap';
@@ -30,7 +30,7 @@ function makeSingleContext(snapshotId: string, branch: BuilderBranch, instance?:
         titleSuffix: '',
         perInstance: instance,
         sumBy: (...extras) => ['instance', ...extras].join(', '),
-        // Matches makeLegendTemplate() in utils.panel.ts — " , " separator.
+        // The " , " separator matches the legend format used by panel builders.
         legend: (...labels) => ['{{instance}}', ...labels.map((l) => `{{${l}}}`)].join(' , '),
         panel: (metricName, title, spec) => createMetricPanel(metricName, title, {
             ...spec,
@@ -165,7 +165,7 @@ export function createInstanceAwareOverlapScene(
         children: [],
     });
 
-    const instancesRunner = getInstancesFromProxyPromMetricRunner(snapshotIds, options.instanceMetric);
+    const instancesRunner = getInstancesFromOverlapMetricRunner(snapshotIds, options.instanceMetric);
     layout.setState({ $data: instancesRunner });
     (instancesRunner as any).run?.();
 

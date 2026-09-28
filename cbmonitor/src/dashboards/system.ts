@@ -42,7 +42,6 @@ export const systemBuilder: ServiceBuilder = (ctx) => {
             ctx.panel('couch_docs_actual_disk_size', `Couch Docs Actual Disk Size (Bytes)${ctx.titleSuffix}`, {
                 expr: `sum by (${ctx.sumBy('bucket')}) (couch_docs_actual_disk_size{${ctx.jobSelector}${ctx.instanceFilter}})`,
                 legendFormat: ctx.legend('bucket'),
-                extraFields: ['d.labels.`instance`', 'd.labels.`bucket`'],
                 unit: 'bytes',
             }),
             // Disk read/write: overlap renders them aggregated in 'base';
@@ -69,17 +68,11 @@ export const systemBuilder: ServiceBuilder = (ctx) => {
             ctx.panel('sys_disk_read_bytes', `Rate Disk Read Bytes (${i})`, {
                 expr: `rate(sys_disk_read_bytes{${ctx.jobSelector},instance="${i}"}[$__rate_interval])`,
                 legendFormat: '{{disk}}',
-                labelFilters: { instance: i },
-                extraFields: ['d.labels.`disk`'],
-                transformFunction: 'rate',
                 unit: 'Bps',
             }),
             ctx.panel('sys_disk_write_bytes', `Rate Disk Write Bytes (${i})`, {
                 expr: `rate(sys_disk_write_bytes{${ctx.jobSelector},instance="${i}"}[$__rate_interval])`,
                 legendFormat: '{{disk}}',
-                labelFilters: { instance: i },
-                extraFields: ['d.labels.`disk`'],
-                transformFunction: 'rate',
                 unit: 'Bps',
             }),
         ];
@@ -90,15 +83,11 @@ export const systemBuilder: ServiceBuilder = (ctx) => {
         ctx.panel('sys_disk_read_bytes', 'Rate Disk Read Bytes', {
             expr: `rate(sys_disk_read_bytes{${ctx.jobSelector}}[$__rate_interval])`,
             legendFormat: '{{disk}}',
-            extraFields: ['d.labels.`disk`'],
-            transformFunction: 'rate',
             unit: 'Bps',
         }),
         ctx.panel('sys_disk_write_bytes', 'Rate Disk Write Bytes', {
             expr: `rate(sys_disk_write_bytes{${ctx.jobSelector}}[$__rate_interval])`,
             legendFormat: '{{disk}}',
-            extraFields: ['d.labels.`disk`'],
-            transformFunction: 'rate',
             unit: 'Bps',
         }),
     ];

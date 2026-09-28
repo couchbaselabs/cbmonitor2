@@ -12,3 +12,27 @@ services:
       - ${HOST_DATA_DIR:-../../data}:${CM_AGENT_DIRECTORY:-/root/data}
     environment:
       - CM_LOG_LEVEL=${CM_LOG_LEVEL:-info}
+
+  datasource-gateway:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile.datasource-gateway
+      args:
+        - DSG_SERVER_PORT=${DSG_SERVER_PORT:-8090}
+    ports:
+      - "${DSG_SERVER_PORT:-8090}:${DSG_SERVER_PORT:-8090}"
+    environment:
+      # Bare entries pass the host variable through only when it is set;
+      # anything unset falls back to the baked-in config.yaml.
+      - DSG_LOG_LEVEL=${DSG_LOG_LEVEL:-info}
+      - DSG_PROMETHEUS_URL
+      - DSG_COUCHBASE_ENABLED
+      - DSG_COUCHBASE_HOST
+      - DSG_COUCHBASE_USERNAME
+      - DSG_COUCHBASE_PASSWORD
+      - DSG_COUCHBASE_METADATA_BUCKET
+      - DSG_COUCHBASE_METADATA_SCOPE
+      - DSG_COUCHBASE_METADATA_COLLECTION
+      - DSG_COUCHBASE_METRICS_BUCKET
+      - DSG_COUCHBASE_METRICS_SCOPE
+      - DSG_COUCHBASE_METRICS_COLLECTION

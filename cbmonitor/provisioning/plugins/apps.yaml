@@ -19,5 +19,12 @@ apps:
         enabled: $CBMONITOR_PROMETHEUS_DS_ENABLED
         isDefault: $CBMONITOR_PROMETHEUS_DS_IS_DEFAULT
         url: $PROMETHEUS_URL
+      # When enabled, the single Prometheus datasource points at the
+      # datasource-gateway sidecar instead of $PROMETHEUS_URL directly, which
+      # is what provides snapshot-window routing and overlap comparison.
+      gateway:
+        enabled: $CBMONITOR_GATEWAY_ENABLED
+        url: $CBMONITOR_GATEWAY_URL
+        overlap: $CBMONITOR_GATEWAY_OVERLAP
     secureJsonData:
       couchbasePassword: $COUCHBASE_PASSWORD

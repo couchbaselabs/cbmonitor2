@@ -1,12 +1,22 @@
 .PHONY: build clean test lint help
 
 # Default target: Build all services
-build: build-cm
+build: build-cm build-gateway
 
 # Build the config-manager service
 build-cm:
 	@echo "Building config-manager service..."
 	@cd config-manager && go build -o ../bin/config-manager .
+
+# Build the datasource-gateway service
+build-gateway:
+	@echo "Building datasource-gateway service..."
+	@cd datasource-gateway && go build -o ../bin/datasource-gateway .
+
+# Build the datasource-gateway service docker image (standalone compose project)
+build-gateway-docker: build-gateway
+	@echo "Building datasource-gateway service docker image..."
+	@docker compose -f deployments/docker/compose.datasource-gateway.yml up --build -d
 
 # Build the config-manager service docker image
 build-cm-docker: build-cm
@@ -27,27 +37,14 @@ build-plugin:
 	mage
 
 # Build the grafana-app plugin docker image
-build-plugin-docker: build-plugin move-datasource-build-artifacts
+build-plugin-docker: build-plugin
 	@echo "Building cbmonitor grafana-app plugin docker image..."
 	@cd cbmonitor && npm run server
 
 # Rebuild plugin locally and restart container to pick up changes
-reload-plugin: build-plugin move-datasource-build-artifacts
+reload-plugin: build-plugin
 	@echo "Restarting cbmonitor container to load plugin changes..."
 	@docker restart cbmonitor
-
-# Build the datasource plugin
-build-couchbase-datasource:
-	@cd mfork-grafana-plugin && cd couchbase-datasource && \
-    yarn install && \
-    yarn build && \
-    mage -v
-
-# Move the datasource build artifacts to the cbmonitor dist directory
-move-datasource-build-artifacts:
-	@echo "Moving datasource build artifacts..."
-	@mkdir -p cbmonitor/dist/couchbase-datasource/
-	@cp -r mfork-grafana-plugin/couchbase-datasource/dist/* cbmonitor/dist/couchbase-datasource/
 
 # Clean build artifacts
 clean-cm:
@@ -71,6 +68,8 @@ help:
 	@echo "  build       		- Build all services"
 	@echo "  build-cm    		- Build config-manager service"
 	@echo "  build-cm-docker 	- Build config-manager service docker image"
+	@echo "  build-gateway 		- Build datasource-gateway service"
+	@echo "  build-gateway-docker 	- Build datasource-gateway service docker image"
 	@echo "  build-plugin 		- Build cbmonitor grafana-app plugin"
 	@echo "  build-plugin-docker 	- Build cbmonitor grafana-app plugin docker image"
 	@echo "  reload-plugin      - Rebuild plugin and restart container"

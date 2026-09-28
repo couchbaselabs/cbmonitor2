@@ -25,7 +25,6 @@ services:
       - ../dist:/var/lib/grafana/plugins/cbmonitor
       - ../provisioning:/etc/grafana/provisioning
       - ..:/root/cbmonitor
-      - ../../couchbase-datasource/couchbase-datasource/dist:/var/lib/grafana/plugins/couchbase-datasource
       - ../../test-dashboards:/var/lib/grafana/dashboards
 
     environment:
@@ -43,9 +42,8 @@ services:
       GF_AUTH_MANAGED_SERVICE_ACCOUNTS_ENABLED: 'true'
       GF_FEATURE_TOGGLES_ENABLE: ${GF_FEATURE_TOGGLES_ENABLE:-externalServiceAccounts}
 
-      # Couchbase credentials are consumed by:
-      # 1. provisioning/datasources/datasource.yaml (couchbase-datasource plugin)
-      # 2. provisioning/plugins/apps.yaml
+      # Couchbase credentials are consumed by provisioning/plugins/apps.yaml
+      # (the cbmonitor app jsonData).
       COUCHBASE_CONNECTION_STRING: ${COUCHBASE_CONNECTION_STRING:-couchbase://host.docker.internal:8091}
       COUCHBASE_USERNAME: ${COUCHBASE_USERNAME:-Administrator}
       COUCHBASE_PASSWORD: ${COUCHBASE_PASSWORD:-password}
@@ -57,3 +55,11 @@ services:
       CBMONITOR_COUCHBASE_DS_ENABLED: ${CBMONITOR_COUCHBASE_DS_ENABLED:-false}
       CBMONITOR_PROMETHEUS_DS_ENABLED: ${CBMONITOR_PROMETHEUS_DS_ENABLED:-true}
       CBMONITOR_PROMETHEUS_DS_IS_DEFAULT: ${CBMONITOR_PROMETHEUS_DS_IS_DEFAULT:-true}
+
+      # datasource-gateway sidecar. Enabling this points the Prometheus
+      # datasource at the gateway, which adds snapshot-window routing and
+      # overlap comparison. The default host address reaches a gateway running
+      # on the host from inside this container.
+      CBMONITOR_GATEWAY_ENABLED: ${CBMONITOR_GATEWAY_ENABLED:-false}
+      CBMONITOR_GATEWAY_URL: ${CBMONITOR_GATEWAY_URL:-http://host.docker.internal:8090}
+      CBMONITOR_GATEWAY_OVERLAP: ${CBMONITOR_GATEWAY_OVERLAP:-true}

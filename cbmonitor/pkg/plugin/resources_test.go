@@ -127,15 +127,91 @@ func TestCallResource_DatasourceConfigReflectsSettings(t *testing.T) {
 	}
 }
 
-func TestCallResource_DatasourceRoutesGatedByToggle(t *testing.T) {
-	// Couchbase datasource OFF → /query, /query_range, /series should 404.
-	app := newAppWithSettings(t, defaultSettings())
+// The gateway capability fields are the wire contract the frontend gates the
+// overlap comparison on (src/services/datasourceCapabilities.ts), so they are
+// asserted by name here: a rename would otherwise ship as a permanently-false
+// capability with no test failure.
+func TestCallResource_DatasourceConfigReportsGatewayCapabilities(t *testing.T) {
+	type caps struct {
+		GatewayEnabled bool   `json:"gatewayEnabled"`
+		GatewayURL     string `json:"gatewayUrl"`
+		OverlapEnabled bool   `json:"overlapEnabled"`
+	}
+	decode := func(t *testing.T, settings *PluginSettings) caps {
+		t.Helper()
+		resp := call(t, newAppWithSettings(t, settings), http.MethodGet, "config/datasources", nil)
+		if resp.Status != http.StatusOK {
+			t.Fatalf("config/datasources status = %d", resp.Status)
+		}
+		var got caps
+		if err := json.Unmarshal(resp.Body, &got); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		return got
+	}
+
+	t.Run("enabled gateway advertises overlap", func(t *testing.T) {
+		got := decode(t, &PluginSettings{
+			PrometheusDatasource: PrometheusDatasourceSettings{Enabled: true},
+			Gateway:              GatewaySettings{Enabled: true, URL: "http://gw:8090", Overlap: true},
+		})
+		if !got.GatewayEnabled || !got.OverlapEnabled {
+			t.Errorf("gatewayEnabled=%v overlapEnabled=%v, want both true", got.GatewayEnabled, got.OverlapEnabled)
+		}
+		if got.GatewayURL != "http://gw:8090" {
+			t.Errorf("gatewayUrl = %q", got.GatewayURL)
+		}
+	})
+
+	t.Run("overlap can be switched off independently", func(t *testing.T) {
+		got := decode(t, &PluginSettings{
+			PrometheusDatasource: PrometheusDatasourceSettings{Enabled: true},
+			Gateway:              GatewaySettings{Enabled: true, URL: "http://gw:8090", Overlap: false},
+		})
+		if !got.GatewayEnabled {
+			t.Error("gatewayEnabled should be true")
+		}
+		if got.OverlapEnabled {
+			t.Error("overlapEnabled should be false when overlap is off")
+		}
+	})
+
+	t.Run("disabled gateway advertises nothing", func(t *testing.T) {
+		got := decode(t, &PluginSettings{
+			PrometheusDatasource: PrometheusDatasourceSettings{Enabled: true},
+			Gateway:              GatewaySettings{Enabled: false, Overlap: true},
+		})
+		if got.GatewayEnabled || got.OverlapEnabled {
+			t.Errorf("gatewayEnabled=%v overlapEnabled=%v, want both false", got.GatewayEnabled, got.OverlapEnabled)
+		}
+	})
+
+	// Without the Prometheus datasource the reconciler creates nothing, so the
+	// UI must not be told the gateway is usable.
+	t.Run("no datasource means no gateway capability", func(t *testing.T) {
+		got := decode(t, &PluginSettings{
+			PrometheusDatasource: PrometheusDatasourceSettings{Enabled: false},
+			Gateway:              GatewaySettings{Enabled: true, URL: "http://gw:8090", Overlap: true},
+		})
+		if got.GatewayEnabled || got.OverlapEnabled {
+			t.Errorf("gatewayEnabled=%v overlapEnabled=%v, want both false", got.GatewayEnabled, got.OverlapEnabled)
+		}
+	})
+}
+
+func TestCallResource_QueryRoutesNotServedByPlugin(t *testing.T) {
+	// The in-plugin PromQL-over-Couchbase query API was removed; those
+	// queries are served by the standalone datasource-gateway. The routes
+	// must 404 even when the Couchbase datasource is enabled.
+	settings := defaultSettings()
+	settings.CouchbaseDatasource = CouchbaseDatasourceSettings{Enabled: true, Bucket: "cbmonitor"}
+	app := newAppWithSettings(t, settings)
 
 	for _, path := range []string{"query", "query_range", "series"} {
-		t.Run("off/"+path, func(t *testing.T) {
+		t.Run(path, func(t *testing.T) {
 			resp := call(t, app, http.MethodGet, path, nil)
 			if resp.Status != http.StatusNotFound {
-				t.Errorf("%s with Couchbase DS off: status = %d, want 404", path, resp.Status)
+				t.Errorf("%s: status = %d, want 404 (query API moved to gateway)", path, resp.Status)
 			}
 		})
 	}

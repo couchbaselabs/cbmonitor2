@@ -16,9 +16,7 @@ import {
   useStyles2,
 } from '@grafana/ui';
 import { testIds } from '../testIds';
-import { dataSourceService } from '../../services/datasourceService';
-import { DataSourceType } from '../../types/datasource';
-import { API_BASE_URL, CB_DATASOURCE_REF, PROM_DATASOURCE_REF } from '../../constants';
+import { API_BASE_URL, PROM_DATASOURCE_REF } from '../../constants';
 
 // Mirror of the Go PluginSettings JSON shape, minus the password (which lives
 // in secureJsonData and is never readable from the frontend).
@@ -47,11 +45,18 @@ type PrometheusDatasourceJsonData = {
   url?: string;
 };
 
+type GatewayJsonData = {
+  enabled?: boolean;
+  url?: string;
+  overlap?: boolean;
+};
+
 type AppPluginSettings = {
   couchbaseServer?: CouchbaseServerJsonData;
   snapshots?: SnapshotsJsonData;
   couchbaseDatasource?: CouchbaseDatasourceJsonData;
   prometheusDatasource?: PrometheusDatasourceJsonData;
+  gateway?: GatewayJsonData;
 };
 
 type SecureFields = {
@@ -63,6 +68,7 @@ type State = {
   snapshots: { enabled: boolean; bucket: string; scope: string; collection: string };
   couchbaseDatasource: { enabled: boolean; bucket: string; scope: string; collection: string };
   prometheusDatasource: { enabled: boolean; isDefault: boolean; url: string };
+  gateway: { enabled: boolean; url: string; overlap: boolean };
   password: string;
   isPasswordSet: boolean;
 };
@@ -129,6 +135,11 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
       isDefault: jsonData?.prometheusDatasource?.isDefault ?? true,
       url: jsonData?.prometheusDatasource?.url ?? '',
     },
+    gateway: {
+      enabled: jsonData?.gateway?.enabled ?? false,
+      url: jsonData?.gateway?.url ?? '',
+      overlap: jsonData?.gateway?.overlap ?? true,
+    },
     password: '',
     isPasswordSet: Boolean(secure.couchbasePassword),
   });
@@ -176,11 +187,7 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
     setCbDsResult(null);
     setDsResult(null);
 
-    const cfg = await dataSourceService.getDataSourceConfig();
-    const uid =
-      cfg.defaultDataSource === DataSourceType.Couchbase
-        ? CB_DATASOURCE_REF.uid
-        : PROM_DATASOURCE_REF.uid;
+    const uid = PROM_DATASOURCE_REF.uid;
     setDsUid(uid);
 
     const probes: Array<Promise<unknown>> = [];
@@ -273,6 +280,15 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
   const onChangePromUrl = (event: ChangeEvent<HTMLInputElement>) => {
     setState({ ...state, prometheusDatasource: { ...state.prometheusDatasource, url: event.target.value.trim() } });
   };
+  const toggleGateway = (e: React.FormEvent<HTMLInputElement>) => {
+    setState({ ...state, gateway: { ...state.gateway, enabled: e.currentTarget.checked } });
+  };
+  const toggleGatewayOverlap = (e: React.FormEvent<HTMLInputElement>) => {
+    setState({ ...state, gateway: { ...state.gateway, overlap: e.currentTarget.checked } });
+  };
+  const onChangeGatewayUrl = (event: ChangeEvent<HTMLInputElement>) => {
+    setState({ ...state, gateway: { ...state.gateway, url: event.target.value.trim() } });
+  };
 
   const onSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -280,7 +296,11 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
       return;
     }
 
+    // Grafana replaces jsonData wholesale, so anything omitted here is erased.
+    // Spreading the stored config first keeps settings this form doesn't own
+    // (e.g. ones added by a newer plugin version) from being dropped on save.
     const nextJsonData: AppPluginSettings = {
+      ...(jsonData ?? {}),
       couchbaseServer: {
         connectionString: state.couchbaseServer.connectionString,
         username: state.couchbaseServer.username,
@@ -301,6 +321,11 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
         enabled: state.prometheusDatasource.enabled,
         isDefault: state.prometheusDatasource.isDefault,
         url: state.prometheusDatasource.url,
+      },
+      gateway: {
+        enabled: state.gateway.enabled,
+        url: state.gateway.url,
+        overlap: state.gateway.overlap,
       },
     };
 
@@ -370,10 +395,10 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
         )}
       </FieldSet>
 
-      <FieldSet label="Couchbase data source" className={s.marginTop}>
+      <FieldSet label="Couchbase metrics keyspace" className={s.marginTop}>
         <Field
-          label="Enable Couchbase data source"
-          description="Use Couchbase as a metric source for the snapshots/compare timeseries data"
+          label="Enable Couchbase metrics keyspace"
+          description="Keyspace holding metrics for snapshots archived to Couchbase. Reading them is the gateway's job; this configures the plugin's own connection checks."
         >
           <Switch
             value={state.couchbaseDatasource.enabled}
@@ -475,11 +500,49 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
                 data-testid={testIds.appConfig.prometheusDsUrl}
               />
             </Field>
-            <Field label="Use as default" description="When both data sources are enabled, prefer Prometheus.">
+            <Field label="Use as default" description="Make this the default data source for new panels and Explore.">
               <Switch
                 value={state.prometheusDatasource.isDefault}
                 onChange={togglePromDefault}
                 data-testid={testIds.appConfig.prometheusDsDefault}
+              />
+            </Field>
+          </>
+        )}
+      </FieldSet>
+
+      <FieldSet label="Query gateway" className={s.marginTop}>
+        <p className={s.colorWeak}>
+          The datasource-gateway sidecar serves the Prometheus API and adds snapshot-aware routing: it confines each
+          query to its snapshot&apos;s time window and serves overlap comparison. When enabled, the Prometheus data
+          source points at the gateway instead of the upstream directly.
+        </p>
+        <Field label="Route queries through the gateway">
+          <Switch
+            value={state.gateway.enabled}
+            onChange={toggleGateway}
+            data-testid={testIds.appConfig.gatewayEnabled}
+          />
+        </Field>
+        {state.gateway.enabled && (
+          <>
+            <Field label="URL" description="Base URL of the datasource-gateway, e.g. http://datasource-gateway:8090">
+              <Input
+                width={60}
+                value={state.gateway.url}
+                placeholder="http://datasource-gateway:8090"
+                onChange={onChangeGatewayUrl}
+                data-testid={testIds.appConfig.gatewayUrl}
+              />
+            </Field>
+            <Field
+              label="Enable snapshot comparison"
+              description="Offer the overlap comparison view, which the gateway aligns on a shared t=0 axis."
+            >
+              <Switch
+                value={state.gateway.overlap}
+                onChange={toggleGatewayOverlap}
+                data-testid={testIds.appConfig.gatewayOverlap}
               />
             </Field>
           </>
@@ -577,6 +640,21 @@ function validate(state: State): string | null {
       }
     } catch {
       return 'Prometheus URL must be a valid URL (e.g. http://prometheus:9090).';
+    }
+  }
+  // Mirrors the backend's own validation, so a missing gateway URL is reported
+  // here rather than rejected after saving.
+  if (state.gateway.enabled) {
+    if (!state.gateway.url) {
+      return 'Gateway URL is required when queries are routed through the gateway.';
+    }
+    try {
+      const u = new URL(state.gateway.url);
+      if (!u.protocol || !u.host) {
+        return 'Gateway URL must be absolute (e.g. http://datasource-gateway:8090).';
+      }
+    } catch {
+      return 'Gateway URL must be a valid URL (e.g. http://datasource-gateway:8090).';
     }
   }
   return null;

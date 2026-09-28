@@ -59,10 +59,19 @@ func (a *App) handleGetDatasourceConfig(w http.ResponseWriter, req *http.Request
 		settingsBlock["error"] = a.settingsError
 	}
 
+	// Gateway capabilities are reported only when the datasource that routes
+	// through it actually exists: with the Prometheus datasource disabled the
+	// reconciler creates nothing, and advertising overlap would offer the UI an
+	// affordance backed by no datasource at all.
+	gatewayUsable := a.settings.Gateway.Enabled && a.settings.PrometheusDatasource.Enabled
+
 	config := map[string]interface{}{
 		"defaultDataSource":   a.settings.DefaultDataSource(),
 		"prometheusAvailable": a.settings.PrometheusDatasource.Enabled,
 		"couchbaseAvailable":  a.settings.CouchbaseDatasource.Enabled,
+		"gatewayEnabled":      gatewayUsable,
+		"gatewayUrl":          a.settings.Gateway.URL,
+		"overlapEnabled":      gatewayUsable && a.settings.Gateway.Overlap,
 		"reconciliation":      a.getReconcileState(),
 		"settings":            settingsBlock,
 	}
@@ -127,10 +136,6 @@ func (a *App) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/admin/reconcile-dashboards", a.handleReconcileDashboards)
 	mux.HandleFunc("/healthcheck/connection", a.handleHealthCheckConnection)
 
-	if a.settings.CouchbaseDatasource.Enabled {
-		a.setupPrometheusRoutes(mux)
-	}
-
 	if a.settings.Snapshots.Enabled || a.settings.PrometheusDatasource.Enabled {
 		a.setupSnapshotRoutes(mux)
 	}
@@ -184,19 +189,6 @@ func (a *App) setupSnapshotRoutes(mux *http.ServeMux) {
 	})
 
 	log.Printf("Snapshot routes registered: /snapshots/{id}, /snapshots/{id}/metric-names, /snapshots/{id}/metrics/{metric}, /snapshots/{id}/metrics/{metric}/phases/{phase}, /snapshots/{id}/annotations/sync")
-}
-
-// setupPrometheusRoutes registers the Prometheus Query API routes backed
-// by the Couchbase datasource bucket. Only called when
-// CouchbaseDatasource.Enabled is true. Service is owned by App.initServices.
-func (a *App) setupPrometheusRoutes(mux *http.ServeMux) {
-	promQLHandler := handlers.NewPromQLHandler(a.couchbaseService)
-
-	mux.HandleFunc("/query", promQLHandler.HandleQuery)
-	mux.HandleFunc("/query_range", promQLHandler.HandleQueryRange)
-	mux.HandleFunc("/series", promQLHandler.HandleSeries)
-
-	log.Printf("PromQL Query API routes registered: /query, /query_range, /series")
 }
 
 // handleHealthCheckConnection probes the Couchbase buckets each enabled

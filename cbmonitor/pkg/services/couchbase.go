@@ -66,8 +66,7 @@ func NewCouchbaseService(connectionString, username, password, bucketName, scope
 }
 
 // ExecuteQuery runs a raw SQL++ query under the configured scope and
-// returns each row as a generic map. The PromQL → SQL++ planner in
-// pkg/promql is the sole caller.
+// returns each row as a generic map.
 func (cs *CouchbaseService) ExecuteQuery(ctx context.Context, query string) ([]map[string]interface{}, error) {
 	results, err := cs.scope.Query(query, &gocb.QueryOptions{
 		Context: ctx,

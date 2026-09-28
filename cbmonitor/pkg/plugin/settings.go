@@ -16,6 +16,7 @@ type PluginSettings struct {
 	Snapshots            SnapshotsSettings            `json:"snapshots"`
 	CouchbaseDatasource  CouchbaseDatasourceSettings  `json:"couchbaseDatasource"`
 	PrometheusDatasource PrometheusDatasourceSettings `json:"prometheusDatasource"`
+	Gateway              GatewaySettings              `json:"gateway"`
 }
 
 type CouchbaseServerSettings struct {
@@ -45,6 +46,30 @@ type PrometheusDatasourceSettings struct {
 	Enabled   bool   `json:"enabled"`
 	IsDefault bool   `json:"isDefault"`
 	URL       string `json:"url"`
+}
+
+// GatewaySettings configures the datasource-gateway sidecar. When Enabled, the
+// reconciler points the single Prometheus datasource at URL (instead of at the
+// upstream Prometheus/Mimir) so the gateway can translate Couchbase-backed
+// snapshots and serve overlap. When disabled, the plugin runs as plain
+// Prometheus — the datasource targets PrometheusDatasource.URL directly.
+type GatewaySettings struct {
+	Enabled bool   `json:"enabled"`
+	URL     string `json:"url"`
+	// Overlap reports whether snapshot overlap/time-padding is available via the
+	// gateway; surfaced to the UI for feature-gating the comparison view.
+	Overlap bool `json:"overlap"`
+}
+
+// PrometheusURL returns the URL the plugin's Prometheus-API consumers target:
+// the gateway when it is enabled, otherwise the upstream Prometheus/Mimir.
+// The reconciled Prometheus datasource and the plugin's own metric-discovery
+// service both use this, so they always speak to the same endpoint.
+func (s *PluginSettings) PrometheusURL() string {
+	if s.Gateway.Enabled {
+		return s.Gateway.URL
+	}
+	return s.PrometheusDatasource.URL
 }
 
 // secureFieldCouchbasePassword is the secureJsonData key that holds the
@@ -96,6 +121,12 @@ func defaultSettings() *PluginSettings {
 			Enabled:   true,
 			IsDefault: true,
 		},
+		Gateway: GatewaySettings{
+			Enabled: false,
+			// The gateway serves overlap natively; deployments can still
+			// switch the comparison affordance off explicitly.
+			Overlap: true,
+		},
 	}
 }
 
@@ -119,6 +150,15 @@ func (s *PluginSettings) validate() error {
 		u, err := url.Parse(s.PrometheusDatasource.URL)
 		if err != nil || u.Scheme == "" || u.Host == "" {
 			return fmt.Errorf("prometheusDatasource.url must be an absolute URL (e.g. http://prometheus:9090)")
+		}
+	}
+	if s.Gateway.Enabled {
+		if s.Gateway.URL == "" {
+			return fmt.Errorf("gateway.url is required when the gateway is enabled")
+		}
+		u, err := url.Parse(s.Gateway.URL)
+		if err != nil || u.Scheme == "" || u.Host == "" {
+			return fmt.Errorf("gateway.url must be an absolute URL (e.g. http://datasource-gateway:8090)")
 		}
 	}
 	return nil
