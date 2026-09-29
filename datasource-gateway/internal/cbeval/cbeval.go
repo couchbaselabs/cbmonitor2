@@ -317,7 +317,13 @@ type floatSample struct {
 	v float64
 }
 
-func (s floatSample) T() int64                      { return s.t }
+func (s floatSample) T() int64 { return s.t }
+
+// ST is the sample's start timestamp, which marks when a counter series began.
+// Couchbase stores samples without one, so 0 reports it as unknown. This is the
+// same value Prometheus' own iterators return when no start timestamp is recorded.
+func (s floatSample) ST() int64 { return 0 }
+
 func (s floatSample) F() float64                    { return s.v }
 func (s floatSample) H() *histogram.Histogram       { return nil }
 func (s floatSample) FH() *histogram.FloatHistogram { return nil }
