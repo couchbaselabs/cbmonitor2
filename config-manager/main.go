@@ -123,10 +123,7 @@ func main() {
 	mux.Handle("/metrics", metrics.Handler())
 
 	// Create server
-	server := &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
-		Handler: mux,
-	}
+	server := newHTTPServer(fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port), mux)
 
 	metrics.MarkUp()
 
@@ -165,7 +162,9 @@ func main() {
 	logger.Info("Shutting down server...")
 
 	// Graceful shutdown
-	if err := server.Shutdown(context.Background()); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
 		logger.Error("Server forced to shutdown", "error", err)
 		os.Exit(1)
 	}
