@@ -6,7 +6,7 @@ FROM grafana/${grafana_image}:${grafana_version}
 ARG anonymous_auth_enabled=true
 ARG development=false
 ARG TARGETARCH
-ARG VERSION=0.0.1
+ARG VERSION=unknown
 ARG GIT_COMMIT=unknown
 ARG BUILD_DATE=unknown
 

@@ -10,7 +10,7 @@ services:
         grafana_version: ${GRAFANA_VERSION:-12.4.2}
         development: ${DEVELOPMENT:-false}
         anonymous_auth_enabled: ${ANONYMOUS_AUTH_ENABLED:-true}
-        VERSION: ${VERSION:-0.0.1}
+        VERSION: ${VERSION:-unknown}
         GIT_COMMIT: ${GIT_COMMIT:-unknown}
         BUILD_DATE: ${BUILD_DATE:-unknown}
     ports:
