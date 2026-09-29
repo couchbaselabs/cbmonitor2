@@ -4,14 +4,16 @@
 build: build-cm build-gateway
 
 # Build the config-manager service
+# CGO_ENABLED=0 matches the release workflow and the Docker images, so a local
+# binary is the same artifact and the build needs no working C toolchain.
 build-cm:
 	@echo "Building config-manager service..."
-	@cd config-manager && go build -o ../bin/config-manager .
+	@cd config-manager && CGO_ENABLED=0 go build -o ../bin/config-manager .
 
 # Build the datasource-gateway service
 build-gateway:
 	@echo "Building datasource-gateway service..."
-	@cd datasource-gateway && go build -o ../bin/datasource-gateway .
+	@cd datasource-gateway && CGO_ENABLED=0 go build -o ../bin/datasource-gateway .
 
 # Build the datasource-gateway service docker image (standalone compose project)
 build-gateway-docker: build-gateway
