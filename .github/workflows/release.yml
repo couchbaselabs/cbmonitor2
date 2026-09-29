@@ -17,13 +17,13 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: cbmonitor/package-lock.json
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.27'
 
       - name: Install mage
         run: go install github.com/magefile/mage@latest
@@ -80,7 +80,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.27'
 
       - name: Build
         env:
@@ -98,9 +98,46 @@ jobs:
           name: config-manager-${{ matrix.goos }}-${{ matrix.goarch }}
           path: bin/config-manager-${{ matrix.goos }}-${{ matrix.goarch }}
 
+  release-datasource-gateway:
+    name: Build datasource-gateway (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27'
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: |
+          mkdir -p bin
+          cd datasource-gateway
+          go build -ldflags="-s -w" -o ../bin/datasource-gateway-${{ matrix.goos }}-${{ matrix.goarch }} .
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: datasource-gateway-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: bin/datasource-gateway-${{ matrix.goos }}-${{ matrix.goarch }}
+
   create-release:
     name: Create GitHub Release
-    needs: [release-plugin, release-config-manager]
+    needs: [release-plugin, release-config-manager, release-datasource-gateway]
     runs-on: ubuntu-latest
     permissions:
       contents: write
