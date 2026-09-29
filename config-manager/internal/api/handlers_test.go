@@ -58,38 +58,58 @@ func (m *memMetadata) GetMetadata(id string) (*models.SnapshotMetadata, error) {
 	return &cp, nil
 }
 
-func (m *memMetadata) UpdatePhase(id, phase, mode string) error {
-	md, err := m.GetMetadata(id)
-	if err != nil {
+// Update runs fn under the store's lock, so concurrent writers never lose
+// each other's changes, matching the compare-and-swap Couchbase Server
+// storage.
+func (m *memMetadata) Update(id string, fn func(*models.SnapshotMetadata) error) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.getErr != nil {
+		return m.getErr
+	}
+	md, ok := m.docs[id]
+	if !ok {
+		return errors.New("metadata not found for snapshot " + id)
+	}
+	cp := *md
+	cp.Phases = append([]models.Phase(nil), md.Phases...)
+	cp.Services = append([]string(nil), md.Services...)
+	if err := fn(&cp); err != nil {
 		return err
 	}
-	switch mode {
-	case "start":
-		md.Phases = append(md.Phases, models.Phase{Label: phase, TsStart: time.Now()})
-	case "end":
-		if len(md.Phases) > 0 {
-			md.Phases[len(md.Phases)-1].TsEnd = time.Now().Format(time.RFC3339Nano)
-		}
+	if m.saveErr != nil {
+		return m.saveErr
 	}
-	return m.SaveMetadata(md)
+	m.docs[id] = &cp
+	return nil
+}
+
+func (m *memMetadata) UpdatePhase(id, phase, mode string) error {
+	return m.Update(id, func(md *models.SnapshotMetadata) error {
+		switch mode {
+		case "start":
+			md.Phases = append(md.Phases, models.Phase{Label: phase, TsStart: time.Now()})
+		case "end":
+			if len(md.Phases) > 0 {
+				md.Phases[len(md.Phases)-1].TsEnd = time.Now().Format(time.RFC3339Nano)
+			}
+		}
+		return nil
+	})
 }
 
 func (m *memMetadata) UpdateServices(id string, services []string) error {
-	md, err := m.GetMetadata(id)
-	if err != nil {
-		return err
-	}
-	md.Services = append(md.Services, services...)
-	return m.SaveMetadata(md)
+	return m.Update(id, func(md *models.SnapshotMetadata) error {
+		md.Services = append(md.Services, services...)
+		return nil
+	})
 }
 
 func (m *memMetadata) EoLSnapshot(id string) error {
-	md, err := m.GetMetadata(id)
-	if err != nil {
-		return err
-	}
-	md.TsEnd = time.Now().Format(time.RFC3339Nano)
-	return m.SaveMetadata(md)
+	return m.Update(id, func(md *models.SnapshotMetadata) error {
+		md.TsEnd = time.Now().Format(time.RFC3339Nano)
+		return nil
+	})
 }
 
 func (m *memMetadata) doc(t *testing.T, id string) *models.SnapshotMetadata {

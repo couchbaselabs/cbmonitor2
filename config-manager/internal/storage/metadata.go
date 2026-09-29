@@ -13,6 +13,9 @@ type MetadataStorage interface {
 	UpdatePhase(snapshotID string, phase string, mode string) error
 	UpdateServices(snapshotID string, services []string) error
 	EoLSnapshot(snapshotID string) error
+	// Update applies fn to the current document and writes it back without
+	// overwriting a concurrent change; see CouchbaseStorage.Update.
+	Update(snapshotID string, fn func(*models.SnapshotMetadata) error) error
 	Close() error
 	Type() string
 }
@@ -69,6 +72,10 @@ func (fs *FileMetadataStorage) UpdatePhase(snapshotID string, phase string, mode
 }
 
 func (fs *FileMetadataStorage) UpdateServices(snapshotID string, services []string) error {
+	return nil
+}
+
+func (fs *FileMetadataStorage) Update(snapshotID string, fn func(*models.SnapshotMetadata) error) error {
 	return nil
 }
 
