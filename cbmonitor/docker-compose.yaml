@@ -3,5 +3,12 @@ services:
     extends:
       file: .config/docker-compose-base.yaml
       service: grafana
+    # The scaffolded .config/Dockerfile installs Go from a URL built out of this
+    # version, so it needs a full major.minor.patch. Setting it here keeps the
+    # pin in a file the Grafana plugin scaffolding does not rewrite. Go is only
+    # installed when DEVELOPMENT is true, for delve and in-container mage builds.
+    build:
+      args:
+        GO_VERSION: ${GO_VERSION:-1.27.1}
     env_file:
       - .env
