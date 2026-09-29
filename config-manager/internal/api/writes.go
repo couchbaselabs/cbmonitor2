@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/couchbase/config-manager/internal/logger"
+	"github.com/couchbase/config-manager/internal/metrics"
 	"github.com/couchbase/config-manager/internal/models"
 	"github.com/couchbase/config-manager/internal/storage"
 )
@@ -39,6 +40,7 @@ func newMetadataWrites(md storage.MetadataStorage, pending *storage.PendingQueue
 		done:    make(chan struct{}),
 		stopped: make(chan struct{}),
 	}
+	metrics.PendingMetadataWrites.Set(float64(pending.Len()))
 	go w.loop()
 	return w
 }
@@ -63,8 +65,12 @@ func (w *metadataWrites) writeOrQueue(id string, ops ...storage.PendingOp) bool 
 
 func (w *metadataWrites) enqueue(id string, ops []storage.PendingOp) {
 	if err := w.pending.Append(id, ops...); err != nil {
+		metrics.MetadataWritesDropped.Add(float64(len(ops)))
 		logger.Error("Failed to queue metadata write; it is lost", "snapshot", id, "ops", len(ops), "error", err)
+		return
 	}
+	metrics.MetadataWritesQueued.Add(float64(len(ops)))
+	metrics.PendingMetadataWrites.Set(float64(w.pending.Len()))
 }
 
 func (w *metadataWrites) apply(id string, op storage.PendingOp) error {
@@ -95,10 +101,12 @@ func (w *metadataWrites) drain(now time.Time) {
 			logger.Info("Applied queued metadata writes", "snapshot", id, "applied", res.Applied, "remaining", res.Remaining)
 		}
 		if res.Expired > 0 {
+			metrics.MetadataWritesDropped.Add(float64(res.Expired))
 			logger.Error("Dropped queued metadata writes past their retry window", "snapshot", id,
 				"dropped", res.Expired, "max_age", pendingMaxAge.String())
 		}
 	}
+	metrics.PendingMetadataWrites.Set(float64(w.pending.Len()))
 }
 
 func (w *metadataWrites) loop() {

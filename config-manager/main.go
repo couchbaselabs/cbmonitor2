@@ -98,6 +98,7 @@ func main() {
 	} else {
 		logger.Info("Metadata storage initialized", "type", metadataStorage.Type())
 	}
+	metrics.MetadataStorageInfo.WithLabelValues(metadataStorage.Type()).Set(1)
 
 	// Metadata writes that fail are queued on disk and retried in the background.
 	pending, err := storage.NewPendingQueue(cfg.Agent.Directory)
@@ -113,8 +114,8 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Register routes
-	mux.HandleFunc("/api/v1/snapshot", handler.CreateSnapshot)
-	mux.HandleFunc("/api/v1/snapshot/", handler.Manager)
+	mux.Handle("/api/v1/snapshot", metrics.Instrument("snapshot", http.HandlerFunc(handler.CreateSnapshot)))
+	mux.Handle("/api/v1/snapshot/", metrics.Instrument("snapshot_id", http.HandlerFunc(handler.Manager)))
 	mux.Handle("/metrics", metrics.Handler())
 
 	// Create server

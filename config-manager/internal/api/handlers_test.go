@@ -17,8 +17,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/couchbase/config-manager/internal/metrics"
 	"github.com/couchbase/config-manager/internal/models"
 	"github.com/couchbase/config-manager/internal/storage"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 )
 
 // memMetadata is an in-memory MetadataStorage that mirrors the Couchbase
@@ -869,5 +871,27 @@ func TestPutOverAnExpiredSnapshotReplacesTheHeldCopy(t *testing.T) {
 	}
 	if md := h.metadata.doc(t, id); md.TsEnd != "now" {
 		t.Errorf("ts_end = %q, want the snapshot reopened", md.TsEnd)
+	}
+}
+
+func TestMetadataFailuresAreCounted(t *testing.T) {
+	h := newHarness(t)
+	cluster := newFakeCluster(t)
+	cluster.poolsStatus = http.StatusInternalServerError
+
+	failures := testutil.ToFloat64(metrics.MetadataCollectionFailures)
+	queued := testutil.ToFloat64(metrics.MetadataWritesQueued)
+	id := h.create(cluster)
+	if got := testutil.ToFloat64(metrics.MetadataCollectionFailures) - failures; got != 1 {
+		t.Errorf("collection failures counted = %v, want 1", got)
+	}
+
+	h.setStoreDown(true)
+	h.do(http.MethodPatch, "/api/v1/snapshot/"+id, map[string]string{"phase": "load", "mode": "start"})
+	if got := testutil.ToFloat64(metrics.MetadataWritesQueued) - queued; got != 1 {
+		t.Errorf("queued writes counted = %v, want 1", got)
+	}
+	if got := testutil.ToFloat64(metrics.PendingMetadataWrites); got != 1 {
+		t.Errorf("pending writes gauge = %v, want 1", got)
 	}
 }

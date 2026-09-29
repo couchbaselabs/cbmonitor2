@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/couchbase/config-manager/internal/logger"
+	"github.com/couchbase/config-manager/internal/metrics"
 	"github.com/couchbase/config-manager/internal/models"
 	"github.com/couchbase/config-manager/internal/products"
 	"github.com/couchbase/config-manager/internal/storage"
@@ -119,6 +120,7 @@ func (c *metadataCollector) run(base *models.SnapshotMetadata, req *models.Snaps
 			md, err := j.product.GetMetadata(ctx, j.config.Scheme, j.hostname, j.config.Port,
 				req.Credentials.Username, req.Credentials.Password)
 			if err != nil {
+				metrics.MetadataCollectionFailures.Inc()
 				logger.Warn("Failed to collect product metadata", "snapshot", base.SnapshotID,
 					"product", j.config.Product, "host", j.hostname, "error", err)
 				return
