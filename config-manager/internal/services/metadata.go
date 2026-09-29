@@ -89,6 +89,12 @@ func (ms *MetadataService) GetMetadata(baseURL, username, password string) ([]st
 		return nil, "", err
 	}
 
+	// A cluster mid-install or mid-rebalance can answer with no nodes. That is
+	// a metadata failure for this host, not a reason to take the request down.
+	if len(poolInfo.Nodes) == 0 {
+		return nil, "", fmt.Errorf("no nodes in %s response", url)
+	}
+
 	var uniqueServices = make(map[string]struct{})
 	var serviceList []string
 
@@ -101,7 +107,7 @@ func (ms *MetadataService) GetMetadata(baseURL, username, password string) ([]st
 			}
 		}
 	}
-	// the server version is taken from the first node, because it is the same across all nodes
+	// The server version is taken from the first node; it is the same on every node.
 	return serviceList, poolInfo.Nodes[0].Server, nil
 }
 

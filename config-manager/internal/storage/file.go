@@ -43,12 +43,43 @@ func (fs *FileStorage) SaveSnapshot(clusterInfo interface{}, agentType string) (
 		return "", fmt.Errorf("failed to generate config content: %w", err)
 	}
 
-	// Write to file
-	if err := os.WriteFile(filePath, content, 0644); err != nil {
+	if err := writeFileAtomic(fs.baseDirectory, filePath, content, 0644); err != nil {
 		return "", fmt.Errorf("failed to write config file: %w", err)
 	}
 
 	return id, nil
+}
+
+// writeFileAtomic writes content to a temporary file in dir and renames it
+// onto path, so a reader sees either the previous file or the complete new
+// one. vmagent re-reads the snapshot directory every 15s, and a half-written
+// scrape config would fail its parse. The temporary name ends in ".tmp" so it
+// never matches the "*.yml" glob vmagent and the manager loop read.
+func writeFileAtomic(dir, path string, content []byte, perm os.FileMode) error {
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	// Removes the temporary file on any failure; a no-op after the rename.
+	defer os.Remove(tmpName)
+
+	if _, err := tmp.Write(content); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	// CreateTemp creates the file 0600; vmagent needs to read it.
+	if err := os.Chmod(tmpName, perm); err != nil {
+		return err
+	}
+	return os.Rename(tmpName, path)
 }
 
 // generateConfigContent creates vmagent configuration format
@@ -87,8 +118,14 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 		return nil, fmt.Errorf("invalid credentials format")
 	}
 
-	username := credentials["username"].(string)
-	password := credentials["password"].(string)
+	username, ok := credentials["username"].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid credentials format: username must be a string")
+	}
+	password, ok := credentials["password"].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid credentials format: password must be a string")
+	}
 
 	// One job per (scheme, metric-relabel) pair: a product declaring
 	// metric_relabel_configs gets a job of its own so its rules only see
@@ -139,7 +176,8 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 
 		useAltAddresses, _ := config["use_alt_addresses"].(bool)
 
-		switch configType := config["type"].(string); configType {
+		configType, _ := config["type"].(string)
+		switch configType {
 		case "sd":
 			sdPath, _ := config["sd_path"].(string)
 			// Caller-supplied sd_path wins; otherwise fall back to the

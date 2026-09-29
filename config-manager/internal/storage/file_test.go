@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -215,4 +217,80 @@ func equal(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+func TestSaveSnapshotWritesAtomically(t *testing.T) {
+	dir := t.TempDir()
+	fs := NewFileStorage(dir)
+	id, err := fs.SaveSnapshot(clusterMap(map[string]interface{}{
+		"hostnames": []string{"10.0.0.1"}, "port": 8091, "type": "sd", "product": "couchbase",
+	}), "vmagent")
+	if err != nil {
+		t.Fatalf("SaveSnapshot: %v", err)
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name() != id+".yml" {
+		names := make([]string, len(entries))
+		for i, e := range entries {
+			names[i] = e.Name()
+		}
+		t.Fatalf("directory holds %v, want only %s.yml (no temporary files)", names, id)
+	}
+
+	info, err := os.Stat(filepath.Join(dir, id+".yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// vmagent runs in another container and must be able to read the file.
+	if info.Mode().Perm()&0o044 != 0o044 {
+		t.Errorf("mode %v is not readable by group and others", info.Mode().Perm())
+	}
+}
+
+func TestWriteFileAtomicTempNameNeverMatchesTheScrapeGlob(t *testing.T) {
+	dir := t.TempDir()
+	// A missing target directory makes the rename fail after the temporary
+	// file has been written; nothing may be left behind.
+	path := filepath.Join(dir, "missing-subdir", "snap.yml")
+	if err := writeFileAtomic(dir, path, []byte("x"), 0644); err == nil {
+		t.Fatal("expected the rename into a missing directory to fail")
+	}
+	matches, _ := filepath.Glob(filepath.Join(dir, "*.yml"))
+	if len(matches) != 0 {
+		t.Errorf("a partial file matched the scrape glob: %v", matches)
+	}
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		t.Errorf("temporary file left behind: %s", e.Name())
+	}
+}
+
+func TestGenerateRejectsMalformedPayloadsWithoutPanicking(t *testing.T) {
+	base := map[string]interface{}{"hostnames": []string{"10.0.0.1"}, "port": 8091, "type": "sd", "product": "couchbase"}
+	cases := map[string]map[string]interface{}{
+		"non-string username": {
+			"configs":     []interface{}{base},
+			"credentials": map[string]interface{}{"username": 42, "password": "secret"},
+		},
+		"missing password": {
+			"configs":     []interface{}{base},
+			"credentials": map[string]interface{}{"username": "admin"},
+		},
+		"non-string type": {
+			"configs":     []interface{}{map[string]interface{}{"hostnames": []string{"10.0.0.1"}, "port": 8091, "type": 7}},
+			"credentials": map[string]interface{}{"username": "admin", "password": "secret"},
+		},
+	}
+	for name, payload := range cases {
+		t.Run(name, func(t *testing.T) {
+			fs := NewFileStorage(t.TempDir())
+			if _, err := fs.generateVMAgentConfig(payload, "snap"); err == nil {
+				t.Error("expected an error for a malformed payload")
+			}
+		})
+	}
 }
