@@ -423,8 +423,20 @@ logging:
   level: "info"
 ```
 
+Settings are layered, each overriding the one before: built-in defaults, the config file, `CM_*` environment variables, then `section.field=value` command-line arguments. Put secrets such as the metadata password in the environment: an argument is visible to anyone who can run `ps` or `docker inspect`.
+
+| Setting | Environment variable |
+|---|---|
+| `server.port`, `server.host` | `CM_SERVER_PORT`, `CM_SERVER_HOST` |
+| `agent.type`, `agent.directory` | `CM_AGENT_TYPE`, `CM_AGENT_DIRECTORY` |
+| `logging.level` | `CM_LOG_LEVEL` |
+| `manager.interval`, `manager.min_interval`, `manager.stale_threshold` | `CM_MANAGER_INTERVAL`, `CM_MANAGER_MIN_INTERVAL`, `CM_MANAGER_STALE_THRESHOLD` |
+| `metadata.enabled`, `metadata.host`, `metadata.bucket`, `metadata.timeout` | `CM_METADATA_ENABLED`, `CM_METADATA_HOST`, `CM_METADATA_BUCKET`, `CM_METADATA_TIMEOUT` |
+| `metadata.username`, `metadata.password` | `CM_METADATA_USERNAME`, `CM_METADATA_PASSWORD` |
+
 **Configuration Notes:**
 - Currently only `vmagent` is supported as the agent type.
+- `manager.interval` must be between `manager.min_interval` and 30 minutes, and `manager.stale_threshold` between 5 and 30 minutes; anything else fails startup.
 - Configuration files are saved in the directory specified by `agent.directory`
 - Files are named using the snapshot UUID: `{uuid}.yml`
 

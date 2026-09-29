@@ -38,7 +38,30 @@ type Config struct {
 	} `yaml:"metadata"`
 }
 
-// LoadConfig loads configuration from file and optionally applies flag overrides
+// envOverrides maps the CM_* environment variables to their config paths.
+// Reading secrets such as the metadata password from the environment keeps
+// them out of the process's argv, where `ps` and `docker inspect` expose them.
+// Every config field has one; a test enforces it.
+var envOverrides = map[string]string{
+	"CM_SERVER_PORT":             "server.port",
+	"CM_SERVER_HOST":             "server.host",
+	"CM_AGENT_TYPE":              "agent.type",
+	"CM_AGENT_DIRECTORY":         "agent.directory",
+	"CM_LOG_LEVEL":               "logging.level",
+	"CM_MANAGER_INTERVAL":        "manager.interval",
+	"CM_MANAGER_MIN_INTERVAL":    "manager.min_interval",
+	"CM_MANAGER_STALE_THRESHOLD": "manager.stale_threshold",
+	"CM_METADATA_ENABLED":        "metadata.enabled",
+	"CM_METADATA_HOST":           "metadata.host",
+	"CM_METADATA_USERNAME":       "metadata.username",
+	"CM_METADATA_PASSWORD":       "metadata.password",
+	"CM_METADATA_BUCKET":         "metadata.bucket",
+	"CM_METADATA_TIMEOUT":        "metadata.timeout",
+}
+
+// LoadConfig builds the configuration by layering, in increasing precedence:
+// built-in defaults, the config file (if provided), CM_* environment
+// variables, then dot-notation flag overrides.
 func LoadConfig(configPath string, flagOverrides map[string]string) (*Config, error) {
 	var config Config
 	// Always set defaults first
@@ -48,6 +71,10 @@ func LoadConfig(configPath string, flagOverrides map[string]string) (*Config, er
 		if err := LoadConfigFromFile(&config, configPath); err != nil {
 			return nil, fmt.Errorf("failed to load config file: %w", err)
 		}
+	}
+
+	if err := ApplyEnvOverrides(&config); err != nil {
+		return nil, fmt.Errorf("failed to apply environment overrides: %w", err)
 	}
 
 	// Apply flag overrides if provided
@@ -74,6 +101,21 @@ func LoadConfigFromFile(config *Config, configPath string) error {
 	return nil
 }
 
+// ApplyEnvOverrides applies any set CM_* environment variables. An unset or
+// empty variable leaves the existing value alone.
+func ApplyEnvOverrides(config *Config) error {
+	for env, path := range envOverrides {
+		value, ok := os.LookupEnv(env)
+		if !ok || value == "" {
+			continue
+		}
+		if err := setConfigValue(config, path, value); err != nil {
+			return fmt.Errorf("%s: %w", env, err)
+		}
+	}
+	return nil
+}
+
 // ApplyFlagOverrides applies flag overrides to the config using dot notation
 func ApplyFlagOverrides(config *Config, overrides map[string]string) error {
 	for path, value := range overrides {
@@ -95,7 +137,7 @@ func setConfigValue(config *Config, path, value string) error {
 	field := parts[1]
 
 	configValue := reflect.ValueOf(config).Elem()
-	sectionField := configValue.FieldByName(strings.Title(section))
+	sectionField := fieldByYAMLName(configValue, section)
 	if !sectionField.IsValid() {
 		return fmt.Errorf("unknown section: %s", section)
 	}
@@ -104,7 +146,7 @@ func setConfigValue(config *Config, path, value string) error {
 		return fmt.Errorf("section %s is not a struct", section)
 	}
 
-	fieldValue := sectionField.FieldByName(strings.Title(field))
+	fieldValue := fieldByYAMLName(sectionField, field)
 	if !fieldValue.IsValid() {
 		return fmt.Errorf("unknown field: %s in section: %s", field, section)
 	}
@@ -119,6 +161,19 @@ func setConfigValue(config *Config, path, value string) error {
 	}
 
 	return nil
+}
+
+// fieldByYAMLName resolves a struct field by its yaml tag, so paths use the
+// same keys as the config file ("manager.stale_threshold").
+func fieldByYAMLName(structVal reflect.Value, name string) reflect.Value {
+	t := structVal.Type()
+	for i := 0; i < t.NumField(); i++ {
+		tag, _, _ := strings.Cut(t.Field(i).Tag.Get("yaml"), ",")
+		if tag == name {
+			return structVal.Field(i)
+		}
+	}
+	return reflect.Value{}
 }
 
 // setFieldValue sets a field value with proper type conversion
