@@ -9,17 +9,14 @@ const (
 	readHeaderTimeout = 10 * time.Second
 	// Request bodies are small JSON documents.
 	readTimeout = 30 * time.Second
-	// Create still collects cluster metadata inline, one host at a time, so a
-	// slow cluster can hold the response for over a minute. The limit matches
-	// the on-prem proxy's 120s read timeout: cutting the connection sooner would
-	// drop a create the server has already completed, and the client's retry
-	// would register a duplicate snapshot.
-	writeTimeout   = 120 * time.Second
+	// Handlers write one scrape file and one metadata document; cluster
+	// metadata is collected after create responds.
+	writeTimeout   = 30 * time.Second
 	idleTimeout    = 60 * time.Second
 	maxHeaderBytes = 1 << 20
 
-	// shutdownTimeout bounds graceful shutdown, so one stuck request cannot
-	// hold the process open after SIGTERM.
+	// shutdownTimeout bounds graceful shutdown, so one stuck request or
+	// background metadata collection cannot hold the process open after SIGTERM.
 	shutdownTimeout = 10 * time.Second
 )
 

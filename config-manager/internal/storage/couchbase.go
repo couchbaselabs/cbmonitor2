@@ -22,8 +22,8 @@ type CouchbaseStorage struct {
 	store   docStore
 }
 
-// errMetadataNotFound reports that a snapshot has no metadata document.
-var errMetadataNotFound = errors.New("metadata not found")
+// ErrMetadataNotFound reports that a snapshot has no metadata document.
+var ErrMetadataNotFound = errors.New("metadata not found")
 
 // errCASMismatch reports that a document changed between read and write.
 var errCASMismatch = errors.New("metadata document changed concurrently")
@@ -43,7 +43,7 @@ func (s collectionStore) get(id string) (*models.SnapshotMetadata, gocb.Cas, err
 	res, err := s.c.Get(id, nil)
 	if err != nil {
 		if errors.Is(err, gocb.ErrDocumentNotFound) {
-			return nil, 0, fmt.Errorf("%w for snapshot %s", errMetadataNotFound, id)
+			return nil, 0, fmt.Errorf("%w for snapshot %s", ErrMetadataNotFound, id)
 		}
 		return nil, 0, fmt.Errorf("failed to get metadata from Couchbase Server: %w", err)
 	}

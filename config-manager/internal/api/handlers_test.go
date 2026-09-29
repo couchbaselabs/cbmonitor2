@@ -2,8 +2,10 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -69,7 +71,7 @@ func (m *memMetadata) Update(id string, fn func(*models.SnapshotMetadata) error)
 	}
 	md, ok := m.docs[id]
 	if !ok {
-		return errors.New("metadata not found for snapshot " + id)
+		return fmt.Errorf("%w for snapshot %s", storage.ErrMetadataNotFound, id)
 	}
 	cp := *md
 	cp.Phases = append([]models.Phase(nil), md.Phases...)
@@ -134,6 +136,8 @@ type fakeCluster struct {
 	*httptest.Server
 	poolsStatus int
 	poolsBody   string
+	// poolsDelay holds /pools/nodes before answering, or until the client gives up.
+	poolsDelay time.Duration
 }
 
 func newFakeCluster(t *testing.T) *fakeCluster {
@@ -145,6 +149,13 @@ func newFakeCluster(t *testing.T) *fakeCluster {
 	c.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/pools/nodes":
+			if c.poolsDelay > 0 {
+				select {
+				case <-time.After(c.poolsDelay):
+				case <-r.Context().Done():
+					return
+				}
+			}
 			w.WriteHeader(c.poolsStatus)
 			_, _ = w.Write([]byte(c.poolsBody))
 		case "/prometheus_sd_config":
@@ -171,15 +182,16 @@ type harness struct {
 	t        *testing.T
 	dir      string
 	metadata *memMetadata
+	handler  *Handler
 	mux      *http.ServeMux
 }
 
 func newHarness(t *testing.T) *harness {
 	t.Helper()
 	h := &harness{t: t, dir: t.TempDir(), metadata: newMemMetadata(), mux: http.NewServeMux()}
-	handler := NewHandler(storage.NewFileStorage(h.dir), h.metadata, "vmagent")
-	h.mux.HandleFunc("/api/v1/snapshot", handler.CreateSnapshot)
-	h.mux.HandleFunc("/api/v1/snapshot/", handler.Manager)
+	h.handler = NewHandler(storage.NewFileStorage(h.dir), h.metadata, "vmagent")
+	h.mux.HandleFunc("/api/v1/snapshot", h.handler.CreateSnapshot)
+	h.mux.HandleFunc("/api/v1/snapshot/", h.handler.Manager)
 	return h
 }
 
@@ -213,8 +225,9 @@ func snapshotRequest(host string, port int) map[string]interface{} {
 	}
 }
 
-// create registers a snapshot against cluster and returns its id.
-func (h *harness) create(cluster *fakeCluster) string {
+// createNoWait registers a snapshot against cluster and returns its id as soon
+// as create responds, while cluster metadata may still be arriving.
+func (h *harness) createNoWait(cluster *fakeCluster) string {
 	h.t.Helper()
 	host, port := cluster.hostPort(h.t)
 	rec := h.do(http.MethodPost, "/api/v1/snapshot", snapshotRequest(host, port))
@@ -226,6 +239,15 @@ func (h *harness) create(cluster *fakeCluster) string {
 		h.t.Fatalf("create: bad response %q: %v", rec.Body.String(), err)
 	}
 	return resp.ID
+}
+
+// create registers a snapshot and waits for its background metadata
+// collection, so the document is complete when it returns.
+func (h *harness) create(cluster *fakeCluster) string {
+	h.t.Helper()
+	id := h.createNoWait(cluster)
+	h.handler.collector.wait()
+	return id
 }
 
 func TestCreateSnapshotWritesScrapeFileAndMetadata(t *testing.T) {
@@ -455,5 +477,104 @@ func assertNoScrapeFiles(t *testing.T, dir string) {
 	}
 	for _, e := range entries {
 		t.Errorf("unexpected file %s left by a rejected request", e.Name())
+	}
+}
+
+// Create answers once the scrape file and base document exist; a slow cluster
+// no longer holds the response, which is what used to trip proxy timeouts and
+// client retries.
+func TestCreateRespondsBeforeClusterMetadataArrives(t *testing.T) {
+	h := newHarness(t)
+	cluster := newFakeCluster(t)
+	cluster.poolsDelay = 1500 * time.Millisecond
+
+	start := time.Now()
+	id := h.createNoWait(cluster)
+	if took := time.Since(start); took > 500*time.Millisecond {
+		t.Errorf("create took %v, want it to return before the slow cluster answers", took)
+	}
+
+	// The gateway needs ts_start at once.
+	md := h.metadata.doc(t, id)
+	if md.TsStart.IsZero() || md.TsEnd != "now" || len(md.Clusters) != 0 {
+		t.Fatalf("base document = %+v, want ts_start and the live sentinel, no clusters yet", md)
+	}
+
+	h.handler.collector.wait()
+	if md := h.metadata.doc(t, id); len(md.Clusters) != 1 || md.Server == "" {
+		t.Errorf("after collection: clusters %v server %q", md.Clusters, md.Server)
+	}
+}
+
+// A phase PATCH that lands while metadata is still being collected must
+// survive the merge.
+func TestCollectedMetadataKeepsAPhaseRecordedMeanwhile(t *testing.T) {
+	h := newHarness(t)
+	cluster := newFakeCluster(t)
+	cluster.poolsDelay = 300 * time.Millisecond
+	id := h.createNoWait(cluster)
+
+	if rec := h.do(http.MethodPatch, "/api/v1/snapshot/"+id, map[string]string{"phase": "load", "mode": "start"}); rec.Code != http.StatusOK {
+		t.Fatalf("phase start: status %d", rec.Code)
+	}
+	h.handler.collector.wait()
+
+	md := h.metadata.doc(t, id)
+	if len(md.Phases) != 1 || len(md.Clusters) != 1 {
+		t.Errorf("phases %v clusters %v: want both the phase and the collected cluster", md.Phases, md.Clusters)
+	}
+}
+
+func TestCollectionGivesUpOnAHangingCluster(t *testing.T) {
+	h := newHarness(t)
+	h.handler.collector.hostTimeout = 200 * time.Millisecond
+	cluster := newFakeCluster(t)
+	cluster.poolsDelay = time.Hour
+
+	start := time.Now()
+	id := h.create(cluster)
+	if took := time.Since(start); took > 2*time.Second {
+		t.Errorf("collection took %v despite a %v host timeout", took, h.handler.collector.hostTimeout)
+	}
+	if md := h.metadata.doc(t, id); md.TsEnd != "now" || len(md.Clusters) != 0 {
+		t.Errorf("document = %+v, want the base document alone", md)
+	}
+}
+
+// When the metadata store is down at create but back by the time collection
+// finishes, the snapshot still gets its document.
+func TestCollectionWritesTheWholeDocumentWhenTheBaseWriteFailed(t *testing.T) {
+	h := newHarness(t)
+	cluster := newFakeCluster(t)
+	cluster.poolsDelay = 300 * time.Millisecond
+
+	h.metadata.mu.Lock()
+	h.metadata.saveErr = errors.New("unambiguous timeout")
+	h.metadata.mu.Unlock()
+	id := h.createNoWait(cluster)
+	h.metadata.mu.Lock()
+	h.metadata.saveErr = nil
+	h.metadata.mu.Unlock()
+
+	h.handler.collector.wait()
+	md := h.metadata.doc(t, id)
+	if md.TsStart.IsZero() || md.TsEnd != "now" || len(md.Clusters) != 1 || md.Label == "" {
+		t.Errorf("document = %+v, want base fields and collected clusters", md)
+	}
+}
+
+func TestShutdownCancelsCollectionItCannotWaitFor(t *testing.T) {
+	h := newHarness(t)
+	cluster := newFakeCluster(t)
+	cluster.poolsDelay = time.Hour
+	h.createNoWait(cluster)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	h.handler.Shutdown(ctx)
+	h.handler.collector.wait()
+	if took := time.Since(start); took > 2*time.Second {
+		t.Errorf("shutdown left collection running for %v", took)
 	}
 }

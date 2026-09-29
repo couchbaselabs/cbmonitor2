@@ -20,8 +20,6 @@ func TestHTTPServerSetsEveryTimeout(t *testing.T) {
 		}
 	}
 
-	// A write timeout below the proxy's would drop completed creates and
-	// invite duplicate registrations on retry.
 	if s.WriteTimeout < readTimeout {
 		t.Errorf("WriteTimeout %v is shorter than ReadTimeout %v", s.WriteTimeout, s.ReadTimeout)
 	}

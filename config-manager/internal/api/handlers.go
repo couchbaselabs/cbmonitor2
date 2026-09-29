@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -20,6 +21,7 @@ type Handler struct {
 	storage         *storage.FileStorage
 	metadataStorage storage.MetadataStorage
 	agentType       string
+	collector       *metadataCollector
 }
 
 // NewHandler creates a new API handler
@@ -28,7 +30,14 @@ func NewHandler(storage *storage.FileStorage, metadataStorage storage.MetadataSt
 		storage:         storage,
 		metadataStorage: metadataStorage,
 		agentType:       agentType,
+		collector:       newMetadataCollector(metadataStorage),
 	}
+}
+
+// Shutdown waits for background metadata collection until ctx ends, then
+// cancels whatever is still running.
+func (h *Handler) Shutdown(ctx context.Context) {
+	h.collector.shutdown(ctx)
 }
 
 // CreateSnapshot handles POST /api/v1/snapshot
@@ -82,12 +91,11 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 	metrics.SnapshotsCreated.Inc()
 
-	// Collect per-product metadata via the registry. Configs whose
-	// product is unknown (or has no GetMetadata) are skipped quietly —
-	// non-Couchbase SD targets and static lists shouldn't generate
-	// warning logs from doomed HTTP calls.
-	serviceSet := make(map[string]struct{})
-	clusterSet := make(map[string]models.Cluster)
+	// The base document is written before responding: the gateway resolves a
+	// snapshot's time window from ts_start, so it has to exist as soon as the
+	// client starts querying. Cluster details (services, clusters, server
+	// version) take one or more round trips per host and are collected in the
+	// background, then merged in.
 	metadataRecord := &models.SnapshotMetadata{
 		SnapshotID:   id,
 		TsStart:      time.Now(),
@@ -97,104 +105,12 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 		Services:     []string{},
 		Products:     collectProducts(req.Configs),
 	}
-	hasMetadata := false
-
-	for _, config := range req.Configs {
-		product := products.Get(config.Product)
-		if product == nil || product.GetMetadata == nil {
-			continue
-		}
-		for _, hostname := range config.Hostnames {
-			metadata, err := product.GetMetadata(
-				config.Scheme,
-				hostname,
-				config.Port,
-				req.Credentials.Username,
-				req.Credentials.Password,
-			)
-			if err != nil {
-				logger.Warn("Warning: Failed to collect product metadata", "product", config.Product, "error", err)
-				continue
-			}
-			if metadata == nil {
-				continue
-			}
-			hasMetadata = true
-
-			for _, service := range metadata.Services {
-				serviceSet[service] = struct{}{}
-			}
-
-			for _, cluster := range metadata.Clusters {
-				clusterKey := cluster.UID
-				if clusterKey == "" {
-					clusterKey = "name|" + cluster.Name
-				}
-				if clusterKey == "" {
-					continue
-				}
-
-				if existing, ok := clusterSet[clusterKey]; ok {
-					if existing.Name == "" && cluster.Name != "" {
-						existing.Name = cluster.Name
-					}
-					if len(existing.Targets) == 0 && len(cluster.Targets) > 0 {
-						existing.Targets = append([]string(nil), cluster.Targets...)
-					}
-					clusterSet[clusterKey] = existing
-					continue
-				}
-
-				clusterSet[clusterKey] = cluster
-			}
-
-			if metadataRecord.Server == "" && metadata.Server != "" {
-				metadataRecord.Server = metadata.Server
-			}
-
-			// Free-form per-product blob. Last-write-wins per key; the
-			// convention is to namespace keys (e.g. `couchbase_version`,
-			// `sgw_version`) so distinct products don't collide.
-			if len(metadata.Extras) > 0 {
-				if metadataRecord.Extras == nil {
-					metadataRecord.Extras = make(map[string]interface{}, len(metadata.Extras))
-				}
-				for k, v := range metadata.Extras {
-					metadataRecord.Extras[k] = v
-				}
-			}
-		}
-	}
-
-	if hasMetadata {
-		metadataRecord.Services = make([]string, 0, len(serviceSet))
-		for service := range serviceSet {
-			metadataRecord.Services = append(metadataRecord.Services, service)
-		}
-
-		metadataRecord.Clusters = make([]models.Cluster, 0, len(clusterSet))
-		for _, cluster := range clusterSet {
-			metadataRecord.Clusters = append(metadataRecord.Clusters, cluster)
-		}
-
-		// Assign default names to clusters without names (after merge)
-		for i := range metadataRecord.Clusters {
-			if metadataRecord.Clusters[i].Name == "" {
-				metadataRecord.Clusters[i].Name = fmt.Sprintf("cluster%d", i+1)
-			}
-		}
-	}
-
-	// Persist the metadata document for every snapshot so the label and
-	// timestamps always land in the bucket. When no product contributed
-	// cluster metadata and no custom panels were requested, services/
-	// clusters stay empty and the frontend falls back to its
-	// alwaysInclude builtins for that snapshot.
 	if err := h.metadataStorage.SaveMetadata(metadataRecord); err != nil {
 		logger.Warn("Warning: Failed to save metadata", "error", err)
 	} else {
-		logger.Info("Successfully saved metadata for snapshot", "id", id, "hasClusterMetadata", hasMetadata, "customPanels", len(metadataRecord.CustomPanels))
+		logger.Info("Successfully saved metadata for snapshot", "id", id, "customPanels", len(metadataRecord.CustomPanels))
 	}
+	h.collector.collect(metadataRecord, &req)
 
 	// Create response
 	response := models.SnapshotResponse{

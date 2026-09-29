@@ -1,6 +1,7 @@
 package products
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/couchbase/config-manager/internal/services"
@@ -44,12 +45,15 @@ func init() {
 	register(couchbaseProduct)
 }
 
+// couchbaseMetadata is shared across snapshots so its HTTP client reuses
+// connections to the clusters.
+var couchbaseMetadata = services.NewMetadataService()
+
 // collectCouchbaseMetadata wraps services.MetadataService so the product
 // registry owns the API surface while the HTTP plumbing stays in
 // internal/services/metadata.go.
-func collectCouchbaseMetadata(scheme, hostname string, port int, username, password string) (*Metadata, error) {
-	svc := services.NewMetadataService()
-	md, err := svc.CollectClusterMetadata(hostname, port, username, password, scheme)
+func collectCouchbaseMetadata(ctx context.Context, scheme, hostname string, port int, username, password string) (*Metadata, error) {
+	md, err := couchbaseMetadata.CollectClusterMetadata(ctx, hostname, port, username, password, scheme)
 	if err != nil {
 		return nil, err
 	}

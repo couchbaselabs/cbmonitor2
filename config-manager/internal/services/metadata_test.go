@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,7 +13,7 @@ func TestGetMetadataEmptyNodeListIsAnErrorNotAPanic(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	if _, _, err := NewMetadataService().GetMetadata(srv.URL, "u", "p"); err == nil {
+	if _, _, err := NewMetadataService().GetMetadata(context.Background(), srv.URL, "u", "p"); err == nil {
 		t.Fatal("expected an error for a cluster reporting no nodes")
 	}
 }
@@ -23,7 +24,7 @@ func TestGetMetadataCollectsServicesAndVersion(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	services, version, err := NewMetadataService().GetMetadata(srv.URL, "u", "p")
+	services, version, err := NewMetadataService().GetMetadata(context.Background(), srv.URL, "u", "p")
 	if err != nil {
 		t.Fatal(err)
 	}

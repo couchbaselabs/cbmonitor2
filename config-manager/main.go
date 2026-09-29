@@ -168,6 +168,7 @@ func main() {
 		logger.Error("Server forced to shutdown", "error", err)
 		os.Exit(1)
 	}
+	handler.Shutdown(ctx)
 
 	logger.Info("Server exited")
 }

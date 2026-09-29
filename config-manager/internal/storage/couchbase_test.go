@@ -32,7 +32,7 @@ func (f *fakeStore) get(id string) (*models.SnapshotMetadata, gocb.Cas, error) {
 	defer f.mu.Unlock()
 	md, ok := f.docs[id]
 	if !ok {
-		return nil, 0, fmt.Errorf("%w for snapshot %s", errMetadataNotFound, id)
+		return nil, 0, fmt.Errorf("%w for snapshot %s", ErrMetadataNotFound, id)
 	}
 	md.Phases = append([]models.Phase(nil), md.Phases...)
 	md.Services = append([]string(nil), md.Services...)
@@ -148,7 +148,7 @@ func TestUpdateOnAMissingDocumentDoesNotCallFn(t *testing.T) {
 	cs, _ := newTestCouchbaseStorage(t)
 	called := false
 	err := cs.Update("missing", func(*models.SnapshotMetadata) error { called = true; return nil })
-	if !errors.Is(err, errMetadataNotFound) || called {
+	if !errors.Is(err, ErrMetadataNotFound) || called {
 		t.Errorf("err = %v, fn called = %v; want not-found without calling fn", err, called)
 	}
 }
