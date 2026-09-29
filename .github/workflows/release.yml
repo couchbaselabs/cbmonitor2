@@ -142,15 +142,26 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Full history and tags, so the notes can count changes since the previous tag.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           merge-multiple: true
           path: release-artifacts
 
+      - name: Write component summary
+        run: .github/scripts/release-notes.sh "${GITHUB_REF_NAME}" > release-notes.md
+
+      # generate_release_notes appends GitHub's PR list and Full Changelog link
+      # after the component summary in body_path.
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           files: release-artifacts/**/*
+          body_path: release-notes.md
           generate_release_notes: true
           prerelease: true
