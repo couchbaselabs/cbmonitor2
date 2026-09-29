@@ -414,3 +414,118 @@ func (fs *FileStorage) PatchSnapshot(id string) error {
 	}
 	return err
 }
+
+// heldDirName holds scrape files the stale-snapshot sweep has taken out of
+// service. They stay there for a while so a snapshot whose keepalives were
+// only late can be restored instead of lost. It sits inside the snapshot
+// directory but never matches the "*.yml" glob vmagent reads.
+const heldDirName = ".expired"
+
+func (fs *FileStorage) heldPath(id string) string {
+	return filepath.Join(fs.baseDirectory, heldDirName, id+".yml")
+}
+
+// ActiveSnapshot is a scrape file vmagent is currently reading.
+type ActiveSnapshot struct {
+	ID string
+	// ModTime is the last keepalive.
+	ModTime time.Time
+}
+
+// ListActive returns every active scrape file.
+func (fs *FileStorage) ListActive() ([]ActiveSnapshot, error) {
+	entries, err := os.ReadDir(fs.baseDirectory)
+	if err != nil {
+		return nil, err
+	}
+	var out []ActiveSnapshot
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || filepath.Ext(name) != ".yml" {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			// Removed between the listing and the stat.
+			continue
+		}
+		out = append(out, ActiveSnapshot{ID: strings.TrimSuffix(name, ".yml"), ModTime: info.ModTime()})
+	}
+	return out, nil
+}
+
+// Expire takes id out of service by moving its scrape file into the holding
+// directory, which stops vmagent scraping it. The held file is readable by its
+// owner only: it carries the cluster's credentials and no reader needs it.
+func (fs *FileStorage) Expire(id string, now time.Time) error {
+	if err := os.MkdirAll(filepath.Join(fs.baseDirectory, heldDirName), 0o700); err != nil {
+		return err
+	}
+	held := fs.heldPath(id)
+	if err := os.Rename(fs.filePath(id), held); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("%w: %s", ErrSnapshotNotFound, id)
+		}
+		return err
+	}
+	// The hold period counts from now, not from the last keepalive.
+	_ = os.Chtimes(held, now, now)
+	return os.Chmod(held, 0o600)
+}
+
+// Restore puts a held scrape file back in service and refreshes its
+// keepalive. It reports false when id is not held.
+func (fs *FileStorage) Restore(id string) (bool, error) {
+	held := fs.heldPath(id)
+	if err := os.Chmod(held, 0o644); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if err := os.Rename(held, fs.filePath(id)); err != nil {
+		return false, err
+	}
+	now := time.Now()
+	return true, os.Chtimes(fs.filePath(id), now, now)
+}
+
+// IsHeld reports whether id is in the holding directory.
+func (fs *FileStorage) IsHeld(id string) bool {
+	_, err := os.Stat(fs.heldPath(id))
+	return err == nil
+}
+
+// DiscardHeld deletes id's held scrape file, if any.
+func (fs *FileStorage) DiscardHeld(id string) error {
+	err := os.Remove(fs.heldPath(id))
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
+}
+
+// PurgeHeld deletes held scrape files older than holdPeriod and reports how
+// many it removed.
+func (fs *FileStorage) PurgeHeld(holdPeriod time.Duration, now time.Time) (int, error) {
+	entries, err := os.ReadDir(filepath.Join(fs.baseDirectory, heldDirName))
+	if os.IsNotExist(err) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	purged := 0
+	for _, e := range entries {
+		info, err := e.Info()
+		if err != nil || filepath.Ext(e.Name()) != ".yml" {
+			continue
+		}
+		if now.Sub(info.ModTime()) > holdPeriod {
+			if err := os.Remove(filepath.Join(fs.baseDirectory, heldDirName, e.Name())); err == nil {
+				purged++
+			}
+		}
+	}
+	return purged, nil
+}

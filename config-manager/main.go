@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/couchbase/config-manager/internal/api"
 	"github.com/couchbase/config-manager/internal/config"
@@ -85,20 +84,9 @@ func main() {
 
 	fileStorage := storage.NewFileStorage(cfg.Agent.Directory)
 
-	interval := cfg.Manager.Interval
-	mininterval := cfg.Manager.MinInterval
-
-	// Validate manager interval
-	if interval > 30*time.Minute || interval < mininterval {
-		logger.Warn("Manager interval should be between 5 and 30 minutes", "interval", interval, "default", 5*time.Minute)
-		interval = mininterval // Default to 5 minutes if invalid
-	}
-
-	staleThreshold := cfg.Manager.StaleThreshold
-	// Validate manager stale threshold
-	if staleThreshold > 30*time.Minute || staleThreshold < 5*time.Minute {
-		logger.Warn("Manager stale threshold should be between 5 and 30 minutes", "stale_threshold", staleThreshold, "default", 5*time.Minute)
-		staleThreshold = 5 * time.Minute // Default to 5 minutes if invalid
+	if err := manager.ValidateTimings(cfg.Manager.Interval, cfg.Manager.MinInterval, cfg.Manager.StaleThreshold); err != nil {
+		logger.Error("Invalid manager configuration", "error", err)
+		os.Exit(1)
 	}
 
 	// Initialize metadata storage
@@ -142,24 +130,25 @@ func main() {
 			os.Exit(1)
 		}
 	}()
-	logger.Debug(
-		"interval, mininterval and stale threshold",
-		"interval", interval.String(),
-		"mininterval", mininterval.String(),
-		"stale_threshold", staleThreshold.String(),
-	)
-
 	logger.Info("Config Manager REST Service Started")
 
+	// The sweep shares the API's metadata storage and write queue, so an end
+	// of life it cannot record now is retried like any other.
+	sweeper := &manager.Sweeper{
+		Files:          fileStorage,
+		End:            handler.EndSnapshot,
+		Interval:       cfg.Manager.Interval,
+		StaleThreshold: cfg.Manager.StaleThreshold,
+		HoldPeriod:     manager.DefaultHoldPeriod,
+	}
+	sweepCtx, stopSweep := context.WithCancel(context.Background())
+	sweepDone := make(chan struct{})
 	go func() {
-
-		manager.StartManagerWithInterval(manager.Information{
-			Interval:       interval,
-			MinInterval:    mininterval,
-			StaleThreshold: staleThreshold,
-		}, cfg.Agent.Directory, cfg)
+		defer close(sweepDone)
+		sweeper.Run(sweepCtx)
 	}()
-	logger.Info("Manager Service Started")
+	logger.Info("Manager Service Started", "interval", cfg.Manager.Interval.String(),
+		"stale_threshold", cfg.Manager.StaleThreshold.String(), "hold_period", manager.DefaultHoldPeriod.String())
 
 	// Wait for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)
@@ -169,6 +158,8 @@ func main() {
 	logger.Info("Shutting down server...")
 
 	// Graceful shutdown
+	stopSweep()
+	<-sweepDone
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {

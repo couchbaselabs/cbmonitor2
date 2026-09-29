@@ -44,6 +44,12 @@ func NewHandler(fs *storage.FileStorage, metadataStorage storage.MetadataStorage
 	}
 }
 
+// EndSnapshot records id's end of life at at, queueing the write if the
+// metadata store cannot take it now. It reports whether it was applied now.
+func (h *Handler) EndSnapshot(id string, at time.Time) bool {
+	return h.writes.writeOrQueue(id, storage.PendingOp{Op: storage.OpEnd, At: at})
+}
+
 // Shutdown stops retrying queued writes and waits for background metadata
 // collection until ctx ends, then cancels whatever is still running. Queued
 // writes stay on disk for the next start.
@@ -113,11 +119,20 @@ func (h *Handler) PutSnapshot(w http.ResponseWriter, r *http.Request, id string)
 		return
 	}
 
+	wasHeld := h.storage.IsHeld(id)
 	if err := h.storage.SaveSnapshotWithID(id, clusterMap(req), h.agentType); err != nil {
 		http.Error(w, "Failed to save snapshot: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	metrics.SnapshotsCreated.Inc()
+	if wasHeld {
+		// The file just written from the request replaces the held copy.
+		if err := h.storage.DiscardHeld(id); err != nil {
+			logger.Warn("Failed to discard a held snapshot after re-registration", "id", id, "error", err)
+		}
+		metrics.SnapshotsRestored.Inc()
+	} else {
+		metrics.SnapshotsCreated.Inc()
+	}
 
 	existing, err := h.metadataStorage.GetMetadata(id)
 	if hook := testHookAfterMetadataLookup; hook != nil {
@@ -392,6 +407,16 @@ func (h *Handler) DeleteSnapshotRequest(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	if !exists {
+		// Already expired by the sweep, which recorded its end of life; the
+		// client's DELETE just finishes the cleanup.
+		if h.storage.IsHeld(snapshotID) {
+			if err := h.storage.DiscardHeld(snapshotID); err != nil {
+				http.Error(w, "Failed to delete snapshot: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		http.Error(w, "Snapshot not found", http.StatusNotFound)
 		return
 	}
@@ -412,7 +437,8 @@ func (h *Handler) DeleteSnapshotRequest(w http.ResponseWriter, r *http.Request, 
 }
 
 // PatchSnapshotRequest refreshes a snapshot's keepalive and records any phase
-// or services update. The keepalive never depends on the metadata store.
+// or services update. The keepalive never depends on the metadata store. A
+// snapshot the sweep expired less than the hold period ago is restored.
 func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request, snapshotID string) {
 	var payload struct {
 		Phase    string   `json:"phase,omitempty"`
@@ -426,18 +452,30 @@ func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request, s
 		}
 	}
 
+	now := time.Now()
+	var ops []storage.PendingOp
 	if err := h.storage.PatchSnapshot(snapshotID); err != nil {
-		if errors.Is(err, storage.ErrSnapshotNotFound) {
+		if !errors.Is(err, storage.ErrSnapshotNotFound) {
+			http.Error(w, "Failed to patch snapshot: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		// Swept for late keepalives, but still held: put it back in service
+		// and reopen it, so the run keeps its metrics without re-registering.
+		restored, err := h.storage.Restore(snapshotID)
+		if err != nil {
+			http.Error(w, "Failed to restore snapshot: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if !restored {
 			http.Error(w, "Snapshot not found", http.StatusNotFound)
 			return
 		}
-		http.Error(w, "Failed to patch snapshot: "+err.Error(), http.StatusInternalServerError)
-		return
+		metrics.SnapshotsRestored.Inc()
+		logger.Info("Restored an expired snapshot on a late keepalive", "id", snapshotID)
+		ops = append(ops, storage.PendingOp{Op: storage.OpReopen, At: now})
 	}
 	metrics.SnapshotsPatched.Inc()
 
-	now := time.Now()
-	var ops []storage.PendingOp
 	if payload.Phase != "" && (payload.Mode == "start" || payload.Mode == "end") {
 		ops = append(ops, storage.PendingOp{Op: storage.OpPhase, Phase: payload.Phase, Mode: payload.Mode, At: now})
 	}

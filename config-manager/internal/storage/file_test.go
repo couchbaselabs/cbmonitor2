@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -292,5 +293,50 @@ func TestGenerateRejectsMalformedPayloadsWithoutPanicking(t *testing.T) {
 				t.Error("expected an error for a malformed payload")
 			}
 		})
+	}
+}
+
+func TestExpireTakesASnapshotOutOfServiceAndRestoreBringsItBack(t *testing.T) {
+	dir := t.TempDir()
+	fs := NewFileStorage(dir)
+	id, err := fs.SaveSnapshot(clusterMap(map[string]interface{}{
+		"hostnames": []string{"10.0.0.1"}, "port": 8091, "type": "sd", "product": "couchbase",
+	}), "vmagent")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := fs.Expire(id, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if matches, _ := filepath.Glob(filepath.Join(dir, "*.yml")); len(matches) != 0 {
+		t.Errorf("an expired snapshot is still visible to vmagent: %v", matches)
+	}
+	info, err := os.Stat(fs.heldPath(id))
+	if err != nil {
+		t.Fatalf("expired snapshot not held: %v", err)
+	}
+	// It carries cluster credentials and nothing needs to read it.
+	if info.Mode().Perm() != 0o600 {
+		t.Errorf("held file mode %v, want 0600", info.Mode().Perm())
+	}
+
+	restored, err := fs.Restore(id)
+	if err != nil || !restored {
+		t.Fatalf("Restore = %v, %v", restored, err)
+	}
+	info, err = os.Stat(filepath.Join(dir, id+".yml"))
+	if err != nil {
+		t.Fatalf("restored snapshot not active: %v", err)
+	}
+	if info.Mode().Perm()&0o044 != 0o044 {
+		t.Errorf("restored file mode %v is not readable by vmagent", info.Mode().Perm())
+	}
+	if time.Since(info.ModTime()) > time.Minute {
+		t.Error("restoring did not refresh the keepalive")
+	}
+
+	if restored, err := fs.Restore("never-held"); restored || err != nil {
+		t.Errorf("Restore of an unknown snapshot = %v, %v; want false, nil", restored, err)
 	}
 }

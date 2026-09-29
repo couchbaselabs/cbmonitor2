@@ -257,6 +257,8 @@ Updates a snapshot's metadata, including phase information and services list.
 
 A `PATCH` with no body is a keepalive. Any `PATCH` refreshes the snapshot's keepalive, whether or not its metadata update succeeds.
 
+A snapshot whose keepalives stop for longer than the stale threshold (5 minutes by default) is taken out of service by the stale-snapshot sweep, and scraping stops. For 6 hours afterwards, a `PATCH` restores it: scraping resumes and the snapshot is reopened, so a run whose keepalives were only late keeps its metrics without re-registering.
+
 **Response:**
 - No response body.
 
@@ -264,7 +266,7 @@ A `PATCH` with no body is a keepalive. Any `PATCH` refreshes the snapshot's keep
 - `200 OK` - Keepalive refreshed and every update recorded.
 - `202 Accepted` - Keepalive refreshed; an update could not be recorded yet and is queued. See [Queued metadata writes](#queued-metadata-writes-202-accepted).
 - `400 Bad Request` - Missing snapshot ID or invalid payload.
-- `404 Not Found` - The snapshot has no scrape configuration: it was never created, was deleted, or was removed by the stale-snapshot sweep. Re-register with [`PUT`](#create-or-return-a-snapshot-by-id) to resume.
+- `404 Not Found` - The snapshot does not exist, was deleted, or was taken out of service by the stale-snapshot sweep more than 6 hours ago. Re-register with [`PUT`](#create-or-return-a-snapshot-by-id) to resume.
 - `500 Internal Server Error` - The keepalive could not be refreshed.
 
 **Example Requests:**
@@ -325,7 +327,7 @@ Deletes a configuration snapshot and marks it as end-of-life in the metadata sto
 - No response body.
 
 **Status Codes:**
-- `204 No Content` - Scrape configuration removed and end of life recorded.
+- `204 No Content` - Scrape configuration removed and end of life recorded, or the snapshot had already been taken out of service by the stale-snapshot sweep.
 - `202 Accepted` - Scrape configuration removed; the end of life is queued. See [Queued metadata writes](#queued-metadata-writes-202-accepted).
 - `400 Bad Request` - Missing snapshot ID.
 - `404 Not Found` - The snapshot has no scrape configuration.

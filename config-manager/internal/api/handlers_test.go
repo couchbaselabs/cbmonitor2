@@ -809,3 +809,65 @@ func TestQueuedWritesSurviveARestart(t *testing.T) {
 		t.Errorf("phases = %+v after restart, want the queued phase applied", phases)
 	}
 }
+
+// expire does what the manager loop does to a stale snapshot.
+func (h *harness) expire(id string) {
+	h.t.Helper()
+	if err := storage.NewFileStorage(h.dir).Expire(id, time.Now()); err != nil {
+		h.t.Fatal(err)
+	}
+	h.handler.EndSnapshot(id, time.Now())
+}
+
+// A test whose keepalives were only late gets its snapshot back on the next
+// keepalive, with no re-registration.
+func TestLateKeepaliveRestoresAnExpiredSnapshot(t *testing.T) {
+	h := newHarness(t)
+	id := h.create(newFakeCluster(t))
+	h.expire(id)
+	if md := h.metadata.doc(t, id); md.TsEnd == "now" {
+		t.Fatal("setup: the sweep should have recorded an end of life")
+	}
+
+	if rec := h.do(http.MethodPatch, "/api/v1/snapshot/"+id, nil); rec.Code != http.StatusOK {
+		t.Fatalf("late keepalive: status %d, want 200", rec.Code)
+	}
+	if _, err := os.Stat(h.scrapeFile(id)); err != nil {
+		t.Errorf("snapshot not back in service: %v", err)
+	}
+	if md := h.metadata.doc(t, id); md.TsEnd != "now" {
+		t.Errorf("ts_end = %q, want the snapshot reopened", md.TsEnd)
+	}
+}
+
+func TestDeleteOfAnExpiredSnapshotClearsItsHeldFile(t *testing.T) {
+	h := newHarness(t)
+	id := h.create(newFakeCluster(t))
+	h.expire(id)
+
+	if rec := h.do(http.MethodDelete, "/api/v1/snapshot/"+id, nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("status %d, want 204", rec.Code)
+	}
+	if storage.NewFileStorage(h.dir).IsHeld(id) {
+		t.Error("held scrape file, which carries cluster credentials, was left behind")
+	}
+}
+
+func TestPutOverAnExpiredSnapshotReplacesTheHeldCopy(t *testing.T) {
+	h := newHarness(t)
+	cluster := newFakeCluster(t)
+	const id = "jenkins-held-1"
+	h.put(id, cluster)
+	h.handler.collector.wait()
+	h.expire(id)
+
+	if rec := h.put(id, cluster); rec.Code != http.StatusOK {
+		t.Fatalf("re-register: status %d, want 200", rec.Code)
+	}
+	if storage.NewFileStorage(h.dir).IsHeld(id) {
+		t.Error("the held copy should be discarded once the snapshot is re-registered")
+	}
+	if md := h.metadata.doc(t, id); md.TsEnd != "now" {
+		t.Errorf("ts_end = %q, want the snapshot reopened", md.TsEnd)
+	}
+}

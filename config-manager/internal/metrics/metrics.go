@@ -36,7 +36,21 @@ var (
 	})
 	SnapshotsExpired = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "config_manager_snapshots_expired_total",
-		Help: "Total stale snapshots cleaned up by the manager loop.",
+		Help: "Total stale snapshots taken out of service by the manager loop.",
+	})
+	SnapshotsRestored = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "config_manager_snapshots_restored_total",
+		Help: "Total expired snapshots put back in service by a late keepalive or re-registration.",
+	})
+	// SweepLastSuccess is the manager loop's heartbeat: alert when it stops
+	// advancing, because nothing else stops scraping for a client that died.
+	SweepLastSuccess = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "config_manager_manager_loop_last_run_timestamp_seconds",
+		Help: "Unix time of the manager loop's last successful sweep.",
+	})
+	SweepFailures = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "config_manager_manager_loop_failures_total",
+		Help: "Total manager loop sweeps that failed and were retried.",
 	})
 )
 
