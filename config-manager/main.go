@@ -93,9 +93,11 @@ func main() {
 	// Initialize metadata storage
 	metadataStorage, err := storage.NewMetadataStorage(cfg)
 	if err != nil {
-		logger.Error("Failed to initialize metadata storage. Metadata will not be collected.", "error", err)
-		metadataStorage = storage.NewFileMetadataStorage(cfg.Agent.Directory)
-		logger.Info("Falling back to file metadata storage", "directory", cfg.Agent.Directory)
+		// Only an enabled metadata store that cannot reach Couchbase Server
+		// errors here. Keep trying in the background; metadata writes queue
+		// until it connects.
+		logger.Error("Metadata store unreachable at startup; retrying in the background, metadata writes queue until it connects", "error", err)
+		metadataStorage = storage.NewReconnectingStorage(cfg, 15*time.Second)
 	} else {
 		logger.Info("Metadata storage initialized", "type", metadataStorage.Type())
 	}

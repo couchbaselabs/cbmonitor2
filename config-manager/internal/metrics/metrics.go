@@ -81,8 +81,7 @@ var (
 		Help: "Metadata writes currently queued for retry.",
 	})
 	// MetadataStorageInfo is 1 for the storage in use. "file" means metadata
-	// is not being recorded at all, which happens when Couchbase Server cannot
-	// be reached at startup.
+	// recording is turned off in the configuration.
 	MetadataStorageInfo = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "config_manager_metadata_storage_info",
 		Help: "1 for the metadata storage in use; \"file\" records nothing.",
