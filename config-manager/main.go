@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/couchbase/config-manager/internal/api"
 	"github.com/couchbase/config-manager/internal/config"
@@ -110,6 +111,15 @@ func main() {
 	// Initialize API handler
 	handler := api.NewHandler(fileStorage, metadataStorage, cfg.Agent.Type, pending)
 
+	// The sweep shares the API's metadata storage and write queue, so an end
+	// of life it cannot record now is retried like any other.
+	sweeper := &manager.Sweeper{
+		Files:          fileStorage,
+		End:            handler.EndSnapshot,
+		Interval:       cfg.Manager.Interval,
+		StaleThreshold: cfg.Manager.StaleThreshold,
+		HoldPeriod:     manager.DefaultHoldPeriod,
+	}
 	// Setup HTTP server
 	mux := http.NewServeMux()
 
@@ -117,6 +127,16 @@ func main() {
 	mux.Handle("/api/v1/snapshot", metrics.Instrument("snapshot", http.HandlerFunc(handler.CreateSnapshot)))
 	mux.Handle("/api/v1/snapshot/", metrics.Instrument("snapshot_id", http.HandlerFunc(handler.Manager)))
 	mux.Handle("/metrics", metrics.Handler())
+	health := &api.Health{
+		Dir:              cfg.Agent.Directory,
+		Storage:          metadataStorage,
+		Pending:          pending,
+		SweepLastSuccess: sweeper.LastSuccess,
+		// A sweep runs every interval; allow two missed passes before failing.
+		SweepMaxAge: 2*cfg.Manager.Interval + time.Minute,
+		Started:     time.Now(),
+	}
+	mux.Handle("/health", metrics.Instrument("health", health))
 
 	// Create server
 	server := newHTTPServer(fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port), mux)
@@ -133,15 +153,6 @@ func main() {
 	}()
 	logger.Info("Config Manager REST Service Started")
 
-	// The sweep shares the API's metadata storage and write queue, so an end
-	// of life it cannot record now is retried like any other.
-	sweeper := &manager.Sweeper{
-		Files:          fileStorage,
-		End:            handler.EndSnapshot,
-		Interval:       cfg.Manager.Interval,
-		StaleThreshold: cfg.Manager.StaleThreshold,
-		HoldPeriod:     manager.DefaultHoldPeriod,
-	}
 	sweepCtx, stopSweep := context.WithCancel(context.Background())
 	sweepDone := make(chan struct{})
 	go func() {

@@ -9,6 +9,7 @@ The Config Manager service provides an API for creating and managing configurati
 - [Get Snapshot](#get-snapshot)
 - [Update Snapshot](#update-snapshot)
 - [Delete Snapshot](#delete-snapshot)
+- [Health](#health)
 - [Error Responses](#error-responses)
 
 ---
@@ -341,6 +342,32 @@ curl -X DELETE http://localhost:8085/api/v1/snapshot/550e8400-e29b-41d4-a716-446
 **Notes:**
 - Deletion marks the snapshot as end-of-life in metadata storage
 - The configuration file is removed from the collector agent directory even when the metadata store is unavailable, so scraping always stops.
+
+---
+
+## Health
+
+### GET /health
+
+Reports whether config-manager can do its job. Unlike the API routes it is not under `/api/v1`; through the on-prem proxy it is `/config-manager/health`.
+
+**Response:**
+```json
+{
+  "status": "degraded",
+  "checks": {
+    "snapshot_directory": {"ok": true},
+    "sweep": {"ok": true, "detail": {"last_success": "2026-09-30T10:15:02Z"}},
+    "metadata_store": {"ok": false, "error": "unambiguous timeout", "detail": {"type": "couchbase"}}
+  },
+  "pending_metadata_writes": 3
+}
+```
+
+**Status Codes:**
+- `200 OK` with `"status": "ok"` - Every check passed.
+- `200 OK` with `"status": "degraded"` - The metadata store is unreachable. Registrations and keepalives still work and metadata writes are queued, so this should not trigger a restart.
+- `503 Service Unavailable` with `"status": "failing"` - The snapshot directory is not writable, or the stale-snapshot sweep has not completed in over two intervals.
 
 ---
 

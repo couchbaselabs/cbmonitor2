@@ -176,6 +176,19 @@ func (cs *CouchbaseStorage) Update(snapshotID string, fn func(*models.SnapshotMe
 	}
 }
 
+// healthKey is never written, so reading it answers not-found when the store
+// is reachable.
+const healthKey = "__config_manager_health__"
+
+// Ping reads a key that never exists: not-found means the store answered.
+func (cs *CouchbaseStorage) Ping() error {
+	_, _, err := cs.store.get(healthKey)
+	if err == nil || errors.Is(err, ErrMetadataNotFound) {
+		return nil
+	}
+	return err
+}
+
 // Close closes the Couchbase connection
 func (cs *CouchbaseStorage) Close() error {
 	if cs.cluster != nil {

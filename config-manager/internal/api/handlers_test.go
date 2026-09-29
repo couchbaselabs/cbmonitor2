@@ -127,6 +127,12 @@ func (m *memMetadata) doc(t *testing.T, id string) *models.SnapshotMetadata {
 	return md
 }
 
+func (m *memMetadata) Ping() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.getErr
+}
+
 func (m *memMetadata) Close() error { return nil }
 func (m *memMetadata) Type() string { return "memory" }
 

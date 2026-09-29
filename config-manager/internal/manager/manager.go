@@ -4,6 +4,7 @@ package manager
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/couchbase/config-manager/internal/logger"
@@ -33,7 +34,17 @@ type Sweeper struct {
 	StaleThreshold time.Duration
 	HoldPeriod     time.Duration
 
-	now func() time.Time
+	now         func() time.Time
+	lastSuccess atomic.Int64 // unix nanoseconds
+}
+
+// LastSuccess reports when a sweep last completed, or the zero time before
+// the first one.
+func (s *Sweeper) LastSuccess() time.Time {
+	if ns := s.lastSuccess.Load(); ns != 0 {
+		return time.Unix(0, ns)
+	}
+	return time.Time{}
 }
 
 func (s *Sweeper) clock() time.Time {
@@ -87,6 +98,7 @@ func (s *Sweeper) Run(ctx context.Context) {
 			metrics.SweepFailures.Inc()
 			logger.Error("Snapshot sweep failed; retrying next interval", "error", err)
 		} else {
+			s.lastSuccess.Store(time.Now().UnixNano())
 			metrics.SweepLastSuccess.SetToCurrentTime()
 		}
 		select {

@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"errors"
 	"time"
 
 	"github.com/couchbase/config-manager/internal/config"
@@ -20,6 +21,8 @@ type MetadataStorage interface {
 	// Update applies fn to the current document and writes it back without
 	// overwriting a concurrent change; see CouchbaseStorage.Update.
 	Update(snapshotID string, fn func(*models.SnapshotMetadata) error) error
+	// Ping reports whether the store can be reached.
+	Ping() error
 	Close() error
 	Type() string
 }
@@ -59,6 +62,11 @@ func (fs *FileMetadataStorage) SaveMetadata(metadata *models.SnapshotMetadata) e
 func (fs *FileMetadataStorage) GetMetadata(snapshotID string) (*models.SnapshotMetadata, error) {
 	// This is a no-op fallback - metadata collection is disabled
 	return nil, nil
+}
+
+// Ping reports that metadata is not being recorded at all.
+func (fs *FileMetadataStorage) Ping() error {
+	return errors.New("metadata is not recorded: file storage is a no-op fallback")
 }
 
 // Close closes the file storage (no-op for file storage)
