@@ -58,7 +58,7 @@ func StartManagerWithInterval(information Information, directory string, cfg *co
 					// Extract snapshot ID from filename (remove .yml extension)
 						snapshotID := strings.TrimSuffix(file.Name(), ".yml")
 					// Update metadata to mark snapshot as ended
-					if err := metadataStorage.EoLSnapshot(snapshotID); err != nil {
+					if err := metadataStorage.EoLSnapshot(snapshotID, time.Now()); err != nil {
 						logger.Error("Failed to update snapshot end time in metadata", "snapshotID", snapshotID, "error", err)
 					} else {
 						logger.Info("Successfully updated snapshot end time in metadata", "snapshotID", snapshotID)

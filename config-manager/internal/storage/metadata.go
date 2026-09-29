@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"time"
+
 	"github.com/couchbase/config-manager/internal/config"
 	"github.com/couchbase/config-manager/internal/logger"
 	"github.com/couchbase/config-manager/internal/models"
@@ -10,9 +12,11 @@ import (
 type MetadataStorage interface {
 	SaveMetadata(metadata *models.SnapshotMetadata) error
 	GetMetadata(snapshotID string) (*models.SnapshotMetadata, error)
-	UpdatePhase(snapshotID string, phase string, mode string) error
+	// UpdatePhase and EoLSnapshot record at, the moment the client reported the
+	// event, so a write retried later still carries the right time.
+	UpdatePhase(snapshotID string, phase string, mode string, at time.Time) error
 	UpdateServices(snapshotID string, services []string) error
-	EoLSnapshot(snapshotID string) error
+	EoLSnapshot(snapshotID string, at time.Time) error
 	// Update applies fn to the current document and writes it back without
 	// overwriting a concurrent change; see CouchbaseStorage.Update.
 	Update(snapshotID string, fn func(*models.SnapshotMetadata) error) error
@@ -67,7 +71,7 @@ func (fs *FileMetadataStorage) Type() string {
 	return "file"
 }
 
-func (fs *FileMetadataStorage) UpdatePhase(snapshotID string, phase string, mode string) error {
+func (fs *FileMetadataStorage) UpdatePhase(snapshotID string, phase string, mode string, at time.Time) error {
 	return nil	
 }
 
@@ -79,6 +83,6 @@ func (fs *FileMetadataStorage) Update(snapshotID string, fn func(*models.Snapsho
 	return nil
 }
 
-func (fs *FileMetadataStorage) EoLSnapshot(snapshotID string) error {
+func (fs *FileMetadataStorage) EoLSnapshot(snapshotID string, at time.Time) error {
 	return nil	
 }

@@ -189,15 +189,15 @@ func (cs *CouchbaseStorage) Type() string {
 	return "couchbase"
 }
 
-func (cs *CouchbaseStorage) UpdatePhase(snapshotID string, phase string, mode string) error {
+func (cs *CouchbaseStorage) UpdatePhase(snapshotID string, phase string, mode string, at time.Time) error {
 	if mode != "start" && mode != "end" {
 		return fmt.Errorf("invalid mode: %s", mode)
 	}
 	err := cs.Update(snapshotID, func(md *models.SnapshotMetadata) error {
 		if mode == "start" {
-			md.Phases = append(md.Phases, models.Phase{Label: phase, TsStart: time.Now()})
+			md.Phases = append(md.Phases, models.Phase{Label: phase, TsStart: at})
 		} else if len(md.Phases) > 0 {
-			md.Phases[len(md.Phases)-1].TsEnd = time.Now().Format(time.RFC3339Nano)
+			md.Phases[len(md.Phases)-1].TsEnd = at.Format(time.RFC3339Nano)
 		}
 		return nil
 	})
@@ -218,9 +218,9 @@ func (cs *CouchbaseStorage) UpdateServices(snapshotID string, services []string)
 	return nil
 }
 
-func (cs *CouchbaseStorage) EoLSnapshot(snapshotID string) error {
+func (cs *CouchbaseStorage) EoLSnapshot(snapshotID string, at time.Time) error {
 	err := cs.Update(snapshotID, func(md *models.SnapshotMetadata) error {
-		md.TsEnd = time.Now().Format(time.RFC3339Nano)
+		md.TsEnd = at.Format(time.RFC3339Nano)
 		return nil
 	})
 	if err != nil {

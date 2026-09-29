@@ -1,9 +1,11 @@
 package storage
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -26,28 +28,55 @@ func NewFileStorage(baseDirectory string) *FileStorage {
 	}
 }
 
-// SaveSnapshot saves a snapshot configuration to a file
+// ErrSnapshotNotFound reports that a snapshot has no scrape file.
+var ErrSnapshotNotFound = errors.New("snapshot not found")
+
+// snapshotIDPattern is what a client may choose as a snapshot ID. The ID
+// becomes the scrape job's label value, a file name and a Couchbase Server
+// document key, so it is limited to characters that are safe in all three.
+var snapshotIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
+
+// ValidSnapshotID reports whether id may be used as a snapshot ID.
+func ValidSnapshotID(id string) bool {
+	return snapshotIDPattern.MatchString(id)
+}
+
+func (fs *FileStorage) filePath(id string) string {
+	return filepath.Join(fs.baseDirectory, id+".yml")
+}
+
+// SaveSnapshot writes a scrape configuration under a new random ID.
 func (fs *FileStorage) SaveSnapshot(clusterInfo interface{}, agentType string) (string, error) {
-	// Generate UUID for filename
 	id := uuid.New().String()
+	if err := fs.SaveSnapshotWithID(id, clusterInfo, agentType); err != nil {
+		return "", err
+	}
+	return id, nil
+}
 
-	// Create filename based on agent type
-	filename := fmt.Sprintf("%s.yml", id)
-
-	// Create file path
-	filePath := filepath.Join(fs.baseDirectory, filename)
-
-	// Generate configuration content based on agent type
+// SaveSnapshotWithID writes the scrape configuration for id, replacing any
+// existing one.
+func (fs *FileStorage) SaveSnapshotWithID(id string, clusterInfo interface{}, agentType string) error {
 	content, err := fs.generateConfigContent(clusterInfo, agentType, id)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate config content: %w", err)
+		return fmt.Errorf("failed to generate config content: %w", err)
 	}
-
-	if err := writeFileAtomic(fs.baseDirectory, filePath, content, 0644); err != nil {
-		return "", fmt.Errorf("failed to write config file: %w", err)
+	if err := writeFileAtomic(fs.baseDirectory, fs.filePath(id), content, 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
 	}
+	return nil
+}
 
-	return id, nil
+// Exists reports whether id has a scrape file.
+func (fs *FileStorage) Exists(id string) (bool, error) {
+	_, err := os.Stat(fs.filePath(id))
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
 }
 
 // writeFileAtomic writes content to a temporary file in dir and renames it
@@ -284,7 +313,7 @@ func (fs *FileStorage) GetSnapshot(id string) (models.DisplaySnapshot, error) {
 	filePath := filepath.Join(fs.baseDirectory, fmt.Sprintf("%s.yml", id))
 
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return models.DisplaySnapshot{}, fmt.Errorf("config file does not exist: %s", filePath)
+		return models.DisplaySnapshot{}, fmt.Errorf("%w: %s", ErrSnapshotNotFound, id)
 	} else if err != nil {
 		return models.DisplaySnapshot{}, fmt.Errorf("error checking config file: %w", err)
 	}
@@ -362,7 +391,7 @@ func (fs *FileStorage) DeleteSnapshot(id string) error {
 
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return fmt.Errorf("config file does not exist: %s", filePath)
+		return fmt.Errorf("%w: %s", ErrSnapshotNotFound, id)
 	} else if err != nil {
 		return fmt.Errorf("error checking config file: %w", err)
 	}
@@ -375,9 +404,13 @@ func (fs *FileStorage) DeleteSnapshot(id string) error {
 	return nil
 }
 
+// PatchSnapshot refreshes id's keepalive: the manager loop sweeps scrape files
+// whose modification time is older than the stale threshold.
 func (fs *FileStorage) PatchSnapshot(id string) error {
-	// TO DO: update this, in the future, to also update other configs
-	filePath := filepath.Join(fs.baseDirectory, fmt.Sprintf("%s.yml", id))
 	now := time.Now()
-	return os.Chtimes(filePath, now, now)
+	err := os.Chtimes(fs.filePath(id), now, now)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("%w: %s", ErrSnapshotNotFound, id)
+	}
+	return err
 }

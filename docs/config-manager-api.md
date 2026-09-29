@@ -5,6 +5,7 @@ The Config Manager service provides an API for creating and managing configurati
 ## Table of Contents
 
 - [Create Snapshot](#create-snapshot)
+- [Create or Return a Snapshot by ID](#create-or-return-a-snapshot-by-id)
 - [Get Snapshot](#get-snapshot)
 - [Update Snapshot](#update-snapshot)
 - [Delete Snapshot](#delete-snapshot)
@@ -93,10 +94,11 @@ curl -X POST http://localhost:8085/api/v1/snapshot \
 </details>
 
 **Notes:**
-- The service automatically collects cluster metadata (version, services, time ranges) after creating the snapshot.
+- The response is sent once the scrape configuration and the snapshot's base metadata (start time, label, products) are written. Cluster metadata (version, services, clusters) is collected in the background and appears on the snapshot a few seconds later.
+- A retried `POST` creates a second snapshot. Clients that retry should use [`PUT /cm/api/v1/snapshot/{id}`](#create-or-return-a-snapshot-by-id) instead.
 - Configuration files are saved with the naming convention: `{uuid}.yml` in the directory specified by the agent configuration.
-- The provided credentilas are used for metrics scraping, services discovery and cluster metadata collection.
-- Service discovery URLs include `clusterLabels=uuidOnly` so cluster UUID labels are emitted for cluster registration.
+- The provided credentials are used for metrics scraping, services discovery and cluster metadata collection.
+- Service discovery URLs include `clusterLabels=uuidAndName`, so series carry both `cluster_uuid` and `cluster_name`.
 
 ### Products
 
@@ -144,6 +146,45 @@ When a snapshot's configs need more than one job — mixed schemes, or a product
 with its own relabelling — `job_name` is suffixed to stay unique and a
 `relabel_configs` rule rewrites the scraped `job` label back to the snapshot id,
 so `job="<id>"` keeps selecting everything in the snapshot.
+
+---
+
+## Create or Return a Snapshot by ID
+
+### PUT /cm/api/v1/snapshot/{id}
+
+Creates a snapshot under a client-chosen ID, or returns it if it already exists. The request body is the same as [`POST`](#create-snapshot). Retrying a `PUT` is always safe: the same ID never produces a second snapshot.
+
+**Path Parameters:**
+- `id` (required): 1 to 128 characters from `A-Z`, `a-z`, `0-9`, `_` and `-`. The ID becomes the scrape job's `job` label, a file name and a metadata key. A Jenkins build's `BUILD_TAG` with other characters replaced by `-` makes a good ID: it is unique per build, stable across that build's retries, and traceable back to the build.
+
+**Response:**
+```json
+{
+  "id": "jenkins-hera-kv-3421"
+}
+```
+
+**Status Codes:**
+- `201 Created` - The snapshot is new.
+- `200 OK` - The snapshot already exists and is returned unchanged. The call also counts as a keepalive.
+- `200 OK` - The snapshot's scrape configuration had been removed by the stale-snapshot sweep, but the snapshot is known. The configuration is written again and the snapshot reopened, keeping its start time and recorded phases. A client whose keepalives lapsed can re-register this way and resume collection.
+- `400 Bad Request` - Invalid ID, or invalid request body.
+- `500 Internal Server Error` - The scrape configuration could not be written.
+
+**Example Request:**
+```bash
+curl -X PUT http://localhost:8085/api/v1/snapshot/jenkins-hera-kv-3421 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "configs": [{"hostnames": ["localhost"], "port": 8091}],
+    "credentials": {"username": "admin", "password": "password"},
+    "label": "http://perf.jenkins.couchbase.com/job/hera-kv/3421/"
+  }'
+```
+
+**Notes:**
+- An existing snapshot is returned as it is; the request body is not compared with the one it was created from.
 
 ---
 
@@ -214,13 +255,17 @@ Updates a snapshot's metadata, including phase information and services list.
 - Services update: `services` array must be provided
 - Both can be updated in a single request
 
+A `PATCH` with no body is a keepalive. Any `PATCH` refreshes the snapshot's keepalive, whether or not its metadata update succeeds.
+
 **Response:**
-- `200 OK` - Snapshot updated successfully (no response body)
+- No response body.
 
 **Status Codes:**
-- `200 OK` - Snapshot updated successfully
-- `400 Bad Request` - Missing snapshot ID, invalid payload, or no operations specified
-- `500 Internal Server Error` - Server error during update
+- `200 OK` - Keepalive refreshed and every update recorded.
+- `202 Accepted` - Keepalive refreshed; an update could not be recorded yet and is queued. See [Queued metadata writes](#queued-metadata-writes-202-accepted).
+- `400 Bad Request` - Missing snapshot ID or invalid payload.
+- `404 Not Found` - The snapshot has no scrape configuration: it was never created, was deleted, or was removed by the stale-snapshot sweep. Re-register with [`PUT`](#create-or-return-a-snapshot-by-id) to resume.
+- `500 Internal Server Error` - The keepalive could not be refreshed.
 
 **Example Requests:**
 
@@ -277,12 +322,14 @@ Deletes a configuration snapshot and marks it as end-of-life in the metadata sto
 - `id` (required): Snapshot ID (UUID)
 
 **Response:**
-- `204 No Content` - Snapshot deleted successfully (no response body)
+- No response body.
 
 **Status Codes:**
-- `204 No Content` - Snapshot deleted successfully
-- `400 Bad Request` - Missing or invalid snapshot ID
-- `500 Internal Server Error` - Server error during deletion
+- `204 No Content` - Scrape configuration removed and end of life recorded.
+- `202 Accepted` - Scrape configuration removed; the end of life is queued. See [Queued metadata writes](#queued-metadata-writes-202-accepted).
+- `400 Bad Request` - Missing snapshot ID.
+- `404 Not Found` - The snapshot has no scrape configuration.
+- `500 Internal Server Error` - The scrape configuration could not be removed.
 
 **Example Request:**
 ```bash
@@ -291,7 +338,7 @@ curl -X DELETE http://localhost:8085/api/v1/snapshot/550e8400-e29b-41d4-a716-446
 
 **Notes:**
 - Deletion marks the snapshot as end-of-life in metadata storage
-- The configuration file is removed from the collector agent directory
+- The configuration file is removed from the collector agent directory even when the metadata store is unavailable, so scraping always stops.
 
 ---
 
@@ -316,10 +363,17 @@ Missing snapshot ID
    - Snapshot ID does not exist
 
 3. **Server Errors (500 Internal Server Error):**
-   - Failed to save snapshot
-   - Failed to update metadata
-   - Failed to delete snapshot
-   - Database connection errors
+   - Failed to save, refresh or remove a scrape configuration
+
+A metadata store that is slow or unavailable does not produce a 500; see below.
+
+### Queued metadata writes (202 Accepted)
+
+When a phase, services or end-of-life update cannot be written to the metadata store, because the store is unavailable or the snapshot's metadata does not exist yet, the request still succeeds with `202 Accepted`. The update is queued on disk, survives a restart, and is retried every few seconds for up to 24 hours. It is applied with the time the client sent it, so a phase recorded late still shows when it really started.
+
+Updates for one snapshot apply in the order they were sent. While a snapshot has anything queued, later updates for it queue behind and also return `202`.
+
+Clients should treat `202` like `200`.
 
 ---
 

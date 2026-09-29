@@ -90,7 +90,7 @@ func TestUpdateKeepsAConcurrentWritersChange(t *testing.T) {
 			return
 		}
 		fired = true
-		if err := cs.UpdatePhase("snap", "load", "start"); err != nil {
+		if err := cs.UpdatePhase("snap", "load", "start", time.Now()); err != nil {
 			t.Errorf("competing UpdatePhase: %v", err)
 		}
 	}
@@ -114,7 +114,7 @@ func TestConcurrentPhaseUpdatesAreNotLost(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			if err := cs.UpdatePhase("snap", fmt.Sprintf("phase-%d", i), "start"); err != nil {
+			if err := cs.UpdatePhase("snap", fmt.Sprintf("phase-%d", i), "start", time.Now()); err != nil {
 				t.Errorf("UpdatePhase %d: %v", i, err)
 			}
 		}(i)
@@ -135,7 +135,7 @@ func TestUpdateGivesUpOnAPersistentConflict(t *testing.T) {
 		_ = store.upsert("snap", &models.SnapshotMetadata{SnapshotID: "snap"})
 	}
 
-	err := cs.EoLSnapshot("snap")
+	err := cs.EoLSnapshot("snap", time.Now())
 	if !errors.Is(err, errCASMismatch) {
 		t.Fatalf("err = %v, want a CAS mismatch after retrying", err)
 	}
@@ -156,7 +156,7 @@ func TestUpdateOnAMissingDocumentDoesNotCallFn(t *testing.T) {
 func TestUpdatePhaseRejectsAnUnknownModeWithoutReading(t *testing.T) {
 	cs, store := newTestCouchbaseStorage(t)
 	seed(t, cs, "snap")
-	if err := cs.UpdatePhase("snap", "load", "pause"); err == nil {
+	if err := cs.UpdatePhase("snap", "load", "pause", time.Now()); err == nil {
 		t.Fatal("expected an error for mode \"pause\"")
 	}
 	if store.replaces != 0 {

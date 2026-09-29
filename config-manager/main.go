@@ -111,8 +111,15 @@ func main() {
 		logger.Info("Metadata storage initialized", "type", metadataStorage.Type())
 	}
 
+	// Metadata writes that fail are queued on disk and retried in the background.
+	pending, err := storage.NewPendingQueue(cfg.Agent.Directory)
+	if err != nil {
+		logger.Error("Failed to open the pending metadata-write queue", "error", err)
+		os.Exit(1)
+	}
+
 	// Initialize API handler
-	handler := api.NewHandler(fileStorage, metadataStorage, cfg.Agent.Type)
+	handler := api.NewHandler(fileStorage, metadataStorage, cfg.Agent.Type, pending)
 
 	// Setup HTTP server
 	mux := http.NewServeMux()

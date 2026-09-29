@@ -54,7 +54,7 @@ func (m *memMetadata) GetMetadata(id string) (*models.SnapshotMetadata, error) {
 	}
 	md, ok := m.docs[id]
 	if !ok {
-		return nil, errors.New("metadata not found for snapshot " + id)
+		return nil, fmt.Errorf("%w for snapshot %s", storage.ErrMetadataNotFound, id)
 	}
 	cp := *md
 	return &cp, nil
@@ -86,14 +86,14 @@ func (m *memMetadata) Update(id string, fn func(*models.SnapshotMetadata) error)
 	return nil
 }
 
-func (m *memMetadata) UpdatePhase(id, phase, mode string) error {
+func (m *memMetadata) UpdatePhase(id, phase, mode string, at time.Time) error {
 	return m.Update(id, func(md *models.SnapshotMetadata) error {
 		switch mode {
 		case "start":
-			md.Phases = append(md.Phases, models.Phase{Label: phase, TsStart: time.Now()})
+			md.Phases = append(md.Phases, models.Phase{Label: phase, TsStart: at})
 		case "end":
 			if len(md.Phases) > 0 {
-				md.Phases[len(md.Phases)-1].TsEnd = time.Now().Format(time.RFC3339Nano)
+				md.Phases[len(md.Phases)-1].TsEnd = at.Format(time.RFC3339Nano)
 			}
 		}
 		return nil
@@ -107,9 +107,9 @@ func (m *memMetadata) UpdateServices(id string, services []string) error {
 	})
 }
 
-func (m *memMetadata) EoLSnapshot(id string) error {
+func (m *memMetadata) EoLSnapshot(id string, at time.Time) error {
 	return m.Update(id, func(md *models.SnapshotMetadata) error {
-		md.TsEnd = time.Now().Format(time.RFC3339Nano)
+		md.TsEnd = at.Format(time.RFC3339Nano)
 		return nil
 	})
 }
@@ -189,10 +189,37 @@ type harness struct {
 func newHarness(t *testing.T) *harness {
 	t.Helper()
 	h := &harness{t: t, dir: t.TempDir(), metadata: newMemMetadata(), mux: http.NewServeMux()}
-	h.handler = NewHandler(storage.NewFileStorage(h.dir), h.metadata, "vmagent")
+	h.start()
+	return h
+}
+
+// start builds the handler over the harness's directory and store; calling it
+// again models a restart.
+func (h *harness) start() {
+	h.t.Helper()
+	pending, err := storage.NewPendingQueue(h.dir)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	if h.handler != nil {
+		h.handler.Shutdown(context.Background())
+	}
+	h.handler = NewHandler(storage.NewFileStorage(h.dir), h.metadata, "vmagent", pending)
+	handler := h.handler
+	h.t.Cleanup(func() { handler.Shutdown(context.Background()) })
+	h.mux = http.NewServeMux()
 	h.mux.HandleFunc("/api/v1/snapshot", h.handler.CreateSnapshot)
 	h.mux.HandleFunc("/api/v1/snapshot/", h.handler.Manager)
-	return h
+}
+
+func (h *harness) setStoreDown(down bool) {
+	h.metadata.mu.Lock()
+	defer h.metadata.mu.Unlock()
+	if down {
+		h.metadata.getErr = errors.New("unambiguous timeout")
+	} else {
+		h.metadata.getErr = nil
+	}
 }
 
 func (h *harness) do(method, path string, body interface{}) *httptest.ResponseRecorder {
@@ -406,12 +433,16 @@ func TestPatchSnapshotWithoutBodyIsAKeepalive(t *testing.T) {
 	}
 }
 
-// The exact status for an unknown snapshot is part of the 2.0.0 status-code
-// contract; until then it only has to fail.
-func TestPatchUnknownSnapshotFails(t *testing.T) {
+func TestUnknownSnapshotIs404(t *testing.T) {
 	h := newHarness(t)
-	if rec := h.do(http.MethodPatch, "/api/v1/snapshot/does-not-exist", nil); rec.Code < 400 {
-		t.Errorf("status %d, want an error", rec.Code)
+	for _, method := range []string{http.MethodPatch, http.MethodDelete, http.MethodGet} {
+		if rec := h.do(method, "/api/v1/snapshot/does-not-exist", nil); rec.Code != http.StatusNotFound {
+			t.Errorf("%s: status %d, want 404", method, rec.Code)
+		}
+	}
+	// A 404 must not leave a queued write behind.
+	if h.handler.writes.pending.Len() != 0 {
+		t.Error("a request for an unknown snapshot queued a metadata write")
 	}
 }
 
@@ -430,20 +461,32 @@ func TestDeleteSnapshotEndsAndRemoves(t *testing.T) {
 	}
 }
 
-// When the end-of-life write fails, the scrape file is kept on purpose: the
-// manager loop sweeps it within minutes and retries the end-of-life write
-// then. Deleting it here would leave ts_end at "now" for good, and the gateway
-// would treat the snapshot as still running.
-func TestDeleteSnapshotKeepsFileWhenEndOfLifeFails(t *testing.T) {
+// Scraping stops even when the end of life cannot be written; the write is
+// queued and applied later with the time of the DELETE.
+func TestDeleteQueuesEndOfLifeWhenTheStoreIsDown(t *testing.T) {
 	h := newHarness(t)
 	id := h.create(newFakeCluster(t))
-	h.metadata.getErr = errors.New("unambiguous timeout")
+	h.setStoreDown(true)
 
-	if rec := h.do(http.MethodDelete, "/api/v1/snapshot/"+id, nil); rec.Code < 400 {
-		t.Errorf("status %d, want an error", rec.Code)
+	deletedAt := time.Now()
+	if rec := h.do(http.MethodDelete, "/api/v1/snapshot/"+id, nil); rec.Code != http.StatusAccepted {
+		t.Fatalf("status %d, want 202", rec.Code)
 	}
-	if _, err := os.Stat(h.scrapeFile(id)); err != nil {
-		t.Errorf("scrape file removed although end-of-life was not recorded: %v", err)
+	answeredAt := time.Now()
+	if _, err := os.Stat(h.scrapeFile(id)); !os.IsNotExist(err) {
+		t.Errorf("scrape file kept although scraping must stop: %v", err)
+	}
+
+	h.setStoreDown(false)
+	time.Sleep(50 * time.Millisecond)
+	h.handler.writes.drain(time.Now())
+
+	end, err := time.Parse(time.RFC3339Nano, h.metadata.doc(t, id).TsEnd)
+	if err != nil {
+		t.Fatalf("ts_end not recorded: %v", err)
+	}
+	if end.Before(deletedAt) || end.After(answeredAt) {
+		t.Errorf("ts_end %v, want the DELETE's time (%v to %v), not the retry's", end, deletedAt, answeredAt)
 	}
 }
 
@@ -476,7 +519,9 @@ func assertNoScrapeFiles(t *testing.T, dir string) {
 		t.Fatal(err)
 	}
 	for _, e := range entries {
-		t.Errorf("unexpected file %s left by a rejected request", e.Name())
+		if strings.HasSuffix(e.Name(), ".yml") {
+			t.Errorf("unexpected scrape file %s left by a rejected request", e.Name())
+		}
 	}
 }
 
@@ -576,5 +621,191 @@ func TestShutdownCancelsCollectionItCannotWaitFor(t *testing.T) {
 	h.handler.collector.wait()
 	if took := time.Since(start); took > 2*time.Second {
 		t.Errorf("shutdown left collection running for %v", took)
+	}
+}
+
+func (h *harness) put(id string, cluster *fakeCluster) *httptest.ResponseRecorder {
+	h.t.Helper()
+	host, port := cluster.hostPort(h.t)
+	return h.do(http.MethodPut, "/api/v1/snapshot/"+id, snapshotRequest(host, port))
+}
+
+func TestPutCreatesThenReturnsTheSameSnapshot(t *testing.T) {
+	h := newHarness(t)
+	cluster := newFakeCluster(t)
+	const id = "jenkins-ares-52485"
+
+	if rec := h.put(id, cluster); rec.Code != http.StatusCreated {
+		t.Fatalf("first PUT: status %d, body %q", rec.Code, rec.Body.String())
+	}
+	h.handler.collector.wait()
+	before, _ := os.ReadFile(h.scrapeFile(id))
+	started := h.metadata.doc(t, id).TsStart
+
+	stale := time.Now().Add(-time.Hour)
+	_ = os.Chtimes(h.scrapeFile(id), stale, stale)
+	rec := h.put(id, cluster)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("repeat PUT: status %d, want 200", rec.Code)
+	}
+	var resp models.SnapshotResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp.ID != id {
+		t.Errorf("repeat PUT returned id %q", resp.ID)
+	}
+
+	after, _ := os.ReadFile(h.scrapeFile(id))
+	if string(before) != string(after) {
+		t.Error("a repeat PUT rewrote the scrape file")
+	}
+	if got := h.metadata.doc(t, id).TsStart; !got.Equal(started) {
+		t.Errorf("ts_start moved from %v to %v", started, got)
+	}
+	if info, _ := os.Stat(h.scrapeFile(id)); !info.ModTime().After(stale) {
+		t.Error("a repeat PUT should count as a keepalive")
+	}
+	matches, _ := filepath.Glob(filepath.Join(h.dir, "*.yml"))
+	if len(matches) != 1 {
+		t.Errorf("%d scrape files, want 1", len(matches))
+	}
+}
+
+// A client whose keepalives lapsed re-registers with the same ID; its snapshot
+// comes back with its start time and phases intact.
+func TestPutReopensASweptSnapshot(t *testing.T) {
+	h := newHarness(t)
+	cluster := newFakeCluster(t)
+	const id = "jenkins-hera-kv-3421"
+
+	h.put(id, cluster)
+	h.handler.collector.wait()
+	h.do(http.MethodPatch, "/api/v1/snapshot/"+id, map[string]string{"phase": "load", "mode": "start"})
+	started := h.metadata.doc(t, id).TsStart
+
+	// The manager loop sweeps it: end of life recorded, file removed.
+	if err := h.metadata.EoLSnapshot(id, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(h.scrapeFile(id)); err != nil {
+		t.Fatal(err)
+	}
+
+	if rec := h.put(id, cluster); rec.Code != http.StatusOK {
+		t.Fatalf("re-register: status %d, want 200", rec.Code)
+	}
+	if _, err := os.Stat(h.scrapeFile(id)); err != nil {
+		t.Fatalf("scrape file not restored: %v", err)
+	}
+	md := h.metadata.doc(t, id)
+	if md.TsEnd != "now" || !md.TsStart.Equal(started) || len(md.Phases) != 1 {
+		t.Errorf("reopened document = %+v, want ts_end now, the original ts_start and the phase", md)
+	}
+}
+
+func TestPutRejectsInvalidIDs(t *testing.T) {
+	h := newHarness(t)
+	cluster := newFakeCluster(t)
+	for _, id := range []string{"has%20space", "dots.are.out", strings.Repeat("a", 129), "semi%3Bcolon"} {
+		if rec := h.put(id, cluster); rec.Code != http.StatusBadRequest {
+			t.Errorf("PUT %q: status %d, want 400", id, rec.Code)
+		}
+	}
+	assertNoScrapeFiles(t, h.dir)
+}
+
+// A retry racing the original request must not produce a second snapshot.
+func TestConcurrentPutsCreateOneSnapshot(t *testing.T) {
+	h := newHarness(t)
+	cluster := newFakeCluster(t)
+	const id = "jenkins-race-1"
+
+	// Request bodies are built first and released together, and every PUT
+	// pauses after looking the snapshot up, as a Couchbase Server round trip
+	// would, so without serialisation several would find it missing and
+	// create it.
+	testHookAfterMetadataLookup = func() { time.Sleep(5 * time.Millisecond) }
+	t.Cleanup(func() { testHookAfterMetadataLookup = nil })
+	const n = 20
+	host, port := cluster.hostPort(t)
+	body, _ := json.Marshal(snapshotRequest(host, port))
+	gate := make(chan struct{})
+	codes := make(chan int, n)
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			req := httptest.NewRequest(http.MethodPut, "/api/v1/snapshot/"+id, bytes.NewReader(body))
+			rec := httptest.NewRecorder()
+			<-gate
+			h.mux.ServeHTTP(rec, req)
+			codes <- rec.Code
+		}()
+	}
+	close(gate)
+	wg.Wait()
+	close(codes)
+	h.handler.collector.wait()
+
+	counts := map[int]int{}
+	for c := range codes {
+		counts[c]++
+	}
+	if counts[http.StatusCreated] != 1 || counts[http.StatusOK] != n-1 {
+		t.Errorf("status counts %v, want one 201 and %d 200", counts, n-1)
+	}
+}
+
+// A phase that cannot be recorded is queued and the PATCH still succeeds; a
+// later phase end queues behind it, so the two apply in order.
+func TestPatchQueuesWhileTheStoreIsDown(t *testing.T) {
+	h := newHarness(t)
+	id := h.create(newFakeCluster(t))
+	path := "/api/v1/snapshot/" + id
+
+	h.setStoreDown(true)
+	startedAt := time.Now()
+	if rec := h.do(http.MethodPatch, path, map[string]string{"phase": "access", "mode": "start"}); rec.Code != http.StatusAccepted {
+		t.Fatalf("phase start: status %d, want 202", rec.Code)
+	}
+	answeredAt := time.Now()
+	h.setStoreDown(false)
+	time.Sleep(20 * time.Millisecond)
+	if rec := h.do(http.MethodPatch, path, map[string]string{"phase": "access", "mode": "end"}); rec.Code != http.StatusAccepted {
+		t.Errorf("phase end with a start still queued: status %d, want 202", rec.Code)
+	}
+	if rec := h.do(http.MethodPatch, path, nil); rec.Code != http.StatusOK {
+		t.Errorf("keepalive during the backlog: status %d, want 200", rec.Code)
+	}
+
+	time.Sleep(20 * time.Millisecond)
+	h.handler.writes.drain(time.Now())
+
+	phases := h.metadata.doc(t, id).Phases
+	if len(phases) != 1 || phases[0].TsEnd == "" {
+		t.Fatalf("phases = %+v, want one closed phase", phases)
+	}
+	if got := phases[0].TsStart; got.Before(startedAt) || got.After(answeredAt) {
+		t.Errorf("phase start %v, want the PATCH's time (%v to %v), not the retry's", got, startedAt, answeredAt)
+	}
+	if h.handler.writes.pending.Len() != 0 {
+		t.Error("queue not empty after a successful drain")
+	}
+}
+
+func TestQueuedWritesSurviveARestart(t *testing.T) {
+	h := newHarness(t)
+	id := h.create(newFakeCluster(t))
+	h.setStoreDown(true)
+	if rec := h.do(http.MethodPatch, "/api/v1/snapshot/"+id, map[string]string{"phase": "load", "mode": "start"}); rec.Code != http.StatusAccepted {
+		t.Fatalf("status %d, want 202", rec.Code)
+	}
+
+	h.start()
+	h.setStoreDown(false)
+	h.handler.writes.drain(time.Now())
+
+	if phases := h.metadata.doc(t, id).Phases; len(phases) != 1 {
+		t.Errorf("phases = %+v after restart, want the queued phase applied", phases)
 	}
 }
