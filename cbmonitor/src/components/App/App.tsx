@@ -34,7 +34,11 @@ function getCBMonitorApp(){
   });
 }
 
-type DatasourceSetup = { phase: 'ready' } | { phase: 'waiting' } | { phase: 'missing'; state?: ReconcileState };
+type DatasourceSetup =
+  | { phase: 'ready' }
+  | { phase: 'waiting' }
+  | { phase: 'refresh' }
+  | { phase: 'missing'; state?: ReconcileState };
 
 // The main app component that renders the app and its pages
 function CBMonitorHome() {
@@ -59,7 +63,9 @@ function CBMonitorHome() {
         return;
       }
       if (state.status === 'ok' && !alreadyReloaded) {
-        reloadForDatasource();
+        if (!reloadForDatasource()) {
+          setSetup({ phase: 'refresh' });
+        }
         return;
       }
       setSetup({ phase: 'missing', state });
@@ -74,6 +80,11 @@ function CBMonitorHome() {
       {setup.phase === 'waiting' && (
         <Alert title="Setting up the Prometheus datasource" severity="info">
           The plugin creates its datasource on first use after Grafana starts. This page reloads when it is ready.
+        </Alert>
+      )}
+      {setup.phase === 'refresh' && (
+        <Alert title="The Prometheus datasource is ready" severity="info">
+          Refresh the page to start using it.
         </Alert>
       )}
       {setup.phase === 'missing' && (

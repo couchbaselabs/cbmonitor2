@@ -83,13 +83,17 @@ export function clearReloadMarker(): void {
   }
 }
 
-/** Reloads the page to fetch the new datasource list, marking the attempt first. */
-export function reloadForDatasource(): void {
+/**
+ * Reloads the page to fetch the new datasource list, marking the attempt first.
+ * Returns false, without reloading, when the marker cannot be stored.
+ */
+export function reloadForDatasource(): boolean {
   try {
     sessionStorage.setItem(RELOAD_MARKER, String(Date.now()));
   } catch {
     // Without storage there is no loop guard, so do not reload blindly.
-    return;
+    return false;
   }
   window.location.reload();
+  return true;
 }

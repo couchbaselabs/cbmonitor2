@@ -56,7 +56,7 @@ describe('Components/App', () => {
 
   beforeEach(() => {
     backendSrv.get.mockReset();
-    (reloadForDatasource as jest.Mock).mockClear();
+    (reloadForDatasource as jest.Mock).mockReset().mockReturnValue(true);
     sessionStorage.clear();
   });
 
@@ -97,6 +97,19 @@ describe('Components/App', () => {
     expect(await screen.findByText(/setting up the prometheus datasource/i)).toBeInTheDocument();
     expect(screen.queryByText(/missing required datasource/i)).not.toBeInTheDocument();
     await waitFor(() => expect(reloadForDatasource).toHaveBeenCalledTimes(1), { timeout: 3000 });
+  });
+
+  // Without session storage there is no guard against a reload loop, so the
+  // page asks for a refresh instead of reloading itself.
+  test('asks for a refresh when it cannot reload itself', async () => {
+    withoutProm();
+    (reloadForDatasource as jest.Mock).mockReturnValue(false);
+    backendSrv.get.mockResolvedValue(reconcile('ok'));
+
+    renderApp();
+
+    expect(await screen.findByText(/refresh the page/i, undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.queryByText(/setting up/i)).not.toBeInTheDocument();
   });
 
   // Every panel queries the single Prometheus datasource by this UID, so its
