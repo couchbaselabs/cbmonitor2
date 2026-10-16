@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -47,6 +48,13 @@ func (h *Handler) handleQueryRange(w http.ResponseWriter, r *http.Request) {
 		start, end := confineRange(route, r.Form)
 		r.Form.Set("start", strconv.FormatInt(start.Unix(), 10))
 		r.Form.Set("end", strconv.FormatInt(end.Unix(), 10))
+		// A substituted full window keeps the step the client sized for its
+		// own, narrower range; raise it if the upstream would reject it.
+		if step, ok := parseStep(r.Form.Get("step")); ok {
+			if floored := floorStep(start, end, step); floored != step {
+				r.Form.Set("step", strconv.FormatInt(int64(floored/time.Second), 10))
+			}
+		}
 	}
 	forwardForm(r)
 	h.prometheus.ReverseProxy().ServeHTTP(w, r)
@@ -199,7 +207,8 @@ func (h *Handler) serveCouchbaseQueryRange(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	result, err := h.evaluator.RangeQuery(r.Context(), r.Form.Get("query"), start, end, parseStepParam(r.Form.Get("step")))
+	step := floorStep(start, end, parseStepParam(r.Form.Get("step")))
+	result, err := h.evaluator.RangeQuery(r.Context(), r.Form.Get("query"), start, end, step)
 	if err != nil {
 		writePromError(w, http.StatusUnprocessableEntity, "execution", err.Error())
 		return
@@ -228,16 +237,41 @@ func evalRange(route router.Route, form url.Values) (time.Time, time.Time, bool)
 // parseStepParam parses the query_range step, accepting a Go duration ("15s")
 // or bare seconds ("15"); defaults to 15s.
 func parseStepParam(s string) time.Duration {
-	if s == "" {
-		return 15 * time.Second
-	}
-	if d, err := time.ParseDuration(s); err == nil && d > 0 {
+	if d, ok := parseStep(s); ok {
 		return d
 	}
-	if f, err := strconv.ParseFloat(s, 64); err == nil && f > 0 {
-		return time.Duration(f * float64(time.Second))
-	}
 	return 15 * time.Second
+}
+
+// parseStep parses a Go duration ("15s") or bare seconds ("15").
+func parseStep(s string) (time.Duration, bool) {
+	if d, err := time.ParseDuration(s); err == nil && d > 0 {
+		return d, true
+	}
+	if f, err := strconv.ParseFloat(s, 64); err == nil && f > 0 {
+		return time.Duration(f * float64(time.Second)), true
+	}
+	return 0, false
+}
+
+// maxPointsPerSeries is the Prometheus HTTP API's range-query limit: a query
+// whose (end-start)/step exceeds it is rejected with "exceeded maximum
+// resolution of 11,000 points per timeseries".
+const maxPointsPerSeries = 11000
+
+// floorStep raises step just enough for [start, end] to stay within the
+// upstream's per-series point limit, and leaves it unchanged otherwise, so
+// only a request the upstream would reject is altered. The gateway needs this
+// wherever it substitutes a snapshot's full window for the client's range: an
+// overlap leg, or a stale time picker, keeps the step Grafana sized for a much
+// narrower range, and a long snapshot then fails the panel or drops out of a
+// comparison.
+func floorStep(start, end time.Time, step time.Duration) time.Duration {
+	window := end.Sub(start)
+	if step <= 0 || window/step <= maxPointsPerSeries {
+		return step
+	}
+	return time.Duration(math.Ceil(window.Seconds()/maxPointsPerSeries)) * time.Second
 }
 
 func parseUnixSeconds(s string) (time.Time, bool) {

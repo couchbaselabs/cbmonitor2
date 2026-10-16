@@ -1,9 +1,11 @@
 package storage
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -26,29 +28,87 @@ func NewFileStorage(baseDirectory string) *FileStorage {
 	}
 }
 
-// SaveSnapshot saves a snapshot configuration to a file
+// ErrSnapshotNotFound reports that a snapshot has no scrape file.
+var ErrSnapshotNotFound = errors.New("snapshot not found")
+
+// snapshotIDPattern is what a client may choose as a snapshot ID. The ID
+// becomes the scrape job's label value, a file name and a Couchbase Server
+// document key, so it is limited to characters that are safe in all three.
+var snapshotIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
+
+// ValidSnapshotID reports whether id may be used as a snapshot ID.
+func ValidSnapshotID(id string) bool {
+	return snapshotIDPattern.MatchString(id)
+}
+
+func (fs *FileStorage) filePath(id string) string {
+	return filepath.Join(fs.baseDirectory, id+".yml")
+}
+
+// SaveSnapshot writes a scrape configuration under a new random ID.
 func (fs *FileStorage) SaveSnapshot(clusterInfo interface{}, agentType string) (string, error) {
-	// Generate UUID for filename
 	id := uuid.New().String()
+	if err := fs.SaveSnapshotWithID(id, clusterInfo, agentType); err != nil {
+		return "", err
+	}
+	return id, nil
+}
 
-	// Create filename based on agent type
-	filename := fmt.Sprintf("%s.yml", id)
-
-	// Create file path
-	filePath := filepath.Join(fs.baseDirectory, filename)
-
-	// Generate configuration content based on agent type
+// SaveSnapshotWithID writes the scrape configuration for id, replacing any
+// existing one.
+func (fs *FileStorage) SaveSnapshotWithID(id string, clusterInfo interface{}, agentType string) error {
 	content, err := fs.generateConfigContent(clusterInfo, agentType, id)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate config content: %w", err)
+		return fmt.Errorf("failed to generate config content: %w", err)
 	}
-
-	// Write to file
-	if err := os.WriteFile(filePath, content, 0644); err != nil {
-		return "", fmt.Errorf("failed to write config file: %w", err)
+	if err := writeFileAtomic(fs.baseDirectory, fs.filePath(id), content, 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
 	}
+	return nil
+}
 
-	return id, nil
+// Exists reports whether id has a scrape file.
+func (fs *FileStorage) Exists(id string) (bool, error) {
+	_, err := os.Stat(fs.filePath(id))
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+// writeFileAtomic writes content to a temporary file in dir and renames it
+// onto path, so a reader sees either the previous file or the complete new
+// one. vmagent re-reads the snapshot directory every 15s, and a half-written
+// scrape config would fail its parse. The temporary name ends in ".tmp" so it
+// never matches the "*.yml" glob vmagent and the manager loop read.
+func writeFileAtomic(dir, path string, content []byte, perm os.FileMode) error {
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	// Removes the temporary file on any failure; a no-op after the rename.
+	defer os.Remove(tmpName)
+
+	if _, err := tmp.Write(content); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	// CreateTemp creates the file 0600; vmagent needs to read it.
+	if err := os.Chmod(tmpName, perm); err != nil {
+		return err
+	}
+	return os.Rename(tmpName, path)
 }
 
 // generateConfigContent creates vmagent configuration format
@@ -87,8 +147,14 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 		return nil, fmt.Errorf("invalid credentials format")
 	}
 
-	username := credentials["username"].(string)
-	password := credentials["password"].(string)
+	username, ok := credentials["username"].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid credentials format: username must be a string")
+	}
+	password, ok := credentials["password"].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid credentials format: password must be a string")
+	}
 
 	// One job per (scheme, metric-relabel) pair: a product declaring
 	// metric_relabel_configs gets a job of its own so its rules only see
@@ -139,7 +205,8 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 
 		useAltAddresses, _ := config["use_alt_addresses"].(bool)
 
-		switch configType := config["type"].(string); configType {
+		configType, _ := config["type"].(string)
+		switch configType {
 		case "sd":
 			sdPath, _ := config["sd_path"].(string)
 			// Caller-supplied sd_path wins; otherwise fall back to the
@@ -182,7 +249,10 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 	// of "https"), shared bucket before product-specific ones. With more
 	// than one job, job_name is suffixed to stay unique and
 	// relabel_configs rewrites the scraped `job` label back to the
-	// snapshot id — cbmonitor's PromQL selects by job="<id>".
+	// snapshot id — cbmonitor's PromQL selects by job="<id>". The suffix
+	// separator is ':', which a snapshot ID cannot contain, so a suffixed
+	// name never equals another snapshot's job name: vmagent rejects the
+	// whole configuration over one duplicate.
 	ordered := make([]*scrapeBucket, 0, len(buckets))
 	for _, bucket := range buckets {
 		ordered = append(ordered, bucket)
@@ -199,9 +269,9 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 	for _, bucket := range ordered {
 		jobName := id
 		if multiBucket {
-			jobName = id + "-" + bucket.scheme
+			jobName = id + ":" + bucket.scheme
 			if bucket.product != "" {
-				jobName += "-" + bucket.product
+				jobName += ":" + bucket.product
 			}
 		}
 
@@ -246,7 +316,7 @@ func (fs *FileStorage) GetSnapshot(id string) (models.DisplaySnapshot, error) {
 	filePath := filepath.Join(fs.baseDirectory, fmt.Sprintf("%s.yml", id))
 
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return models.DisplaySnapshot{}, fmt.Errorf("config file does not exist: %s", filePath)
+		return models.DisplaySnapshot{}, fmt.Errorf("%w: %s", ErrSnapshotNotFound, id)
 	} else if err != nil {
 		return models.DisplaySnapshot{}, fmt.Errorf("error checking config file: %w", err)
 	}
@@ -265,7 +335,7 @@ func (fs *FileStorage) GetSnapshot(id string) (models.DisplaySnapshot, error) {
 	// A snapshot file may contain multiple jobs (one per scheme) when the
 	// payload mixed http and https configs; aggregate URLs and targets
 	// across every job. The display name is always the snapshot id —
-	// per-job job_name values may carry `-http`/`-https` suffixes.
+	// per-job job_name values may carry `:http`/`:https` suffixes.
 	name := id
 	var urls []string
 	var targets []string
@@ -324,7 +394,7 @@ func (fs *FileStorage) DeleteSnapshot(id string) error {
 
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		return fmt.Errorf("config file does not exist: %s", filePath)
+		return fmt.Errorf("%w: %s", ErrSnapshotNotFound, id)
 	} else if err != nil {
 		return fmt.Errorf("error checking config file: %w", err)
 	}
@@ -337,9 +407,140 @@ func (fs *FileStorage) DeleteSnapshot(id string) error {
 	return nil
 }
 
+// PatchSnapshot refreshes id's keepalive: the manager loop sweeps scrape files
+// whose modification time is older than the stale threshold.
 func (fs *FileStorage) PatchSnapshot(id string) error {
-	// TO DO: update this, in the future, to also update other configs
-	filePath := filepath.Join(fs.baseDirectory, fmt.Sprintf("%s.yml", id))
 	now := time.Now()
-	return os.Chtimes(filePath, now, now)
+	err := os.Chtimes(fs.filePath(id), now, now)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("%w: %s", ErrSnapshotNotFound, id)
+	}
+	return err
+}
+
+// LastKeepalive returns when id's keepalive was last refreshed.
+func (fs *FileStorage) LastKeepalive(id string) (time.Time, error) {
+	info, err := os.Stat(fs.filePath(id))
+	if os.IsNotExist(err) {
+		return time.Time{}, fmt.Errorf("%w: %s", ErrSnapshotNotFound, id)
+	}
+	if err != nil {
+		return time.Time{}, err
+	}
+	return info.ModTime(), nil
+}
+
+// heldDirName holds scrape files the stale-snapshot sweep has taken out of
+// service. They stay there for a while so a snapshot whose keepalives were
+// only late can be restored instead of lost. It sits inside the snapshot
+// directory but never matches the "*.yml" glob vmagent reads.
+const heldDirName = ".expired"
+
+func (fs *FileStorage) heldPath(id string) string {
+	return filepath.Join(fs.baseDirectory, heldDirName, id+".yml")
+}
+
+// ActiveSnapshot is a scrape file vmagent is currently reading.
+type ActiveSnapshot struct {
+	ID string
+	// ModTime is the last keepalive.
+	ModTime time.Time
+}
+
+// ListActive returns every active scrape file.
+func (fs *FileStorage) ListActive() ([]ActiveSnapshot, error) {
+	entries, err := os.ReadDir(fs.baseDirectory)
+	if err != nil {
+		return nil, err
+	}
+	var out []ActiveSnapshot
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || filepath.Ext(name) != ".yml" {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			// Removed between the listing and the stat.
+			continue
+		}
+		out = append(out, ActiveSnapshot{ID: strings.TrimSuffix(name, ".yml"), ModTime: info.ModTime()})
+	}
+	return out, nil
+}
+
+// Expire takes id out of service by moving its scrape file into the holding
+// directory, which stops vmagent scraping it. The held file is readable by its
+// owner only: it carries the cluster's credentials and no reader needs it.
+func (fs *FileStorage) Expire(id string, now time.Time) error {
+	if err := os.MkdirAll(filepath.Join(fs.baseDirectory, heldDirName), 0o700); err != nil {
+		return err
+	}
+	held := fs.heldPath(id)
+	if err := os.Rename(fs.filePath(id), held); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("%w: %s", ErrSnapshotNotFound, id)
+		}
+		return err
+	}
+	// The hold period counts from now, not from the last keepalive.
+	_ = os.Chtimes(held, now, now)
+	return os.Chmod(held, 0o600)
+}
+
+// Restore puts a held scrape file back in service and refreshes its
+// keepalive. It reports false when id is not held.
+func (fs *FileStorage) Restore(id string) (bool, error) {
+	held := fs.heldPath(id)
+	if err := os.Chmod(held, 0o644); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if err := os.Rename(held, fs.filePath(id)); err != nil {
+		return false, err
+	}
+	now := time.Now()
+	return true, os.Chtimes(fs.filePath(id), now, now)
+}
+
+// IsHeld reports whether id is in the holding directory.
+func (fs *FileStorage) IsHeld(id string) bool {
+	_, err := os.Stat(fs.heldPath(id))
+	return err == nil
+}
+
+// DiscardHeld deletes id's held scrape file, if any.
+func (fs *FileStorage) DiscardHeld(id string) error {
+	err := os.Remove(fs.heldPath(id))
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
+}
+
+// PurgeHeld deletes held scrape files older than holdPeriod and reports how
+// many it removed.
+func (fs *FileStorage) PurgeHeld(holdPeriod time.Duration, now time.Time) (int, error) {
+	entries, err := os.ReadDir(filepath.Join(fs.baseDirectory, heldDirName))
+	if os.IsNotExist(err) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	purged := 0
+	for _, e := range entries {
+		info, err := e.Info()
+		if err != nil || filepath.Ext(e.Name()) != ".yml" {
+			continue
+		}
+		if now.Sub(info.ModTime()) > holdPeriod {
+			if err := os.Remove(filepath.Join(fs.baseDirectory, heldDirName, e.Name())); err == nil {
+				purged++
+			}
+		}
+	}
+	return purged, nil
 }

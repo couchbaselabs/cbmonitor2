@@ -1,8 +1,11 @@
 package storage
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -98,7 +101,7 @@ func TestMixedSchemesSplitHTTPFirst(t *testing.T) {
 		},
 	)
 
-	want := []string{"snap-http", "snap-https"}
+	want := []string{"snap:http", "snap:https"}
 	if got := jobNames(jobs); !equal(got, want) {
 		t.Fatalf("job names = %v, want %v", got, want)
 	}
@@ -110,6 +113,36 @@ func TestMixedSchemesSplitHTTPFirst(t *testing.T) {
 		rule := rules[0].(map[string]interface{})
 		if rule["target_label"] != "job" || rule["replacement"] != "snap" {
 			t.Errorf("job %v rewrite = %v, want job->snap", job["job_name"], rule)
+		}
+	}
+}
+
+// Job names are unique across snapshots, not just within one: snapshot
+// "build" split by scheme must not produce snapshot "build-http"'s job name.
+func TestJobNamesNeverCollideAcrossSnapshots(t *testing.T) {
+	cb := func(scheme string) map[string]interface{} {
+		return map[string]interface{}{
+			"hostnames": []string{"cb1"},
+			"type":      "sd",
+			"port":      8091,
+			"product":   "couchbase",
+			"scheme":    scheme,
+		}
+	}
+	seen := map[string]string{}
+	for _, snap := range []struct {
+		id      string
+		configs []map[string]interface{}
+	}{
+		{"build", []map[string]interface{}{cb("http"), cb("https")}},
+		{"build-http", []map[string]interface{}{cb("http")}},
+		{"build-https", []map[string]interface{}{cb("https")}},
+	} {
+		for _, name := range jobNames(generate(t, snap.id, snap.configs...)) {
+			if other, ok := seen[name]; ok {
+				t.Errorf("snapshots %q and %q both use job name %q", other, snap.id, name)
+			}
+			seen[name] = snap.id
 		}
 	}
 }
@@ -134,12 +167,12 @@ func TestAppServiceGetsItsOwnJobWithMetricRelabel(t *testing.T) {
 		},
 	)
 
-	want := []string{"snap-http", "snap-http-appservice"}
+	want := []string{"snap:http", "snap:http:appservice"}
 	if got := jobNames(jobs); !equal(got, want) {
 		t.Fatalf("job names = %v, want %v", got, want)
 	}
 
-	shared := jobByName(t, jobs, "snap-http")
+	shared := jobByName(t, jobs, "snap:http")
 	if _, ok := shared["metric_relabel_configs"]; ok {
 		t.Error("the shared job must not inherit App Services' metric_relabel_configs")
 	}
@@ -147,7 +180,7 @@ func TestAppServiceGetsItsOwnJobWithMetricRelabel(t *testing.T) {
 		t.Error("the shared job should hold the couchbase SD target")
 	}
 
-	appsvc := jobByName(t, jobs, "snap-http-appservice")
+	appsvc := jobByName(t, jobs, "snap:http:appservice")
 	rules, ok := appsvc["metric_relabel_configs"].([]interface{})
 	if !ok || len(rules) != 1 {
 		t.Fatalf("appservice job metric_relabel_configs = %v", appsvc["metric_relabel_configs"])
@@ -215,4 +248,125 @@ func equal(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+func TestSaveSnapshotWritesAtomically(t *testing.T) {
+	dir := t.TempDir()
+	fs := NewFileStorage(dir)
+	id, err := fs.SaveSnapshot(clusterMap(map[string]interface{}{
+		"hostnames": []string{"10.0.0.1"}, "port": 8091, "type": "sd", "product": "couchbase",
+	}), "vmagent")
+	if err != nil {
+		t.Fatalf("SaveSnapshot: %v", err)
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name() != id+".yml" {
+		names := make([]string, len(entries))
+		for i, e := range entries {
+			names[i] = e.Name()
+		}
+		t.Fatalf("directory holds %v, want only %s.yml (no temporary files)", names, id)
+	}
+
+	info, err := os.Stat(filepath.Join(dir, id+".yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// vmagent runs in another container and must be able to read the file.
+	if info.Mode().Perm()&0o044 != 0o044 {
+		t.Errorf("mode %v is not readable by group and others", info.Mode().Perm())
+	}
+}
+
+func TestWriteFileAtomicTempNameNeverMatchesTheScrapeGlob(t *testing.T) {
+	dir := t.TempDir()
+	// A missing target directory makes the rename fail after the temporary
+	// file has been written; nothing may be left behind.
+	path := filepath.Join(dir, "missing-subdir", "snap.yml")
+	if err := writeFileAtomic(dir, path, []byte("x"), 0644); err == nil {
+		t.Fatal("expected the rename into a missing directory to fail")
+	}
+	matches, _ := filepath.Glob(filepath.Join(dir, "*.yml"))
+	if len(matches) != 0 {
+		t.Errorf("a partial file matched the scrape glob: %v", matches)
+	}
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		t.Errorf("temporary file left behind: %s", e.Name())
+	}
+}
+
+func TestGenerateRejectsMalformedPayloadsWithoutPanicking(t *testing.T) {
+	base := map[string]interface{}{"hostnames": []string{"10.0.0.1"}, "port": 8091, "type": "sd", "product": "couchbase"}
+	cases := map[string]map[string]interface{}{
+		"non-string username": {
+			"configs":     []interface{}{base},
+			"credentials": map[string]interface{}{"username": 42, "password": "secret"},
+		},
+		"missing password": {
+			"configs":     []interface{}{base},
+			"credentials": map[string]interface{}{"username": "admin"},
+		},
+		"non-string type": {
+			"configs":     []interface{}{map[string]interface{}{"hostnames": []string{"10.0.0.1"}, "port": 8091, "type": 7}},
+			"credentials": map[string]interface{}{"username": "admin", "password": "secret"},
+		},
+	}
+	for name, payload := range cases {
+		t.Run(name, func(t *testing.T) {
+			fs := NewFileStorage(t.TempDir())
+			if _, err := fs.generateVMAgentConfig(payload, "snap"); err == nil {
+				t.Error("expected an error for a malformed payload")
+			}
+		})
+	}
+}
+
+func TestExpireTakesASnapshotOutOfServiceAndRestoreBringsItBack(t *testing.T) {
+	dir := t.TempDir()
+	fs := NewFileStorage(dir)
+	id, err := fs.SaveSnapshot(clusterMap(map[string]interface{}{
+		"hostnames": []string{"10.0.0.1"}, "port": 8091, "type": "sd", "product": "couchbase",
+	}), "vmagent")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := fs.Expire(id, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if matches, _ := filepath.Glob(filepath.Join(dir, "*.yml")); len(matches) != 0 {
+		t.Errorf("an expired snapshot is still visible to vmagent: %v", matches)
+	}
+	info, err := os.Stat(fs.heldPath(id))
+	if err != nil {
+		t.Fatalf("expired snapshot not held: %v", err)
+	}
+	// It carries cluster credentials and nothing needs to read it.
+	if info.Mode().Perm() != 0o600 {
+		t.Errorf("held file mode %v, want 0600", info.Mode().Perm())
+	}
+
+	restored, err := fs.Restore(id)
+	if err != nil || !restored {
+		t.Fatalf("Restore = %v, %v", restored, err)
+	}
+	info, err = os.Stat(filepath.Join(dir, id+".yml"))
+	if err != nil {
+		t.Fatalf("restored snapshot not active: %v", err)
+	}
+	if info.Mode().Perm()&0o044 != 0o044 {
+		t.Errorf("restored file mode %v is not readable by vmagent", info.Mode().Perm())
+	}
+	if time.Since(info.ModTime()) > time.Minute {
+		t.Error("restoring did not refresh the keepalive")
+	}
+
+	if restored, err := fs.Restore("never-held"); restored || err != nil {
+		t.Errorf("Restore of an unknown snapshot = %v, %v; want false, nil", restored, err)
+	}
 }

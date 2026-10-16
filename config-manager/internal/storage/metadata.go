@@ -1,6 +1,9 @@
 package storage
 
 import (
+	"errors"
+	"time"
+
 	"github.com/couchbase/config-manager/internal/config"
 	"github.com/couchbase/config-manager/internal/logger"
 	"github.com/couchbase/config-manager/internal/models"
@@ -10,9 +13,16 @@ import (
 type MetadataStorage interface {
 	SaveMetadata(metadata *models.SnapshotMetadata) error
 	GetMetadata(snapshotID string) (*models.SnapshotMetadata, error)
-	UpdatePhase(snapshotID string, phase string, mode string) error
+	// UpdatePhase and EoLSnapshot record at, the moment the client reported the
+	// event, so a write retried later still carries the right time.
+	UpdatePhase(snapshotID string, phase string, mode string, at time.Time) error
 	UpdateServices(snapshotID string, services []string) error
-	EoLSnapshot(snapshotID string) error
+	EoLSnapshot(snapshotID string, at time.Time) error
+	// Update applies fn to the current document and writes it back without
+	// overwriting a concurrent change; see CouchbaseStorage.Update.
+	Update(snapshotID string, fn func(*models.SnapshotMetadata) error) error
+	// Ping reports whether the store can be reached.
+	Ping() error
 	Close() error
 	Type() string
 }
@@ -54,6 +64,11 @@ func (fs *FileMetadataStorage) GetMetadata(snapshotID string) (*models.SnapshotM
 	return nil, nil
 }
 
+// Ping reports that metadata is not being recorded at all.
+func (fs *FileMetadataStorage) Ping() error {
+	return errors.New("metadata is not recorded: file storage is a no-op fallback")
+}
+
 // Close closes the file storage (no-op for file storage)
 func (fs *FileMetadataStorage) Close() error {
 	return nil
@@ -64,7 +79,7 @@ func (fs *FileMetadataStorage) Type() string {
 	return "file"
 }
 
-func (fs *FileMetadataStorage) UpdatePhase(snapshotID string, phase string, mode string) error {
+func (fs *FileMetadataStorage) UpdatePhase(snapshotID string, phase string, mode string, at time.Time) error {
 	return nil	
 }
 
@@ -72,6 +87,10 @@ func (fs *FileMetadataStorage) UpdateServices(snapshotID string, services []stri
 	return nil
 }
 
-func (fs *FileMetadataStorage) EoLSnapshot(snapshotID string) error {
+func (fs *FileMetadataStorage) Update(snapshotID string, fn func(*models.SnapshotMetadata) error) error {
+	return nil
+}
+
+func (fs *FileMetadataStorage) EoLSnapshot(snapshotID string, at time.Time) error {
 	return nil	
 }

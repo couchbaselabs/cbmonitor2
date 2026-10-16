@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -21,12 +22,17 @@ type MetadataService struct {
 	httpClient *http.Client
 }
 
-// NewMetadataService creates a new metadata service instance.
+// requestTimeout bounds each call to a cluster. Metadata is best effort, so a
+// slow cluster costs at most this per call instead of holding up collection.
+const requestTimeout = 5 * time.Second
+
+// NewMetadataService creates a metadata service. Create one and share it: the
+// client keeps connections to clusters alive across snapshots.
 // TLS verification is disabled to support self-signed certificates used in our test environment.
 func NewMetadataService() *MetadataService {
 	return &MetadataService{
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: requestTimeout,
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			},
@@ -35,19 +41,19 @@ func NewMetadataService() *MetadataService {
 }
 
 // CollectClusterMetadata collects metadata from a Couchbase cluster
-func (ms *MetadataService) CollectClusterMetadata(hostname string, port int, username, password, scheme string) (*models.SnapshotMetadata, error) {
+func (ms *MetadataService) CollectClusterMetadata(ctx context.Context, hostname string, port int, username, password, scheme string) (*models.SnapshotMetadata, error) {
 	if scheme == "" {
 		scheme = "http"
 	}
 
 	baseURL := fmt.Sprintf("%s://%s:%d", scheme, hostname, port)
 
-	services, server, err := ms.GetMetadata(baseURL, username, password)
+	services, server, err := ms.GetMetadata(ctx, baseURL, username, password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get services: %w", err)
 	}
 
-	clusters, err := ms.GetClusters(baseURL, username, password)
+	clusters, err := ms.GetClusters(ctx, baseURL, username, password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get clusters: %w", err)
 	}
@@ -63,10 +69,10 @@ func (ms *MetadataService) CollectClusterMetadata(hostname string, port int, use
 }
 
 // this gets both the services and the server version from the /pools/nodes endpoint
-func (ms *MetadataService) GetMetadata(baseURL, username, password string) ([]string, string, error) {
+func (ms *MetadataService) GetMetadata(ctx context.Context, baseURL, username, password string) ([]string, string, error) {
 	url := fmt.Sprintf("%s/pools/nodes", baseURL)
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, "", err
 	}
@@ -89,6 +95,12 @@ func (ms *MetadataService) GetMetadata(baseURL, username, password string) ([]st
 		return nil, "", err
 	}
 
+	// A cluster mid-install or mid-rebalance can answer with no nodes. That is
+	// a metadata failure for this host, not a reason to take the request down.
+	if len(poolInfo.Nodes) == 0 {
+		return nil, "", fmt.Errorf("no nodes in %s response", url)
+	}
+
 	var uniqueServices = make(map[string]struct{})
 	var serviceList []string
 
@@ -101,11 +113,11 @@ func (ms *MetadataService) GetMetadata(baseURL, username, password string) ([]st
 			}
 		}
 	}
-	// the server version is taken from the first node, because it is the same across all nodes
+	// The server version is taken from the first node; it is the same on every node.
 	return serviceList, poolInfo.Nodes[0].Server, nil
 }
 
-func (ms *MetadataService) GetClusters(baseURL, username, password string) ([]models.Cluster, error) {
+func (ms *MetadataService) GetClusters(ctx context.Context, baseURL, username, password string) ([]models.Cluster, error) {
 	endpoint, err := url.Parse(fmt.Sprintf("%s/prometheus_sd_config", baseURL))
 	if err != nil {
 		return nil, err
@@ -115,7 +127,7 @@ func (ms *MetadataService) GetClusters(baseURL, username, password string) ([]mo
 	query.Set("clusterLabels", "uuidAndName")
 	endpoint.RawQuery = query.Encode()
 
-	req, err := http.NewRequest("GET", endpoint.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {
 		return nil, err
 	}

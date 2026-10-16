@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -213,7 +214,7 @@ func (h *Handler) overlapLeg(ctx context.Context, query, id, step string, instan
 		if instant {
 			res, err = h.evaluator.InstantQuery(ctx, q, route.End)
 		} else {
-			res, err = h.evaluator.RangeQuery(ctx, q, route.Start, route.End, parseStepParam(step))
+			res, err = h.evaluator.RangeQuery(ctx, q, route.Start, route.End, floorStep(route.Start, route.End, parseStepParam(step)))
 		}
 		if err != nil {
 			return nil, route, "query failed: " + err.Error()
@@ -221,6 +222,13 @@ func (h *Handler) overlapLeg(ctx context.Context, query, id, step string, instan
 		return fromCBResult(res), route, ""
 	}
 
+	// Each leg spans its snapshot's whole window at the step the client chose
+	// for the shared axis; a long snapshot needs a coarser step.
+	if d, ok := parseStep(step); ok {
+		if floored := floorStep(route.Start, route.End, d); floored != d {
+			step = strconv.FormatInt(int64(floored/time.Second), 10)
+		}
+	}
 	body, status, err := h.upstreamLeg(ctx, q, route.Start, route.End, step, instant)
 	if err != nil {
 		return nil, route, "upstream request failed: " + err.Error()

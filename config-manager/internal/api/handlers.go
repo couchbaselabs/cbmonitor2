@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -20,38 +22,198 @@ type Handler struct {
 	storage         *storage.FileStorage
 	metadataStorage storage.MetadataStorage
 	agentType       string
+	collector       *metadataCollector
+	writes          *metadataWrites
+
+	// locks serialise every change to one snapshot, so two concurrent PUTs (a
+	// retry racing the original) produce one snapshot, and metadata writes
+	// apply in the order the client made them.
+	locks snapshotLocks
 }
 
-// NewHandler creates a new API handler
-func NewHandler(storage *storage.FileStorage, metadataStorage storage.MetadataStorage, agentType string) *Handler {
+// NewHandler creates the API handler. Metadata writes that fail are queued in
+// pending and retried in the background until Shutdown.
+func NewHandler(fs *storage.FileStorage, metadataStorage storage.MetadataStorage, agentType string, pending *storage.PendingQueue) *Handler {
 	return &Handler{
-		storage:         storage,
+		storage:         fs,
 		metadataStorage: metadataStorage,
 		agentType:       agentType,
+		collector:       newMetadataCollector(metadataStorage),
+		writes:          newMetadataWrites(metadataStorage, pending),
 	}
 }
 
-// CreateSnapshot handles POST /api/v1/snapshot
+// LockSnapshot blocks until no request is changing id and returns the function
+// that releases it. The sweep holds it while expiring a snapshot, so a late
+// keepalive restores the snapshot either before the sweep looks or after its
+// end of life is recorded, never in between.
+func (h *Handler) LockSnapshot(id string) (unlock func()) {
+	return h.locks.lock(id)
+}
+
+// EndSnapshot records id's end of life at at, queueing the write if the
+// metadata store cannot take it now. It reports whether it was applied now.
+// The caller holds LockSnapshot(id).
+func (h *Handler) EndSnapshot(id string, at time.Time) bool {
+	return h.writes.writeOrQueue(id, storage.PendingOp{Op: storage.OpEnd, At: at})
+}
+
+// Shutdown stops retrying queued writes and waits for background metadata
+// collection until ctx ends, then cancels whatever is still running. Queued
+// writes stay on disk for the next start.
+func (h *Handler) Shutdown(ctx context.Context) {
+	h.writes.stop(ctx)
+	h.collector.shutdown(ctx)
+}
+
+// CreateSnapshot handles POST /api/v1/snapshot, registering a snapshot under a
+// new random ID. Use PUT /api/v1/snapshot/{id} to choose the ID and make
+// retries safe.
 func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	req, ok := h.decodeSnapshotRequest(w, r)
+	if !ok {
+		return
+	}
+	id, err := h.storage.SaveSnapshot(clusterMap(req), h.agentType)
+	if err != nil {
+		http.Error(w, "Failed to save snapshot: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	metrics.SnapshotsCreated.Inc()
+	h.startMetadata(id, req)
+	writeSnapshotResponse(w, http.StatusCreated, id)
+}
 
-	// Parse request body
+// PutSnapshot handles PUT /api/v1/snapshot/{id}: create the snapshot, or
+// return it if it already exists.
+//
+//   - 201 when the snapshot is new.
+//   - 200 when a scrape file already exists. Nothing is rewritten, and the
+//     call counts as a keepalive, so a client retrying a create it never saw
+//     the answer to gets the same snapshot back instead of a duplicate.
+//   - 200 when the scrape file had been swept but the snapshot's metadata
+//     exists: the file is written again and the snapshot reopened, keeping its
+//     start time and recorded phases. This is how a client re-registers after
+//     its keepalives lapsed.
+func (h *Handler) PutSnapshot(w http.ResponseWriter, r *http.Request, id string) {
+	if !storage.ValidSnapshotID(id) {
+		http.Error(w, "Invalid snapshot ID: use 1 to 128 of A-Z, a-z, 0-9, '_' and '-'", http.StatusBadRequest)
+		return
+	}
+	req, ok := h.decodeSnapshotRequest(w, r)
+	if !ok {
+		return
+	}
+
+	defer h.locks.lock(id)()
+
+	exists, err := h.storage.Exists(id)
+	if err != nil {
+		http.Error(w, "Failed to check snapshot: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if exists {
+		if err := h.storage.PatchSnapshot(id); err != nil {
+			http.Error(w, "Failed to refresh snapshot: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeSnapshotResponse(w, http.StatusOK, id)
+		return
+	}
+
+	wasHeld := h.storage.IsHeld(id)
+	if err := h.storage.SaveSnapshotWithID(id, clusterMap(req), h.agentType); err != nil {
+		http.Error(w, "Failed to save snapshot: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if wasHeld {
+		// The file just written from the request replaces the held copy.
+		if err := h.storage.DiscardHeld(id); err != nil {
+			logger.Warn("Failed to discard a held snapshot after re-registration", "id", id, "error", err)
+		}
+		metrics.SnapshotsRestored.Inc()
+	} else {
+		metrics.SnapshotsCreated.Inc()
+	}
+
+	existing, err := h.metadataStorage.GetMetadata(id)
+	if hook := testHookAfterMetadataLookup; hook != nil {
+		hook()
+	}
+	switch {
+	case err == nil && existing != nil:
+		// Reopen. The queue keeps this ordered after any write still pending
+		// from before the sweep, such as its end of life.
+		h.writes.writeOrQueue(id, storage.PendingOp{Op: storage.OpReopen, At: time.Now()})
+		if len(existing.Clusters) == 0 {
+			h.collector.collect(existing, req)
+		}
+		writeSnapshotResponse(w, http.StatusOK, id)
+	case err == nil || errors.Is(err, storage.ErrMetadataNotFound):
+		h.startMetadata(id, req)
+		writeSnapshotResponse(w, http.StatusCreated, id)
+	default:
+		// The store cannot say whether the snapshot existed. Queue a reopen in
+		// case it did; collection writes the whole document if it did not.
+		logger.Warn("Cannot read metadata for a re-registered snapshot", "id", id, "error", err)
+		h.writes.writeOrQueue(id, storage.PendingOp{Op: storage.OpReopen, At: time.Now()})
+		h.collector.collect(newBaseMetadata(id, req), req)
+		writeSnapshotResponse(w, http.StatusCreated, id)
+	}
+}
+
+// testHookAfterMetadataLookup, when set by a test, runs between PUT's metadata
+// lookup and its write, standing in for the store's round trip: the window in
+// which two racing creates would both find no snapshot and both create one.
+var testHookAfterMetadataLookup func()
+
+func (h *Handler) decodeSnapshotRequest(w http.ResponseWriter, r *http.Request) (*models.SnapshotRequest, bool) {
 	var req models.SnapshotRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+		return nil, false
 	}
-
-	// Validate request
 	if err := h.validateSnapshotRequest(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return nil, false
 	}
+	return &req, true
+}
 
-	// Convert cluster info to map for storage
+// startMetadata writes a new snapshot's base document and starts collecting
+// its cluster metadata. The base document is written before responding: the
+// gateway resolves a snapshot's time window from ts_start, so it has to exist
+// as soon as the client starts querying. Cluster details take one or more
+// round trips per host and are merged in when they arrive.
+func (h *Handler) startMetadata(id string, req *models.SnapshotRequest) {
+	base := newBaseMetadata(id, req)
+	if err := h.metadataStorage.SaveMetadata(base); err != nil {
+		logger.Warn("Warning: Failed to save metadata", "error", err)
+	} else {
+		logger.Info("Successfully saved metadata for snapshot", "id", id, "customPanels", len(base.CustomPanels))
+	}
+	h.collector.collect(base, req)
+}
+
+func newBaseMetadata(id string, req *models.SnapshotRequest) *models.SnapshotMetadata {
+	return &models.SnapshotMetadata{
+		SnapshotID:   id,
+		TsStart:      time.Now(),
+		TsEnd:        "now",
+		Label:        req.Label,
+		CustomPanels: presets.BuildCustomPanels(req),
+		Services:     []string{},
+		Products:     collectProducts(req.Configs),
+	}
+}
+
+// clusterMap converts a request into the untyped shape the scrape-config
+// generator consumes.
+func clusterMap(req *models.SnapshotRequest) map[string]interface{} {
 	configs := make([]interface{}, len(req.Configs))
 	for i, config := range req.Configs {
 		configs[i] = map[string]interface{}{
@@ -64,8 +226,7 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 			"use_alt_addresses": config.UseAltAddresses,
 		}
 	}
-
-	clusterMap := map[string]interface{}{
+	return map[string]interface{}{
 		"configs": configs,
 		"credentials": map[string]interface{}{
 			"username": req.Credentials.Username,
@@ -73,143 +234,12 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 		},
 		"scheme": req.Scheme,
 	}
+}
 
-	// Save snapshot to file
-	id, err := h.storage.SaveSnapshot(clusterMap, h.agentType)
-	if err != nil {
-		http.Error(w, "Failed to save snapshot"+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	metrics.SnapshotsCreated.Inc()
-
-	// Collect per-product metadata via the registry. Configs whose
-	// product is unknown (or has no GetMetadata) are skipped quietly —
-	// non-Couchbase SD targets and static lists shouldn't generate
-	// warning logs from doomed HTTP calls.
-	serviceSet := make(map[string]struct{})
-	clusterSet := make(map[string]models.Cluster)
-	metadataRecord := &models.SnapshotMetadata{
-		SnapshotID:   id,
-		TsStart:      time.Now(),
-		TsEnd:        "now",
-		Label:        req.Label,
-		CustomPanels: presets.BuildCustomPanels(&req),
-		Services:     []string{},
-		Products:     collectProducts(req.Configs),
-	}
-	hasMetadata := false
-
-	for _, config := range req.Configs {
-		product := products.Get(config.Product)
-		if product == nil || product.GetMetadata == nil {
-			continue
-		}
-		for _, hostname := range config.Hostnames {
-			metadata, err := product.GetMetadata(
-				config.Scheme,
-				hostname,
-				config.Port,
-				req.Credentials.Username,
-				req.Credentials.Password,
-			)
-			if err != nil {
-				logger.Warn("Warning: Failed to collect product metadata", "product", config.Product, "error", err)
-				continue
-			}
-			if metadata == nil {
-				continue
-			}
-			hasMetadata = true
-
-			for _, service := range metadata.Services {
-				serviceSet[service] = struct{}{}
-			}
-
-			for _, cluster := range metadata.Clusters {
-				clusterKey := cluster.UID
-				if clusterKey == "" {
-					clusterKey = "name|" + cluster.Name
-				}
-				if clusterKey == "" {
-					continue
-				}
-
-				if existing, ok := clusterSet[clusterKey]; ok {
-					if existing.Name == "" && cluster.Name != "" {
-						existing.Name = cluster.Name
-					}
-					if len(existing.Targets) == 0 && len(cluster.Targets) > 0 {
-						existing.Targets = append([]string(nil), cluster.Targets...)
-					}
-					clusterSet[clusterKey] = existing
-					continue
-				}
-
-				clusterSet[clusterKey] = cluster
-			}
-
-			if metadataRecord.Server == "" && metadata.Server != "" {
-				metadataRecord.Server = metadata.Server
-			}
-
-			// Free-form per-product blob. Last-write-wins per key; the
-			// convention is to namespace keys (e.g. `couchbase_version`,
-			// `sgw_version`) so distinct products don't collide.
-			if len(metadata.Extras) > 0 {
-				if metadataRecord.Extras == nil {
-					metadataRecord.Extras = make(map[string]interface{}, len(metadata.Extras))
-				}
-				for k, v := range metadata.Extras {
-					metadataRecord.Extras[k] = v
-				}
-			}
-		}
-	}
-
-	if hasMetadata {
-		metadataRecord.Services = make([]string, 0, len(serviceSet))
-		for service := range serviceSet {
-			metadataRecord.Services = append(metadataRecord.Services, service)
-		}
-
-		metadataRecord.Clusters = make([]models.Cluster, 0, len(clusterSet))
-		for _, cluster := range clusterSet {
-			metadataRecord.Clusters = append(metadataRecord.Clusters, cluster)
-		}
-
-		// Assign default names to clusters without names (after merge)
-		for i := range metadataRecord.Clusters {
-			if metadataRecord.Clusters[i].Name == "" {
-				metadataRecord.Clusters[i].Name = fmt.Sprintf("cluster%d", i+1)
-			}
-		}
-	}
-
-	// Persist the metadata document for every snapshot so the label and
-	// timestamps always land in the bucket. When no product contributed
-	// cluster metadata and no custom panels were requested, services/
-	// clusters stay empty and the frontend falls back to its
-	// alwaysInclude builtins for that snapshot.
-	if err := h.metadataStorage.SaveMetadata(metadataRecord); err != nil {
-		logger.Warn("Warning: Failed to save metadata", "error", err)
-	} else {
-		logger.Info("Successfully saved metadata for snapshot", "id", id, "hasClusterMetadata", hasMetadata, "customPanels", len(metadataRecord.CustomPanels))
-	}
-
-	// Create response
-	response := models.SnapshotResponse{
-		ID: id,
-	}
-
-	// Set response headers
+func writeSnapshotResponse(w http.ResponseWriter, status int, id string) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-
-	// Write response
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
-	}
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(models.SnapshotResponse{ID: id})
 }
 
 // collectProducts returns the distinct, order-preserving set of products
@@ -313,30 +343,45 @@ type ValidationError struct {
 func (e *ValidationError) Error() string {
 	return e.Message
 }
+
+// Manager routes /api/v1/snapshot/{id}.
+//
+// Status codes clients can rely on: 404 when the snapshot has no scrape file;
+// 202 when the scrape file was updated but a metadata write had to be queued
+// (the metadata store was unavailable, or the document does not exist yet),
+// in which case it is retried in the background with the original timestamp.
 func (h *Handler) Manager(w http.ResponseWriter, r *http.Request) {
+	id, ok := snapshotIDFromPath(r.URL.Path)
+	if !ok {
+		http.Error(w, "Missing snapshot ID", http.StatusBadRequest)
+		return
+	}
 	switch r.Method {
 	case http.MethodGet:
-		h.GetSnapshotRequest(w, r)
+		h.GetSnapshotRequest(w, r, id)
+	case http.MethodPut:
+		h.PutSnapshot(w, r, id)
 	case http.MethodDelete:
-		h.DeleteSnapshotRequest(w, r)
+		h.DeleteSnapshotRequest(w, r, id)
 	case http.MethodPatch:
-		h.PatchSnapshotRequest(w, r)
+		h.PatchSnapshotRequest(w, r, id)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
-func (h *Handler) GetSnapshotRequest(w http.ResponseWriter, r *http.Request) {
-	segments := strings.Split(r.URL.Path, "/")
+func snapshotIDFromPath(path string) (string, bool) {
+	segments := strings.Split(path, "/")
 	if len(segments) < 4 || segments[3] == "" {
-		http.Error(w, "Missing snapshot ID", http.StatusBadRequest)
-		return
+		return "", false
 	}
+	return segments[len(segments)-1], true
+}
 
-	snapshotID := segments[len(segments)-1]
+func (h *Handler) GetSnapshotRequest(w http.ResponseWriter, r *http.Request, snapshotID string) {
 	snapshot, err := h.storage.GetSnapshot(snapshotID)
 	if err != nil {
-		if strings.Contains(err.Error(), "config file does not exist") {
+		if errors.Is(err, storage.ErrSnapshotNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
@@ -352,81 +397,128 @@ func (h *Handler) GetSnapshotRequest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) DeleteSnapshotRequest(w http.ResponseWriter, r *http.Request) {
-	segments := strings.Split(r.URL.Path, "/")
-	if len(segments) < 4 || segments[3] == "" {
-		http.Error(w, "Missing snapshot ID", http.StatusBadRequest)
+// DeleteSnapshotRequest ends a snapshot: its end of life is recorded and its
+// scrape file removed. The file goes regardless of the metadata store, so
+// scraping always stops; an end of life that cannot be written now is queued.
+func (h *Handler) DeleteSnapshotRequest(w http.ResponseWriter, r *http.Request, snapshotID string) {
+	defer h.locks.lock(snapshotID)()
+	exists, err := h.storage.Exists(snapshotID)
+	if err != nil {
+		http.Error(w, "Failed to check snapshot: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !exists {
+		// Already expired by the sweep, which recorded its end of life; the
+		// client's DELETE just finishes the cleanup.
+		if h.storage.IsHeld(snapshotID) {
+			if err := h.storage.DiscardHeld(snapshotID); err != nil {
+				http.Error(w, "Failed to delete snapshot: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		http.Error(w, "Snapshot not found", http.StatusNotFound)
 		return
 	}
 
-	snapshotID := segments[len(segments)-1]
+	applied := h.writes.writeOrQueue(snapshotID, storage.PendingOp{Op: storage.OpEnd, At: time.Now()})
 
-	if err := h.metadataStorage.EoLSnapshot(snapshotID); err != nil {
-		http.Error(w, "Failed to update end of life for snapshot metadata", http.StatusInternalServerError)
-		return
-	}
-
-	if err := h.storage.DeleteSnapshot(snapshotID); err != nil {
-		http.Error(w, "Failed to delete snapshot", http.StatusInternalServerError)
-		// http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := h.storage.DeleteSnapshot(snapshotID); err != nil && !errors.Is(err, storage.ErrSnapshotNotFound) {
+		http.Error(w, "Failed to delete snapshot: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	metrics.SnapshotsDeleted.Inc()
 
-	// Set response headers
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request) {
-	segments := strings.Split(r.URL.Path, "/")
-	if len(segments) < 4 || segments[3] == "" {
-		http.Error(w, "Missing snapshot ID", http.StatusBadRequest)
+	if applied {
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
+	w.WriteHeader(http.StatusAccepted)
+}
 
-	snapshotID := segments[len(segments)-1]
+// maxPatchBody bounds a PATCH body; a phase label and a services list are a
+// few hundred bytes.
+const maxPatchBody = 1 << 20
 
+// PatchSnapshotRequest refreshes a snapshot's keepalive and records any phase
+// or services update. The keepalive never depends on the metadata store. A
+// snapshot the sweep expired less than the hold period ago is restored.
+func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request, snapshotID string) {
 	var payload struct {
 		Phase    string   `json:"phase,omitempty"`
 		Mode     string   `json:"mode,omitempty"`
 		Services []string `json:"services,omitempty"`
 	}
-
 	if r.ContentLength != 0 {
+		r.Body = http.MaxBytesReader(w, r.Body, maxPatchBody)
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			var tooLarge *http.MaxBytesError
+			if errors.As(err, &tooLarge) {
+				http.Error(w, "Payload too large", http.StatusRequestEntityTooLarge)
+				return
+			}
 			http.Error(w, "Invalid payload request", http.StatusBadRequest)
 			return
 		}
-
-		// Validate that at least one operation is requested
-		hasPhaseUpdate := payload.Phase != "" && (payload.Mode == "start" || payload.Mode == "end")
-		hasServiceUpdate := len(payload.Services) > 0
-
-		// Handle phase update
-		if hasPhaseUpdate {
-			if err := h.metadataStorage.UpdatePhase(snapshotID, payload.Phase, payload.Mode); err != nil {
-				http.Error(w, "Failed to update phase: "+err.Error(), http.StatusInternalServerError)
-				return
-			}
-		}
-
-		// Handle services update
-		if hasServiceUpdate {
-			if err := h.metadataStorage.UpdateServices(snapshotID, payload.Services); err != nil {
-				http.Error(w, "Failed to update services: "+err.Error(), http.StatusInternalServerError)
-				return
-			}
-		}
 	}
 
-	if err := h.storage.PatchSnapshot(snapshotID); err != nil {
+	now := time.Now()
+	var ops []storage.PendingOp
+	if payload.Phase != "" && (payload.Mode == "start" || payload.Mode == "end") {
+		ops = append(ops, storage.PendingOp{Op: storage.OpPhase, Phase: payload.Phase, Mode: payload.Mode, At: now})
+	}
+	if len(payload.Services) > 0 {
+		ops = append(ops, storage.PendingOp{Op: storage.OpServices, Services: payload.Services, At: now})
+	}
+
+	// The keepalive is refreshed before taking the snapshot's lock, which a
+	// request writing metadata holds while it waits on the store. A plain
+	// keepalive for an active snapshot needs nothing else and answers now.
+	// Should the sweep expire it in the instant after, the next keepalive
+	// restores it.
+	err := h.storage.PatchSnapshot(snapshotID)
+	if err != nil && !errors.Is(err, storage.ErrSnapshotNotFound) {
 		http.Error(w, "Failed to patch snapshot: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
+	if err == nil && len(ops) == 0 {
+		metrics.SnapshotsPatched.Inc()
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	defer h.locks.lock(snapshotID)()
+	if err != nil {
+		// Swept for late keepalives. Another request may have restored it
+		// while this one waited for the lock; if not, and it is still held,
+		// put it back in service and reopen it, so the run keeps its metrics
+		// without re-registering.
+		if err := h.storage.PatchSnapshot(snapshotID); err != nil {
+			if !errors.Is(err, storage.ErrSnapshotNotFound) {
+				http.Error(w, "Failed to patch snapshot: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			restored, err := h.storage.Restore(snapshotID)
+			if err != nil {
+				http.Error(w, "Failed to restore snapshot: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			if !restored {
+				http.Error(w, "Snapshot not found", http.StatusNotFound)
+				return
+			}
+			metrics.SnapshotsRestored.Inc()
+			logger.Info("Restored an expired snapshot on a late keepalive", "id", snapshotID)
+			ops = append([]storage.PendingOp{{Op: storage.OpReopen, At: now}}, ops...)
+		}
+	}
 	metrics.SnapshotsPatched.Inc()
 
-	w.Header().Set("Content-Type", "application/json")
+	if len(ops) > 0 && !h.writes.writeOrQueue(snapshotID, ops...) {
+		w.WriteHeader(http.StatusAccepted)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
-
 }

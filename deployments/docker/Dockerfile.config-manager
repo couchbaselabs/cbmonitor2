@@ -31,4 +31,7 @@ ENV CM_SERVER_PORT=${CM_SERVER_PORT}
 ENV CM_LOG_LEVEL=${CM_LOG_LEVEL}
 ENV CM_AGENT_DIRECTORY=${CM_AGENT_DIRECTORY}
 
-CMD ["sh", "-c", "./config-manager --config /root/config.yaml agent.directory=$CM_AGENT_DIRECTORY server.port=$CM_SERVER_PORT logging.level=$CM_LOG_LEVEL"]
+# The binary reads every CM_* variable itself (CM_METADATA_PASSWORD included),
+# so nothing is passed as argv where `ps` and `docker inspect` would expose it.
+# Unset variables fall back to config.yaml.
+CMD ["./config-manager", "--config", "/root/config.yaml"]

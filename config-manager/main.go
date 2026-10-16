@@ -85,48 +85,64 @@ func main() {
 
 	fileStorage := storage.NewFileStorage(cfg.Agent.Directory)
 
-	interval := cfg.Manager.Interval
-	mininterval := cfg.Manager.MinInterval
-
-	// Validate manager interval
-	if interval > 30*time.Minute || interval < mininterval {
-		logger.Warn("Manager interval should be between 5 and 30 minutes", "interval", interval, "default", 5*time.Minute)
-		interval = mininterval // Default to 5 minutes if invalid
-	}
-
-	staleThreshold := cfg.Manager.StaleThreshold
-	// Validate manager stale threshold
-	if staleThreshold > 30*time.Minute || staleThreshold < 5*time.Minute {
-		logger.Warn("Manager stale threshold should be between 5 and 30 minutes", "stale_threshold", staleThreshold, "default", 5*time.Minute)
-		staleThreshold = 5 * time.Minute // Default to 5 minutes if invalid
+	if err := manager.ValidateTimings(cfg.Manager.Interval, cfg.Manager.MinInterval, cfg.Manager.StaleThreshold); err != nil {
+		logger.Error("Invalid manager configuration", "error", err)
+		os.Exit(1)
 	}
 
 	// Initialize metadata storage
 	metadataStorage, err := storage.NewMetadataStorage(cfg)
 	if err != nil {
-		logger.Error("Failed to initialize metadata storage. Metadata will not be collected.", "error", err)
-		metadataStorage = storage.NewFileMetadataStorage(cfg.Agent.Directory)
-		logger.Info("Falling back to file metadata storage", "directory", cfg.Agent.Directory)
+		// Only an enabled metadata store that cannot reach Couchbase Server
+		// errors here. Keep trying in the background; metadata writes queue
+		// until it connects.
+		logger.Error("Metadata store unreachable at startup; retrying in the background, metadata writes queue until it connects", "error", err)
+		metadataStorage = storage.NewReconnectingStorage(cfg, 15*time.Second)
 	} else {
 		logger.Info("Metadata storage initialized", "type", metadataStorage.Type())
 	}
+	metrics.MetadataStorageInfo.WithLabelValues(metadataStorage.Type()).Set(1)
+
+	// Metadata writes that fail are queued on disk and retried in the background.
+	pending, err := storage.NewPendingQueue(cfg.Agent.Directory)
+	if err != nil {
+		logger.Error("Failed to open the pending metadata-write queue", "error", err)
+		os.Exit(1)
+	}
 
 	// Initialize API handler
-	handler := api.NewHandler(fileStorage, metadataStorage, cfg.Agent.Type)
+	handler := api.NewHandler(fileStorage, metadataStorage, cfg.Agent.Type, pending)
 
+	// The sweep shares the API's metadata storage and write queue, so an end
+	// of life it cannot record now is retried like any other.
+	sweeper := &manager.Sweeper{
+		Files:          fileStorage,
+		End:            handler.EndSnapshot,
+		Lock:           handler.LockSnapshot,
+		Interval:       cfg.Manager.Interval,
+		StaleThreshold: cfg.Manager.StaleThreshold,
+		HoldPeriod:     manager.DefaultHoldPeriod,
+	}
 	// Setup HTTP server
 	mux := http.NewServeMux()
 
 	// Register routes
-	mux.HandleFunc("/api/v1/snapshot", handler.CreateSnapshot)
-	mux.HandleFunc("/api/v1/snapshot/", handler.Manager)
+	mux.Handle("/api/v1/snapshot", metrics.Instrument("snapshot", http.HandlerFunc(handler.CreateSnapshot)))
+	mux.Handle("/api/v1/snapshot/", metrics.Instrument("snapshot_id", http.HandlerFunc(handler.Manager)))
 	mux.Handle("/metrics", metrics.Handler())
+	health := &api.Health{
+		Dir:              cfg.Agent.Directory,
+		Storage:          metadataStorage,
+		Pending:          pending,
+		SweepLastSuccess: sweeper.LastSuccess,
+		// A sweep runs every interval; allow two missed passes before failing.
+		SweepMaxAge: 2*cfg.Manager.Interval + time.Minute,
+		Started:     time.Now(),
+	}
+	mux.Handle("/health", metrics.Instrument("health", health))
 
 	// Create server
-	server := &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
-		Handler: mux,
-	}
+	server := newHTTPServer(fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port), mux)
 
 	metrics.MarkUp()
 
@@ -138,24 +154,16 @@ func main() {
 			os.Exit(1)
 		}
 	}()
-	logger.Debug(
-		"interval, mininterval and stale threshold",
-		"interval", interval.String(),
-		"mininterval", mininterval.String(),
-		"stale_threshold", staleThreshold.String(),
-	)
-
 	logger.Info("Config Manager REST Service Started")
 
+	sweepCtx, stopSweep := context.WithCancel(context.Background())
+	sweepDone := make(chan struct{})
 	go func() {
-
-		manager.StartManagerWithInterval(manager.Information{
-			Interval:       interval,
-			MinInterval:    mininterval,
-			StaleThreshold: staleThreshold,
-		}, cfg.Agent.Directory, cfg)
+		defer close(sweepDone)
+		sweeper.Run(sweepCtx)
 	}()
-	logger.Info("Manager Service Started")
+	logger.Info("Manager Service Started", "interval", cfg.Manager.Interval.String(),
+		"stale_threshold", cfg.Manager.StaleThreshold.String(), "hold_period", manager.DefaultHoldPeriod.String())
 
 	// Wait for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)
@@ -164,11 +172,20 @@ func main() {
 
 	logger.Info("Shutting down server...")
 
-	// Graceful shutdown
-	if err := server.Shutdown(context.Background()); err != nil {
+	// Graceful shutdown, all of it within shutdownTimeout
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	stopSweep()
+	select {
+	case <-sweepDone:
+	case <-ctx.Done():
+		logger.Warn("Abandoning the snapshot sweep at shutdown")
+	}
+	if err := server.Shutdown(ctx); err != nil {
 		logger.Error("Server forced to shutdown", "error", err)
 		os.Exit(1)
 	}
+	handler.Shutdown(ctx)
 
 	logger.Info("Server exited")
 }

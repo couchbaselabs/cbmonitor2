@@ -164,4 +164,6 @@ jobs:
           files: release-artifacts/**/*
           body_path: release-notes.md
           generate_release_notes: true
-          prerelease: true
+          # Semver pre-release tags carry a hyphen (v2.1.0-rc1); plain vX.Y.Z
+          # tags publish as full releases.
+          prerelease: ${{ contains(github.ref_name, '-') }}

@@ -116,8 +116,8 @@ func (f *fakeEvaluator) InstantQuery(_ context.Context, query string, ts time.Ti
 
 // recorder captures the params the reverse proxy received from the handler.
 type recorder struct {
-	called            bool
-	start, end, query string
+	called                  bool
+	start, end, query, step string
 }
 
 func (rc *recorder) handler() http.Handler {
@@ -127,6 +127,7 @@ func (rc *recorder) handler() http.Handler {
 		rc.start = r.Form.Get("start")
 		rc.end = r.Form.Get("end")
 		rc.query = r.Form.Get("query")
+		rc.step = r.Form.Get("step")
 		w.WriteHeader(http.StatusOK)
 	})
 }
@@ -671,4 +672,97 @@ func TestOverlapReportsDroppedLegAsWarning(t *testing.T) {
 	if !strings.Contains(strings.Join(env.Warnings, " "), "snap-2") {
 		t.Errorf("warnings = %v, want one mentioning snap-2", env.Warnings)
 	}
+}
+
+// longWindow is the overstaying experiment's window: 50.39 h, which at a 15s
+// step is 12,093 points, past the upstream's 11,000.
+const longStart, longEnd = "2026-07-25T18:55:45Z", "2026-07-27T21:19:12Z"
+
+func TestFloorStep(t *testing.T) {
+	start, _ := time.Parse(time.RFC3339, longStart)
+	end, _ := time.Parse(time.RFC3339, longEnd)
+	cases := []struct {
+		name       string
+		start, end time.Time
+		step, want time.Duration
+	}{
+		{"within the limit is untouched", start, start.Add(time.Hour), 15 * time.Second, 15 * time.Second},
+		{"exactly at the limit is untouched", start, start.Add(11000 * 15 * time.Second), 15 * time.Second, 15 * time.Second},
+		{"past the limit is raised", start, end, 15 * time.Second, 17 * time.Second},
+		{"an unparsed step is left alone", start, end, 0, 0},
+	}
+	for _, c := range cases {
+		got := floorStep(c.start, c.end, c.step)
+		if got != c.want {
+			t.Errorf("%s: floorStep = %v, want %v", c.name, got, c.want)
+		}
+		if got > 0 && c.end.Sub(c.start)/got > maxPointsPerSeries {
+			t.Errorf("%s: %v still exceeds %d points", c.name, got, maxPointsPerSeries)
+		}
+	}
+}
+
+// A stale time picker on a long snapshot substitutes the full window; the
+// step Grafana sized for 15 minutes would be rejected upstream.
+func TestStaleRangeOnALongSnapshotFloorsTheStep(t *testing.T) {
+	rc := &recorder{}
+	cb := &fakeCouchbase{enabled: true, mdByID: map[string]*couchbase.Metadata{
+		"long": {Store: "prometheus", TSStart: longStart, TSEnd: longEnd},
+	}}
+	h := newTestHandler(cb, rc, &fakeEvaluator{})
+
+	now := time.Now().Unix()
+	postQueryRangeStep(h, `up{job="long"}`, strconv.FormatInt(now-900, 10), strconv.FormatInt(now, 10), "15")
+
+	if rc.step != "17" {
+		t.Errorf("forwarded step %q, want 17", rc.step)
+	}
+}
+
+// Inside the window the request goes upstream exactly as sent, which is what
+// keeps the gateway byte-identical to direct Mimir.
+func TestInWindowStepIsForwardedUnchanged(t *testing.T) {
+	rc := &recorder{}
+	cb := &fakeCouchbase{enabled: true, mdByID: map[string]*couchbase.Metadata{
+		"long": {Store: "prometheus", TSStart: longStart, TSEnd: longEnd},
+	}}
+	h := newTestHandler(cb, rc, &fakeEvaluator{})
+	start, _ := time.Parse(time.RFC3339, longStart)
+
+	postQueryRangeStep(h, `up{job="long"}`, strconv.FormatInt(start.Unix(), 10),
+		strconv.FormatInt(start.Add(time.Hour).Unix(), 10), "15")
+
+	if rc.step != "15" {
+		t.Errorf("forwarded step %q, want the client's 15 untouched", rc.step)
+	}
+}
+
+// Previously the long leg failed upstream and silently dropped out of the
+// comparison with only a warning.
+func TestOverlapLegOfALongSnapshotFloorsItsStep(t *testing.T) {
+	cb := &fakeCouchbase{enabled: true, mdByID: map[string]*couchbase.Metadata{
+		"long":  {Store: "prometheus", TSStart: longStart, TSEnd: longEnd},
+		"short": {Store: "prometheus", TSStart: "2026-09-17T19:30:54Z", TSEnd: "2026-09-17T20:09:40Z"},
+	}}
+	fp := &fakeProm{}
+	h := newTestHandlerWithProm(cb, fp, &fakeEvaluator{})
+
+	postQueryRangeStep(h, `up{job=~"long|short"}`, "0", "10800", "15")
+
+	steps := map[string]string{}
+	for _, c := range fp.rangeCalls {
+		steps[c.query] = c.step
+	}
+	if steps[`up{job="long"}`] != "17" || steps[`up{job="short"}`] != "15" {
+		t.Errorf("leg steps %v, want long floored to 17 and short left at 15", steps)
+	}
+}
+
+func postQueryRangeStep(h *Handler, query, start, end, step string) *httptest.ResponseRecorder {
+	body := url.Values{"query": {query}, "start": {start}, "end": {end}, "step": {step}}
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/query_range", strings.NewReader(body.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	h.handleQueryRange(w, req)
+	return w
 }

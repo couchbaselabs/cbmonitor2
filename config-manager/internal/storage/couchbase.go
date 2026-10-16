@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -18,6 +19,62 @@ type CouchbaseStorage struct {
 	cluster *gocb.Cluster
 	bucket  *gocb.Bucket
 	config  *config.Config
+	store   docStore
+}
+
+// ErrMetadataNotFound reports that a snapshot has no metadata document.
+var ErrMetadataNotFound = errors.New("metadata not found")
+
+// errCASMismatch reports that a document changed between read and write.
+var errCASMismatch = errors.New("metadata document changed concurrently")
+
+// docStore is the key-value surface CouchbaseStorage needs from a collection.
+// replace succeeds only if the document still carries cas, returning
+// errCASMismatch otherwise, which is what makes read-modify-write safe.
+type docStore interface {
+	get(id string) (*models.SnapshotMetadata, gocb.Cas, error)
+	replace(id string, md *models.SnapshotMetadata, cas gocb.Cas) error
+	upsert(id string, md *models.SnapshotMetadata) error
+}
+
+type collectionStore struct{ c *gocb.Collection }
+
+func (s collectionStore) get(id string) (*models.SnapshotMetadata, gocb.Cas, error) {
+	res, err := s.c.Get(id, nil)
+	if err != nil {
+		if errors.Is(err, gocb.ErrDocumentNotFound) {
+			return nil, 0, fmt.Errorf("%w for snapshot %s", ErrMetadataNotFound, id)
+		}
+		return nil, 0, fmt.Errorf("failed to get metadata from Couchbase Server: %w", err)
+	}
+	var md models.SnapshotMetadata
+	if err := res.Content(&md); err != nil {
+		return nil, 0, fmt.Errorf("failed to decode metadata: %w", err)
+	}
+	return &md, res.Cas(), nil
+}
+
+func (s collectionStore) replace(id string, md *models.SnapshotMetadata, cas gocb.Cas) error {
+	_, err := s.c.Replace(id, md, &gocb.ReplaceOptions{Cas: cas})
+	if errors.Is(err, gocb.ErrCasMismatch) {
+		return errCASMismatch
+	}
+	return err
+}
+
+func (s collectionStore) upsert(id string, md *models.SnapshotMetadata) error {
+	_, err := s.c.Upsert(id, md, nil)
+	return err
+}
+
+// maxCASAttempts bounds how often update re-reads a document that keeps
+// changing underneath it. Writers per snapshot are few (a phase PATCH, the
+// end-of-life sweep, background metadata collection), so this is generous.
+const maxCASAttempts = 8
+
+// casBackoff spaces out retries so competing writers stop colliding.
+var casBackoff = func(attempt int) time.Duration {
+	return time.Duration(attempt)*10*time.Millisecond + time.Duration(rand.Int63n(int64(10*time.Millisecond)))
 }
 
 // NewCouchbaseStorage creates a new Couchbase storage instance
@@ -70,15 +127,14 @@ func NewCouchbaseStorage(cfg *config.Config) (*CouchbaseStorage, error) {
 		cluster: cluster,
 		bucket:  bucket,
 		config:  cfg,
+		store:   collectionStore{c: bucket.DefaultCollection()},
 	}, nil
 }
 
-// SaveMetadata saves cluster metadata to Couchbase
+// SaveMetadata writes a snapshot's metadata document, replacing any existing one.
 func (cs *CouchbaseStorage) SaveMetadata(metadata *models.SnapshotMetadata) error {
-	// Upsert the document
-	_, err := cs.bucket.DefaultCollection().Upsert(metadata.SnapshotID, metadata, nil)
-	if err != nil {
-		return fmt.Errorf("failed to save metadata to Couchbase: %w", err)
+	if err := cs.store.upsert(metadata.SnapshotID, metadata); err != nil {
+		return fmt.Errorf("failed to save metadata to Couchbase Server: %w", err)
 	}
 
 	logger.Info("Successfully saved metadata to Couchbase", "id", metadata.SnapshotID)
@@ -88,23 +144,49 @@ func (cs *CouchbaseStorage) SaveMetadata(metadata *models.SnapshotMetadata) erro
 
 // GetMetadata retrieves cluster metadata from Couchbase
 func (cs *CouchbaseStorage) GetMetadata(snapshotID string) (*models.SnapshotMetadata, error) {
-	// Get the document
-	result, err := cs.bucket.DefaultCollection().Get(snapshotID, nil)
-	if err != nil {
-		if errors.Is(err, gocb.ErrDocumentNotFound) {
-			return nil, fmt.Errorf("metadata not found for snapshot %s", snapshotID)
+	md, _, err := cs.store.get(snapshotID)
+	return md, err
+}
+
+// Update applies fn to the current metadata document and writes it back only
+// if nothing else changed it in between; on a conflict it re-reads and applies
+// fn again. fn therefore runs once per attempt, always on a fresh copy.
+// Concurrent writers (a phase PATCH, the sweep's end-of-life, background
+// metadata collection) each keep their change instead of overwriting another's.
+func (cs *CouchbaseStorage) Update(snapshotID string, fn func(*models.SnapshotMetadata) error) error {
+	for attempt := 1; ; attempt++ {
+		md, cas, err := cs.store.get(snapshotID)
+		if err != nil {
+			return err
 		}
-		return nil, fmt.Errorf("failed to get metadata from Couchbase: %w", err)
+		if err := fn(md); err != nil {
+			return err
+		}
+		err = cs.store.replace(snapshotID, md, cas)
+		if !errors.Is(err, errCASMismatch) {
+			if err != nil {
+				return fmt.Errorf("failed to save metadata to Couchbase Server: %w", err)
+			}
+			return nil
+		}
+		if attempt == maxCASAttempts {
+			return fmt.Errorf("metadata for snapshot %s changed on each of %d attempts: %w", snapshotID, attempt, err)
+		}
+		time.Sleep(casBackoff(attempt))
 	}
+}
 
-	// Decode the document
-	var metadata models.SnapshotMetadata
-	err = result.Content(&metadata)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode metadata: %w", err)
+// healthKey is never written, so reading it answers not-found when the store
+// is reachable.
+const healthKey = "__config_manager_health__"
+
+// Ping reads a key that never exists: not-found means the store answered.
+func (cs *CouchbaseStorage) Ping() error {
+	_, _, err := cs.store.get(healthKey)
+	if err == nil || errors.Is(err, ErrMetadataNotFound) {
+		return nil
 	}
-
-	return &metadata, nil
+	return err
 }
 
 // Close closes the Couchbase connection
@@ -120,72 +202,53 @@ func (cs *CouchbaseStorage) Type() string {
 	return "couchbase"
 }
 
-func (cs *CouchbaseStorage) UpdatePhase(snapshotID string, phase string, mode string) error {
-	// Implement Couchbase update phase logic here
-	snapshotMetadata, err := cs.GetMetadata(snapshotID)
-	if err != nil {
-		return fmt.Errorf("failed to get metadata for update: %w", err)
-	}
+func (cs *CouchbaseStorage) UpdatePhase(snapshotID string, phase string, mode string, at time.Time) error {
 	if mode != "start" && mode != "end" {
 		return fmt.Errorf("invalid mode: %s", mode)
-	} else if mode == "start" {
-		snapshotMetadata.Phases = append(snapshotMetadata.Phases, models.Phase{
-			Label:   phase,
-			TsStart: time.Now(),
-		})
-	} else if mode == "end" {
-		if len(snapshotMetadata.Phases) > 0 {
-			snapshotMetadata.Phases[len(snapshotMetadata.Phases)-1].TsEnd = time.Now().Format(time.RFC3339Nano)
-		}
 	}
-	err = cs.SaveMetadata(snapshotMetadata)
+	err := cs.Update(snapshotID, func(md *models.SnapshotMetadata) error {
+		md.ApplyPhase(phase, mode, at)
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("failed to save updated metadata: %w", err)
+		return fmt.Errorf("failed to update phase: %w", err)
 	}
-
 	return nil
 }
 
 func (cs *CouchbaseStorage) UpdateServices(snapshotID string, services []string) error {
-	snapshotMetadata, err := cs.GetMetadata(snapshotID)
+	err := cs.Update(snapshotID, func(md *models.SnapshotMetadata) error {
+		md.Services = mergeServices(md.Services, services)
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("failed to get metadata for update: %w", err)
+		return fmt.Errorf("failed to update services: %w", err)
 	}
-
-	// Create a map to track existing services for deduplication
-	existingServices := make(map[string]bool)
-	for _, service := range snapshotMetadata.Services {
-		existingServices[service] = true
-	}
-
-	// Add new services (avoid duplicates)
-	for _, service := range services {
-		if !existingServices[service] {
-			snapshotMetadata.Services = append(snapshotMetadata.Services, service)
-			existingServices[service] = true
-		}
-	}
-
-	err = cs.SaveMetadata(snapshotMetadata)
-	if err != nil {
-		return fmt.Errorf("failed to save updated metadata: %w", err)
-	}
-
 	return nil
 }
 
-func (cs *CouchbaseStorage) EoLSnapshot(snapshotID string) error {
-	eol, err := cs.GetMetadata(snapshotID)
+func (cs *CouchbaseStorage) EoLSnapshot(snapshotID string, at time.Time) error {
+	err := cs.Update(snapshotID, func(md *models.SnapshotMetadata) error {
+		md.TsEnd = at.Format(time.RFC3339Nano)
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("failed to get metadata for deletion: %w", err)
+		return fmt.Errorf("failed to record end of life: %w", err)
 	}
-
-	eol.TsEnd = time.Now().Format(time.RFC3339Nano)
-
-	err = cs.SaveMetadata(eol)
-	if err != nil {
-		return fmt.Errorf("failed to save end time for metadata: %w", err)
-	}
-
 	return nil
+}
+
+// mergeServices appends the services not already present, keeping order.
+func mergeServices(existing, add []string) []string {
+	seen := make(map[string]bool, len(existing)+len(add))
+	for _, s := range existing {
+		seen[s] = true
+	}
+	for _, s := range add {
+		if !seen[s] {
+			existing = append(existing, s)
+			seen[s] = true
+		}
+	}
+	return existing
 }

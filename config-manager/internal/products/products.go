@@ -13,7 +13,11 @@
 // need to special-case it.
 package products
 
-import "github.com/couchbase/config-manager/internal/models"
+import (
+	"context"
+
+	"github.com/couchbase/config-manager/internal/models"
+)
 
 // Product is one entry in the registry. All fields are optional — a
 // product can support SD only, metadata only, neither, or both.
@@ -34,9 +38,10 @@ type Product struct {
 	DefaultStaticPath string
 
 	// GetMetadata performs product-specific metadata collection against
-	// a single hostname. Returns (nil, nil) when there's nothing to
-	// report (the handler treats that the same as "no fetcher").
-	GetMetadata func(scheme, hostname string, port int, username, password string) (*Metadata, error)
+	// a single hostname, giving up when ctx ends. Returns (nil, nil) when
+	// there's nothing to report (the handler treats that the same as "no
+	// fetcher").
+	GetMetadata func(ctx context.Context, scheme, hostname string, port int, username, password string) (*Metadata, error)
 
 	// Implies lists extra product identifiers recorded in the snapshot's
 	// `products` alongside this one, so dashboards and tabs keyed on the

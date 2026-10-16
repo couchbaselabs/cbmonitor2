@@ -11,7 +11,7 @@ logging:
   level: "info"
 
 manager:
-  interval: 2m
+  interval: 5m
   min_interval: 5m
   stale_threshold: 5m
 
