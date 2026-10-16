@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -102,11 +101,22 @@ func (q *PendingQueue) Append(id string, ops ...PendingOp) error {
 		buf.Write(line)
 		buf.WriteByte('\n')
 	}
-	f, err := os.OpenFile(q.path(id), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	f, err := os.OpenFile(q.path(id), os.O_CREATE|os.O_APPEND|os.O_RDWR, 0o600)
 	if err != nil {
 		return err
 	}
-	if _, err := f.Write(buf.Bytes()); err != nil {
+	// A crash mid-append leaves a torn last line. Start on a fresh line, or
+	// the first new record would join the fragment and be skipped with it.
+	torn, err := endsMidLine(f)
+	if err != nil {
+		f.Close()
+		return err
+	}
+	out := buf.Bytes()
+	if torn {
+		out = append([]byte{'\n'}, out...)
+	}
+	if _, err := f.Write(out); err != nil {
 		f.Close()
 		return err
 	}
@@ -115,6 +125,20 @@ func (q *PendingQueue) Append(id string, ops ...PendingOp) error {
 		return err
 	}
 	return f.Close()
+}
+
+// endsMidLine reports whether f is non-empty and its last byte is not a
+// newline.
+func endsMidLine(f *os.File) (bool, error) {
+	info, err := f.Stat()
+	if err != nil || info.Size() == 0 {
+		return false, err
+	}
+	last := make([]byte, 1)
+	if _, err := f.ReadAt(last, info.Size()-1); err != nil {
+		return false, err
+	}
+	return last[0] != '\n', nil
 }
 
 // IDs lists the snapshots with queued writes, sorted.
@@ -155,9 +179,10 @@ func (q *PendingQueue) read(id string) ([]PendingOp, error) {
 		return nil, err
 	}
 	var ops []PendingOp
-	sc := bufio.NewScanner(bytes.NewReader(data))
-	for sc.Scan() {
-		line := bytes.TrimSpace(sc.Bytes())
+	// Split rather than scan: a scanner caps line length, and one long record
+	// would make every read of this queue fail, including the one at startup.
+	for _, line := range bytes.Split(data, []byte{'\n'}) {
+		line = bytes.TrimSpace(line)
 		if len(line) == 0 {
 			continue
 		}
@@ -170,7 +195,7 @@ func (q *PendingQueue) read(id string) ([]PendingOp, error) {
 		ops = append(ops, op)
 	}
 	sort.SliceStable(ops, func(i, j int) bool { return ops[i].Seq < ops[j].Seq })
-	return ops, sc.Err()
+	return ops, nil
 }
 
 // DrainResult reports what one Drain call did.

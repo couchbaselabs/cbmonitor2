@@ -437,6 +437,10 @@ func (h *Handler) DeleteSnapshotRequest(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusAccepted)
 }
 
+// maxPatchBody bounds a PATCH body; a phase label and a services list are a
+// few hundred bytes.
+const maxPatchBody = 1 << 20
+
 // PatchSnapshotRequest refreshes a snapshot's keepalive and records any phase
 // or services update. The keepalive never depends on the metadata store. A
 // snapshot the sweep expired less than the hold period ago is restored.
@@ -447,7 +451,13 @@ func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request, s
 		Services []string `json:"services,omitempty"`
 	}
 	if r.ContentLength != 0 {
+		r.Body = http.MaxBytesReader(w, r.Body, maxPatchBody)
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			var tooLarge *http.MaxBytesError
+			if errors.As(err, &tooLarge) {
+				http.Error(w, "Payload too large", http.StatusRequestEntityTooLarge)
+				return
+			}
 			http.Error(w, "Invalid payload request", http.StatusBadRequest)
 			return
 		}

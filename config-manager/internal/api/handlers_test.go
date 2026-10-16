@@ -444,6 +444,15 @@ func TestPatchSnapshotWithoutBodyIsAKeepalive(t *testing.T) {
 	}
 }
 
+func TestPatchRejectsAnOversizedBody(t *testing.T) {
+	h := newHarness(t)
+	id := h.create(newFakeCluster(t))
+	body := `{"phase":"` + strings.Repeat("x", maxPatchBody) + `","mode":"start"}`
+	if rec := h.do(http.MethodPatch, "/api/v1/snapshot/"+id, body); rec.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("status %d, want 413", rec.Code)
+	}
+}
+
 func TestUnknownSnapshotIs404(t *testing.T) {
 	h := newHarness(t)
 	for _, method := range []string{http.MethodPatch, http.MethodDelete, http.MethodGet} {

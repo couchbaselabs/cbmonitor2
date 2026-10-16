@@ -132,6 +132,53 @@ func TestPendingQueueSkipsATornFinalLine(t *testing.T) {
 	}
 }
 
+// A write queued after a crash left a torn line must not be lost with it.
+func TestPendingQueueAppendsCleanlyAfterATornLine(t *testing.T) {
+	dir := t.TempDir()
+	q, _ := NewPendingQueue(dir)
+	_ = q.Append("snap", PendingOp{Op: OpEnd, At: time.Now()})
+	f, _ := os.OpenFile(filepath.Join(dir, pendingDirName, "snap.jsonl"), os.O_APPEND|os.O_WRONLY, 0)
+	_, _ = f.WriteString(`{"seq":99,"op":"pha`)
+	f.Close()
+
+	q, err := NewPendingQueue(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := q.Append("snap", phaseOp("load", "start", time.Now())); err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	q.Drain("snap", func(op PendingOp) error { got = append(got, op.Op); return nil }, time.Hour, time.Now())
+	if len(got) != 2 || got[0] != OpEnd || got[1] != OpPhase {
+		t.Errorf("applied %v, want [end phase]", got)
+	}
+}
+
+// A record longer than a scanner's default line limit still reads back, and
+// does not stop the queue opening at startup.
+func TestPendingQueueReadsALongRecord(t *testing.T) {
+	dir := t.TempDir()
+	q, _ := NewPendingQueue(dir)
+	services := make([]string, 20000)
+	for i := range services {
+		services[i] = "service"
+	}
+	if err := q.Append("snap", PendingOp{Op: OpServices, Services: services, At: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+
+	q, err := NewPendingQueue(dir)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	var got int
+	res := q.Drain("snap", func(op PendingOp) error { got = len(op.Services); return nil }, time.Hour, time.Now())
+	if res.Err != nil || got != len(services) {
+		t.Errorf("drain = %+v with %d services, want all %d applied", res, got, len(services))
+	}
+}
+
 func TestPendingDirectoryNeverMatchesTheScrapeGlob(t *testing.T) {
 	dir := t.TempDir()
 	q, _ := NewPendingQueue(dir)
