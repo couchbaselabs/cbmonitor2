@@ -103,6 +103,31 @@ func TestSweepExpiresEvenWhenEndOfLifeIsQueued(t *testing.T) {
 	}
 }
 
+// A snapshot that cannot be expired is still scraped; the pass fails, so the
+// heartbeat and /health show it, but the other snapshots are still swept.
+func TestSweepFailsWhenASnapshotCannotBeExpired(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Now()
+	writeSnapshot(t, dir, "stale", now.Add(-time.Hour))
+	writeSnapshot(t, dir, "live", now.Add(-time.Minute))
+	// A file where the holding directory should be makes every expire fail.
+	if err := os.WriteFile(filepath.Join(dir, ".expired"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	end := &endRecorder{ended: map[string]time.Time{}, apply: true}
+	s := newSweeper(dir, end, now)
+
+	if err := s.Sweep(context.Background()); err == nil {
+		t.Error("a pass that could not expire a stale snapshot reported success")
+	}
+	if _, ok := end.endedAt("stale"); ok {
+		t.Error("end of life recorded for a snapshot that is still scraped")
+	}
+	if got := testutil.ToFloat64(metrics.ActiveSnapshots); got != 2 {
+		t.Errorf("active snapshots gauge = %v, want 2", got)
+	}
+}
+
 func TestSweepPurgesHeldSnapshotsPastTheHoldPeriod(t *testing.T) {
 	dir := t.TempDir()
 	fs := storage.NewFileStorage(dir)
