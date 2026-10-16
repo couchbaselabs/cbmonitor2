@@ -55,7 +55,8 @@ type Phase struct {
 // event again changes nothing, so a write that is retried after it already
 // landed (an ambiguous timeout, or a restart before the queue recorded it as
 // done) leaves no duplicate. An end closes the latest open phase with its
-// label, or the latest phase when none has that label.
+// label, or the latest phase when none has that label; in that case an end
+// already recorded at the same time on any phase is the same end replayed.
 func (md *SnapshotMetadata) ApplyPhase(label, mode string, at time.Time) {
 	switch mode {
 	case "start":
@@ -80,6 +81,11 @@ func (md *SnapshotMetadata) ApplyPhase(label, mode string, at time.Time) {
 			}
 		}
 		if target < 0 {
+			for _, p := range md.Phases {
+				if end, err := time.Parse(time.RFC3339Nano, p.TsEnd); err == nil && end.Equal(at) {
+					return
+				}
+			}
 			target = len(md.Phases) - 1
 		}
 		if target >= 0 {

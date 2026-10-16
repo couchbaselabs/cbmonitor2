@@ -136,6 +136,8 @@ func TestReplayedPhaseWritesChangeNothing(t *testing.T) {
 	t0 := time.Date(2026, 10, 16, 9, 0, 0, 123456789, time.UTC)
 	t1 := t0.Add(time.Hour)
 	t2 := t1.Add(time.Minute)
+	t3 := t2.Add(time.Hour)
+	t4 := t3.Add(time.Minute)
 	writes := []struct {
 		phase, mode string
 		at          time.Time
@@ -143,6 +145,9 @@ func TestReplayedPhaseWritesChangeNothing(t *testing.T) {
 		{"load", "start", t0},
 		{"load", "end", t1},
 		{"access", "start", t2},
+		// No phase is labelled "other", so this closes access.
+		{"other", "end", t3},
+		{"rebalance", "start", t4},
 	}
 	for range 2 {
 		for _, w := range writes {
@@ -153,14 +158,23 @@ func TestReplayedPhaseWritesChangeNothing(t *testing.T) {
 	}
 
 	md, _ := cs.GetMetadata("snap")
-	if len(md.Phases) != 2 {
-		t.Fatalf("phases = %+v, want load and access once each", md.Phases)
+	if len(md.Phases) != 3 {
+		t.Fatalf("phases = %+v, want load, access and rebalance once each", md.Phases)
 	}
-	if md.Phases[0].Label != "load" || md.Phases[0].TsEnd != t1.Format(time.RFC3339Nano) {
-		t.Errorf("load = %+v, want it ended at %v", md.Phases[0], t1)
+	want := []struct {
+		label string
+		end   string
+	}{
+		{"load", t1.Format(time.RFC3339Nano)},
+		{"access", t3.Format(time.RFC3339Nano)},
+		// A replayed end closes the phase it closed the first time, never a
+		// later one.
+		{"rebalance", ""},
 	}
-	if md.Phases[1].Label != "access" || md.Phases[1].TsEnd != "" {
-		t.Errorf("access = %+v, want it still open: a replayed end closes its own phase", md.Phases[1])
+	for i, w := range want {
+		if md.Phases[i].Label != w.label || md.Phases[i].TsEnd != w.end {
+			t.Errorf("phase %d = %+v, want %s ended at %q", i, md.Phases[i], w.label, w.end)
+		}
 	}
 }
 
