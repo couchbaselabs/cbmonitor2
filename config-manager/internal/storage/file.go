@@ -415,6 +415,18 @@ func (fs *FileStorage) PatchSnapshot(id string) error {
 	return err
 }
 
+// LastKeepalive returns when id's keepalive was last refreshed.
+func (fs *FileStorage) LastKeepalive(id string) (time.Time, error) {
+	info, err := os.Stat(fs.filePath(id))
+	if os.IsNotExist(err) {
+		return time.Time{}, fmt.Errorf("%w: %s", ErrSnapshotNotFound, id)
+	}
+	if err != nil {
+		return time.Time{}, err
+	}
+	return info.ModTime(), nil
+}
+
 // heldDirName holds scrape files the stale-snapshot sweep has taken out of
 // service. They stay there for a while so a snapshot whose keepalives were
 // only late can be restored instead of lost. It sits inside the snapshot

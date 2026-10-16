@@ -3,6 +3,7 @@ package manager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -29,7 +30,12 @@ type Sweeper struct {
 	Files *storage.FileStorage
 	// End records a snapshot's end of life, queueing the write if the metadata
 	// store cannot take it. It reports whether the write was applied now.
-	End            func(id string, at time.Time) bool
+	End func(id string, at time.Time) bool
+	// Lock, when set, serialises the sweep with the API's changes to one
+	// snapshot. Without it, a keepalive landing between expiring a snapshot
+	// and recording its end of life would restore and reopen it, and the end
+	// of life would then close a snapshot that is being scraped again.
+	Lock           func(id string) (unlock func())
 	Interval       time.Duration
 	StaleThreshold time.Duration
 	HoldPeriod     time.Duration
@@ -65,20 +71,13 @@ func (s *Sweeper) Sweep() error {
 
 	remaining := 0
 	for _, snap := range active {
-		age := now.Sub(snap.ModTime)
-		if age <= s.StaleThreshold {
+		if now.Sub(snap.ModTime) <= s.StaleThreshold {
 			remaining++
 			continue
 		}
-		if err := s.Files.Expire(snap.ID, now); err != nil {
-			logger.Error("Failed to expire stale snapshot", "id", snap.ID, "error", err)
+		if s.expire(snap.ID, now) {
 			remaining++
-			continue
 		}
-		metrics.SnapshotsExpired.Inc()
-		recorded := s.End(snap.ID, now)
-		logger.Info("Expired stale snapshot", "id", snap.ID,
-			"idle_minutes", int(age.Minutes()), "end_of_life_recorded", recorded)
 	}
 	metrics.SetActiveSnapshots(remaining)
 
@@ -88,6 +87,35 @@ func (s *Sweeper) Sweep() error {
 		logger.Info("Purged held snapshots past their hold period", "count", purged, "hold_period", s.HoldPeriod.String())
 	}
 	return nil
+}
+
+// expire takes one stale snapshot out of service and records its end of life,
+// holding the snapshot's lock throughout. It reports whether the snapshot is
+// still active: a keepalive may have arrived since the listing.
+func (s *Sweeper) expire(id string, now time.Time) (active bool) {
+	if s.Lock != nil {
+		defer s.Lock(id)()
+	}
+	last, err := s.Files.LastKeepalive(id)
+	switch {
+	case errors.Is(err, storage.ErrSnapshotNotFound):
+		// Deleted since the listing.
+		return false
+	case err != nil:
+		logger.Error("Failed to check stale snapshot", "id", id, "error", err)
+		return true
+	case now.Sub(last) <= s.StaleThreshold:
+		return true
+	}
+	if err := s.Files.Expire(id, now); err != nil {
+		logger.Error("Failed to expire stale snapshot", "id", id, "error", err)
+		return true
+	}
+	metrics.SnapshotsExpired.Inc()
+	recorded := s.End(id, now)
+	logger.Info("Expired stale snapshot", "id", id,
+		"idle_minutes", int(now.Sub(last).Minutes()), "end_of_life_recorded", recorded)
+	return false
 }
 
 // Run sweeps every Interval until ctx ends. It sweeps once at start so a

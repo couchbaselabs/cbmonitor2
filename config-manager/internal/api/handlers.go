@@ -5,10 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hash/fnv"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/couchbase/config-manager/internal/logger"
@@ -27,9 +25,10 @@ type Handler struct {
 	collector       *metadataCollector
 	writes          *metadataWrites
 
-	// createLocks serialise creates for the same client-chosen ID, so two
-	// concurrent PUTs (a retry racing the original) produce one snapshot.
-	createLocks [64]sync.Mutex
+	// locks serialise every change to one snapshot, so two concurrent PUTs (a
+	// retry racing the original) produce one snapshot, and metadata writes
+	// apply in the order the client made them.
+	locks snapshotLocks
 }
 
 // NewHandler creates the API handler. Metadata writes that fail are queued in
@@ -44,8 +43,17 @@ func NewHandler(fs *storage.FileStorage, metadataStorage storage.MetadataStorage
 	}
 }
 
+// LockSnapshot blocks until no request is changing id and returns the function
+// that releases it. The sweep holds it while expiring a snapshot, so a late
+// keepalive restores the snapshot either before the sweep looks or after its
+// end of life is recorded, never in between.
+func (h *Handler) LockSnapshot(id string) (unlock func()) {
+	return h.locks.lock(id)
+}
+
 // EndSnapshot records id's end of life at at, queueing the write if the
 // metadata store cannot take it now. It reports whether it was applied now.
+// The caller holds LockSnapshot(id).
 func (h *Handler) EndSnapshot(id string, at time.Time) bool {
 	return h.writes.writeOrQueue(id, storage.PendingOp{Op: storage.OpEnd, At: at})
 }
@@ -101,9 +109,7 @@ func (h *Handler) PutSnapshot(w http.ResponseWriter, r *http.Request, id string)
 		return
 	}
 
-	lock := &h.createLocks[fnv32(id)%uint32(len(h.createLocks))]
-	lock.Lock()
-	defer lock.Unlock()
+	defer h.locks.lock(id)()
 
 	exists, err := h.storage.Exists(id)
 	if err != nil {
@@ -234,12 +240,6 @@ func writeSnapshotResponse(w http.ResponseWriter, status int, id string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(models.SnapshotResponse{ID: id})
-}
-
-func fnv32(s string) uint32 {
-	h := fnv.New32a()
-	_, _ = h.Write([]byte(s))
-	return h.Sum32()
 }
 
 // collectProducts returns the distinct, order-preserving set of products
@@ -401,6 +401,7 @@ func (h *Handler) GetSnapshotRequest(w http.ResponseWriter, r *http.Request, sna
 // scrape file removed. The file goes regardless of the metadata store, so
 // scraping always stops; an end of life that cannot be written now is queued.
 func (h *Handler) DeleteSnapshotRequest(w http.ResponseWriter, r *http.Request, snapshotID string) {
+	defer h.locks.lock(snapshotID)()
 	exists, err := h.storage.Exists(snapshotID)
 	if err != nil {
 		http.Error(w, "Failed to check snapshot: "+err.Error(), http.StatusInternalServerError)
@@ -452,6 +453,7 @@ func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request, s
 		}
 	}
 
+	defer h.locks.lock(snapshotID)()
 	now := time.Now()
 	var ops []storage.PendingOp
 	if err := h.storage.PatchSnapshot(snapshotID); err != nil {

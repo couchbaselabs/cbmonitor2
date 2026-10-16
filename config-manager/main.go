@@ -118,6 +118,7 @@ func main() {
 	sweeper := &manager.Sweeper{
 		Files:          fileStorage,
 		End:            handler.EndSnapshot,
+		Lock:           handler.LockSnapshot,
 		Interval:       cfg.Manager.Interval,
 		StaleThreshold: cfg.Manager.StaleThreshold,
 		HoldPeriod:     manager.DefaultHoldPeriod,

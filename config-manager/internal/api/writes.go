@@ -48,6 +48,8 @@ func newMetadataWrites(md storage.MetadataStorage, pending *storage.PendingQueue
 // writeOrQueue applies ops in order and reports whether all were applied now.
 // Once one fails, it and every later op are queued, and while id has anything
 // queued new ops queue behind it, so a phase end never lands before its start.
+// The caller holds the snapshot's lock, so no other write for id can apply
+// between this one's check of the queue and its apply or enqueue.
 func (w *metadataWrites) writeOrQueue(id string, ops ...storage.PendingOp) bool {
 	if w.pending.Has(id) {
 		w.enqueue(id, ops)

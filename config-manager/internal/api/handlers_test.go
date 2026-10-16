@@ -14,9 +14,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/couchbase/config-manager/internal/manager"
 	"github.com/couchbase/config-manager/internal/metrics"
 	"github.com/couchbase/config-manager/internal/models"
 	"github.com/couchbase/config-manager/internal/storage"
@@ -31,6 +33,9 @@ type memMetadata struct {
 	docs    map[string]*models.SnapshotMetadata
 	saveErr error
 	getErr  error
+	// updateHook, when set, runs at the start of every Update outside the
+	// store's lock; an error fails that Update.
+	updateHook func(id string) error
 }
 
 func newMemMetadata() *memMetadata {
@@ -66,6 +71,11 @@ func (m *memMetadata) GetMetadata(id string) (*models.SnapshotMetadata, error) {
 // each other's changes, matching the compare-and-swap Couchbase Server
 // storage.
 func (m *memMetadata) Update(id string, fn func(*models.SnapshotMetadata) error) error {
+	if m.updateHook != nil {
+		if err := m.updateHook(id); err != nil {
+			return err
+		}
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.getErr != nil {
@@ -899,5 +909,99 @@ func TestMetadataFailuresAreCounted(t *testing.T) {
 	}
 	if got := testutil.ToFloat64(metrics.PendingMetadataWrites); got != 1 {
 		t.Errorf("pending writes gauge = %v, want 1", got)
+	}
+}
+
+// stallFirstUpdate makes the store's next Update wait until the returned
+// release is called, then fail with failWith (nil lets it succeed). entered is
+// closed once that Update is waiting. Later Updates are unaffected.
+func (h *harness) stallFirstUpdate(failWith error) (entered <-chan struct{}, release func()) {
+	in, out := make(chan struct{}), make(chan struct{})
+	var first atomic.Bool
+	h.metadata.updateHook = func(string) error {
+		if !first.CompareAndSwap(false, true) {
+			return nil
+		}
+		close(in)
+		<-out
+		return failWith
+	}
+	return in, func() { close(out) }
+}
+
+// A phase end must not apply while the phase start before it is still on its
+// way to the store: if the start then fails and queues, replaying it last
+// leaves the phase open.
+func TestWritesForOneSnapshotApplyInOrder(t *testing.T) {
+	h := newHarness(t)
+	id := h.create(newFakeCluster(t))
+	path := "/api/v1/snapshot/" + id
+	entered, release := h.stallFirstUpdate(errors.New("unambiguous timeout"))
+
+	start := make(chan int)
+	go func() {
+		start <- h.do(http.MethodPatch, path, map[string]string{"phase": "access", "mode": "start"}).Code
+	}()
+	<-entered
+	end := make(chan int)
+	go func() {
+		end <- h.do(http.MethodPatch, path, map[string]string{"phase": "access", "mode": "end"}).Code
+	}()
+	select {
+	case code := <-end:
+		t.Fatalf("phase end answered %d while its start was still being written", code)
+	case <-time.After(50 * time.Millisecond):
+	}
+	release()
+
+	if code := <-start; code != http.StatusAccepted {
+		t.Errorf("phase start: status %d, want 202", code)
+	}
+	if code := <-end; code != http.StatusAccepted {
+		t.Errorf("phase end behind a queued start: status %d, want 202", code)
+	}
+	h.handler.writes.drain(time.Now())
+	if phases := h.metadata.doc(t, id).Phases; len(phases) != 1 || phases[0].TsEnd == "" {
+		t.Errorf("phases = %+v, want one closed phase", phases)
+	}
+}
+
+// A keepalive that arrives while the sweep is recording a snapshot's end of
+// life restores the snapshot after that end of life, so it stays open.
+func TestKeepaliveDuringTheSweepLeavesTheSnapshotOpen(t *testing.T) {
+	h := newHarness(t)
+	id := h.create(newFakeCluster(t))
+	stale := time.Now().Add(-10 * time.Minute)
+	if err := os.Chtimes(h.scrapeFile(id), stale, stale); err != nil {
+		t.Fatal(err)
+	}
+	sweeper := &manager.Sweeper{
+		Files:          storage.NewFileStorage(h.dir),
+		End:            h.handler.EndSnapshot,
+		Lock:           h.handler.LockSnapshot,
+		StaleThreshold: 5 * time.Minute,
+		HoldPeriod:     time.Hour,
+	}
+	entered, release := h.stallFirstUpdate(nil)
+
+	swept := make(chan error)
+	go func() { swept <- sweeper.Sweep() }()
+	<-entered
+	keepalive := make(chan int)
+	go func() { keepalive <- h.do(http.MethodPatch, "/api/v1/snapshot/"+id, nil).Code }()
+	time.Sleep(50 * time.Millisecond)
+	release()
+
+	if err := <-swept; err != nil {
+		t.Fatal(err)
+	}
+	if code := <-keepalive; code != http.StatusOK {
+		t.Fatalf("keepalive: status %d, want 200", code)
+	}
+	if _, err := os.Stat(h.scrapeFile(id)); err != nil {
+		t.Errorf("snapshot not in service: %v", err)
+	}
+	if md := h.metadata.doc(t, id); md.TsEnd != "now" {
+		t.Errorf("ts_end = %q, want the snapshot open", md.TsEnd)
 	}
 }
