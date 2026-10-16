@@ -916,7 +916,8 @@ func TestMetadataFailuresAreCounted(t *testing.T) {
 
 // stallFirstUpdate makes the store's next Update wait until the returned
 // release is called, then fail with failWith (nil lets it succeed). entered is
-// closed once that Update is waiting. Later Updates are unaffected.
+// closed once that Update is waiting. Later Updates are unaffected. release
+// may be called more than once.
 func (h *harness) stallFirstUpdate(failWith error) (entered <-chan struct{}, release func()) {
 	in, out := make(chan struct{}), make(chan struct{})
 	var first atomic.Bool
@@ -928,7 +929,8 @@ func (h *harness) stallFirstUpdate(failWith error) (entered <-chan struct{}, rel
 		<-out
 		return failWith
 	}
-	return in, func() { close(out) }
+	var once sync.Once
+	return in, func() { once.Do(func() { close(out) }) }
 }
 
 // A phase end must not apply while the phase start before it is still on its
@@ -1034,5 +1036,35 @@ func TestShutdownStopsRetryingQueuedWrites(t *testing.T) {
 
 	if got := h.handler.writes.pending.Len(); got != 1 {
 		t.Errorf("%d writes still queued, want 1: the pass should stop after the write in flight", got)
+	}
+}
+
+// A plain keepalive answers at once, even while another request for the same
+// snapshot is waiting on the metadata store.
+func TestKeepaliveDoesNotWaitForMetadataWrites(t *testing.T) {
+	h := newHarness(t)
+	id := h.create(newFakeCluster(t))
+	path := "/api/v1/snapshot/" + id
+	entered, release := h.stallFirstUpdate(nil)
+	defer release()
+
+	phase := make(chan int)
+	go func() {
+		phase <- h.do(http.MethodPatch, path, map[string]string{"phase": "load", "mode": "start"}).Code
+	}()
+	<-entered
+	keepalive := make(chan int)
+	go func() { keepalive <- h.do(http.MethodPatch, path, nil).Code }()
+	select {
+	case code := <-keepalive:
+		if code != http.StatusOK {
+			t.Errorf("keepalive: status %d, want 200", code)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("keepalive waited for another request's metadata write")
+	}
+	release()
+	if code := <-phase; code != http.StatusOK {
+		t.Errorf("phase: status %d, want 200", code)
 	}
 }

@@ -463,31 +463,8 @@ func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request, s
 		}
 	}
 
-	defer h.locks.lock(snapshotID)()
 	now := time.Now()
 	var ops []storage.PendingOp
-	if err := h.storage.PatchSnapshot(snapshotID); err != nil {
-		if !errors.Is(err, storage.ErrSnapshotNotFound) {
-			http.Error(w, "Failed to patch snapshot: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		// Swept for late keepalives, but still held: put it back in service
-		// and reopen it, so the run keeps its metrics without re-registering.
-		restored, err := h.storage.Restore(snapshotID)
-		if err != nil {
-			http.Error(w, "Failed to restore snapshot: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if !restored {
-			http.Error(w, "Snapshot not found", http.StatusNotFound)
-			return
-		}
-		metrics.SnapshotsRestored.Inc()
-		logger.Info("Restored an expired snapshot on a late keepalive", "id", snapshotID)
-		ops = append(ops, storage.PendingOp{Op: storage.OpReopen, At: now})
-	}
-	metrics.SnapshotsPatched.Inc()
-
 	if payload.Phase != "" && (payload.Mode == "start" || payload.Mode == "end") {
 		ops = append(ops, storage.PendingOp{Op: storage.OpPhase, Phase: payload.Phase, Mode: payload.Mode, At: now})
 	}
@@ -495,7 +472,50 @@ func (h *Handler) PatchSnapshotRequest(w http.ResponseWriter, r *http.Request, s
 		ops = append(ops, storage.PendingOp{Op: storage.OpServices, Services: payload.Services, At: now})
 	}
 
+	// The keepalive is refreshed before taking the snapshot's lock, which a
+	// request writing metadata holds while it waits on the store. A plain
+	// keepalive for an active snapshot needs nothing else and answers now.
+	// Should the sweep expire it in the instant after, the next keepalive
+	// restores it.
+	err := h.storage.PatchSnapshot(snapshotID)
+	if err != nil && !errors.Is(err, storage.ErrSnapshotNotFound) {
+		http.Error(w, "Failed to patch snapshot: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
+	if err == nil && len(ops) == 0 {
+		metrics.SnapshotsPatched.Inc()
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	defer h.locks.lock(snapshotID)()
+	if err != nil {
+		// Swept for late keepalives. Another request may have restored it
+		// while this one waited for the lock; if not, and it is still held,
+		// put it back in service and reopen it, so the run keeps its metrics
+		// without re-registering.
+		if err := h.storage.PatchSnapshot(snapshotID); err != nil {
+			if !errors.Is(err, storage.ErrSnapshotNotFound) {
+				http.Error(w, "Failed to patch snapshot: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			restored, err := h.storage.Restore(snapshotID)
+			if err != nil {
+				http.Error(w, "Failed to restore snapshot: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			if !restored {
+				http.Error(w, "Snapshot not found", http.StatusNotFound)
+				return
+			}
+			metrics.SnapshotsRestored.Inc()
+			logger.Info("Restored an expired snapshot on a late keepalive", "id", snapshotID)
+			ops = append([]storage.PendingOp{{Op: storage.OpReopen, At: now}}, ops...)
+		}
+	}
+	metrics.SnapshotsPatched.Inc()
+
 	if len(ops) > 0 && !h.writes.writeOrQueue(snapshotID, ops...) {
 		w.WriteHeader(http.StatusAccepted)
 		return
