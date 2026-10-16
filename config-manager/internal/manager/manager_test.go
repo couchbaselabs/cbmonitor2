@@ -63,7 +63,7 @@ func TestSweepExpiresStaleSnapshotsAndKeepsLiveOnes(t *testing.T) {
 	end := &endRecorder{ended: map[string]time.Time{}, apply: true}
 	s := newSweeper(dir, end, now)
 
-	if err := s.Sweep(); err != nil {
+	if err := s.Sweep(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -95,7 +95,7 @@ func TestSweepExpiresEvenWhenEndOfLifeIsQueued(t *testing.T) {
 	writeSnapshot(t, dir, "stale", now.Add(-time.Hour))
 	s := newSweeper(dir, &endRecorder{ended: map[string]time.Time{}, apply: false}, now)
 
-	if err := s.Sweep(); err != nil {
+	if err := s.Sweep(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "stale.yml")); !os.IsNotExist(err) {
@@ -117,7 +117,7 @@ func TestSweepPurgesHeldSnapshotsPastTheHoldPeriod(t *testing.T) {
 	}
 
 	s := newSweeper(dir, &endRecorder{ended: map[string]time.Time{}}, time.Now())
-	if err := s.Sweep(); err != nil {
+	if err := s.Sweep(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	if fs.IsHeld("old") {
@@ -125,6 +125,24 @@ func TestSweepPurgesHeldSnapshotsPastTheHoldPeriod(t *testing.T) {
 	}
 	if !fs.IsHeld("recent") {
 		t.Error("held snapshot inside its hold period was purged")
+	}
+}
+
+// Shutdown cancels a sweep between snapshots instead of waiting for every
+// end of life to be recorded.
+func TestSweepStopsWhenItsContextEnds(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Now()
+	writeSnapshot(t, dir, "stale", now.Add(-time.Hour))
+	s := newSweeper(dir, &endRecorder{ended: map[string]time.Time{}, apply: true}, now)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := s.Sweep(ctx); err == nil {
+		t.Error("a cancelled sweep reported success")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "stale.yml")); err != nil {
+		t.Errorf("a cancelled sweep expired a snapshot: %v", err)
 	}
 }
 

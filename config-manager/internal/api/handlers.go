@@ -62,7 +62,7 @@ func (h *Handler) EndSnapshot(id string, at time.Time) bool {
 // collection until ctx ends, then cancels whatever is still running. Queued
 // writes stay on disk for the next start.
 func (h *Handler) Shutdown(ctx context.Context) {
-	h.writes.stop()
+	h.writes.stop(ctx)
 	h.collector.shutdown(ctx)
 }
 

@@ -61,8 +61,10 @@ func (s *Sweeper) clock() time.Time {
 }
 
 // Sweep runs one pass: expire stale snapshots, purge held files past their
-// hold period, and publish the active count.
-func (s *Sweeper) Sweep() error {
+// hold period, and publish the active count. It stops early when ctx ends:
+// recording each end of life can wait on the metadata store, and shutdown
+// must not.
+func (s *Sweeper) Sweep(ctx context.Context) error {
 	now := s.clock()
 	active, err := s.Files.ListActive()
 	if err != nil {
@@ -71,6 +73,9 @@ func (s *Sweeper) Sweep() error {
 
 	remaining := 0
 	for _, snap := range active {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if now.Sub(snap.ModTime) <= s.StaleThreshold {
 			remaining++
 			continue
@@ -122,7 +127,10 @@ func (s *Sweeper) expire(id string, now time.Time) (active bool) {
 // restart does not delay cleanup by a whole interval.
 func (s *Sweeper) Run(ctx context.Context) {
 	for {
-		if err := s.Sweep(); err != nil {
+		if err := s.Sweep(ctx); err != nil {
+			if ctx.Err() != nil {
+				return
+			}
 			metrics.SweepFailures.Inc()
 			logger.Error("Snapshot sweep failed; retrying next interval", "error", err)
 		} else {

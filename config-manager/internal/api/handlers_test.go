@@ -987,7 +987,7 @@ func TestKeepaliveDuringTheSweepLeavesTheSnapshotOpen(t *testing.T) {
 	entered, release := h.stallFirstUpdate(nil)
 
 	swept := make(chan error)
-	go func() { swept <- sweeper.Sweep() }()
+	go func() { swept <- sweeper.Sweep(context.Background()) }()
 	<-entered
 	keepalive := make(chan int)
 	go func() { keepalive <- h.do(http.MethodPatch, "/api/v1/snapshot/"+id, nil).Code }()
@@ -1005,5 +1005,34 @@ func TestKeepaliveDuringTheSweepLeavesTheSnapshotOpen(t *testing.T) {
 	}
 	if md := h.metadata.doc(t, id); md.TsEnd != "now" {
 		t.Errorf("ts_end = %q, want the snapshot open", md.TsEnd)
+	}
+}
+
+// Shutdown stops a retry pass between snapshots: with the store hanging, each
+// one could take a full timeout, and the rest stay queued for the next start.
+func TestShutdownStopsRetryingQueuedWrites(t *testing.T) {
+	h := newHarness(t)
+	first, second := h.create(newFakeCluster(t)), h.create(newFakeCluster(t))
+	h.setStoreDown(true)
+	for _, id := range []string{first, second} {
+		if rec := h.do(http.MethodPatch, "/api/v1/snapshot/"+id, map[string]string{"phase": "load", "mode": "start"}); rec.Code != http.StatusAccepted {
+			t.Fatalf("status %d, want 202", rec.Code)
+		}
+	}
+	h.setStoreDown(false)
+	entered, release := h.stallFirstUpdate(nil)
+
+	drained := make(chan struct{})
+	go func() {
+		h.handler.writes.drain(time.Now())
+		close(drained)
+	}()
+	<-entered
+	h.handler.writes.stop(context.Background())
+	release()
+	<-drained
+
+	if got := h.handler.writes.pending.Len(); got != 1 {
+		t.Errorf("%d writes still queued, want 1: the pass should stop after the write in flight", got)
 	}
 }

@@ -172,11 +172,15 @@ func main() {
 
 	logger.Info("Shutting down server...")
 
-	// Graceful shutdown
-	stopSweep()
-	<-sweepDone
+	// Graceful shutdown, all of it within shutdownTimeout
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
+	stopSweep()
+	select {
+	case <-sweepDone:
+	case <-ctx.Done():
+		logger.Warn("Abandoning the snapshot sweep at shutdown")
+	}
 	if err := server.Shutdown(ctx); err != nil {
 		logger.Error("Server forced to shutdown", "error", err)
 		os.Exit(1)

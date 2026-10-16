@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -95,9 +96,16 @@ func (w *metadataWrites) apply(id string, op storage.PendingOp) error {
 	}
 }
 
-// drain retries every snapshot's queued writes once.
+// drain retries every snapshot's queued writes once, stopping between
+// snapshots once stop is called: each write can wait on an unresponsive
+// metadata store, and a backlog must not hold up shutdown.
 func (w *metadataWrites) drain(now time.Time) {
 	for _, id := range w.pending.IDs() {
+		select {
+		case <-w.done:
+			return
+		default:
+		}
 		res := w.pending.Drain(id, func(op storage.PendingOp) error { return w.apply(id, op) }, pendingMaxAge, now)
 		if res.Applied > 0 {
 			logger.Info("Applied queued metadata writes", "snapshot", id, "applied", res.Applied, "remaining", res.Remaining)
@@ -125,10 +133,15 @@ func (w *metadataWrites) loop() {
 	}
 }
 
-// stop ends background retries; queued writes stay on disk for the next start.
-func (w *metadataWrites) stop() {
+// stop ends background retries, waiting until ctx ends for a write in flight;
+// queued writes stay on disk for the next start.
+func (w *metadataWrites) stop(ctx context.Context) {
 	w.stopOnce.Do(func() { close(w.done) })
-	<-w.stopped
+	select {
+	case <-w.stopped:
+	case <-ctx.Done():
+		logger.Warn("Abandoning a queued metadata write in flight at shutdown")
+	}
 }
 
 func (w *metadataWrites) String() string {
