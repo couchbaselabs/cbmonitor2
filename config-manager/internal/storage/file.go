@@ -249,7 +249,10 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 	// of "https"), shared bucket before product-specific ones. With more
 	// than one job, job_name is suffixed to stay unique and
 	// relabel_configs rewrites the scraped `job` label back to the
-	// snapshot id — cbmonitor's PromQL selects by job="<id>".
+	// snapshot id — cbmonitor's PromQL selects by job="<id>". The suffix
+	// separator is ':', which a snapshot ID cannot contain, so a suffixed
+	// name never equals another snapshot's job name: vmagent rejects the
+	// whole configuration over one duplicate.
 	ordered := make([]*scrapeBucket, 0, len(buckets))
 	for _, bucket := range buckets {
 		ordered = append(ordered, bucket)
@@ -266,9 +269,9 @@ func (fs *FileStorage) generateVMAgentConfig(clusterInfo interface{}, id string)
 	for _, bucket := range ordered {
 		jobName := id
 		if multiBucket {
-			jobName = id + "-" + bucket.scheme
+			jobName = id + ":" + bucket.scheme
 			if bucket.product != "" {
-				jobName += "-" + bucket.product
+				jobName += ":" + bucket.product
 			}
 		}
 
@@ -332,7 +335,7 @@ func (fs *FileStorage) GetSnapshot(id string) (models.DisplaySnapshot, error) {
 	// A snapshot file may contain multiple jobs (one per scheme) when the
 	// payload mixed http and https configs; aggregate URLs and targets
 	// across every job. The display name is always the snapshot id —
-	// per-job job_name values may carry `-http`/`-https` suffixes.
+	// per-job job_name values may carry `:http`/`:https` suffixes.
 	name := id
 	var urls []string
 	var targets []string

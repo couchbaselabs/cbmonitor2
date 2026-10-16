@@ -101,7 +101,7 @@ func TestMixedSchemesSplitHTTPFirst(t *testing.T) {
 		},
 	)
 
-	want := []string{"snap-http", "snap-https"}
+	want := []string{"snap:http", "snap:https"}
 	if got := jobNames(jobs); !equal(got, want) {
 		t.Fatalf("job names = %v, want %v", got, want)
 	}
@@ -113,6 +113,36 @@ func TestMixedSchemesSplitHTTPFirst(t *testing.T) {
 		rule := rules[0].(map[string]interface{})
 		if rule["target_label"] != "job" || rule["replacement"] != "snap" {
 			t.Errorf("job %v rewrite = %v, want job->snap", job["job_name"], rule)
+		}
+	}
+}
+
+// Job names are unique across snapshots, not just within one: snapshot
+// "build" split by scheme must not produce snapshot "build-http"'s job name.
+func TestJobNamesNeverCollideAcrossSnapshots(t *testing.T) {
+	cb := func(scheme string) map[string]interface{} {
+		return map[string]interface{}{
+			"hostnames": []string{"cb1"},
+			"type":      "sd",
+			"port":      8091,
+			"product":   "couchbase",
+			"scheme":    scheme,
+		}
+	}
+	seen := map[string]string{}
+	for _, snap := range []struct {
+		id      string
+		configs []map[string]interface{}
+	}{
+		{"build", []map[string]interface{}{cb("http"), cb("https")}},
+		{"build-http", []map[string]interface{}{cb("http")}},
+		{"build-https", []map[string]interface{}{cb("https")}},
+	} {
+		for _, name := range jobNames(generate(t, snap.id, snap.configs...)) {
+			if other, ok := seen[name]; ok {
+				t.Errorf("snapshots %q and %q both use job name %q", other, snap.id, name)
+			}
+			seen[name] = snap.id
 		}
 	}
 }
@@ -137,12 +167,12 @@ func TestAppServiceGetsItsOwnJobWithMetricRelabel(t *testing.T) {
 		},
 	)
 
-	want := []string{"snap-http", "snap-http-appservice"}
+	want := []string{"snap:http", "snap:http:appservice"}
 	if got := jobNames(jobs); !equal(got, want) {
 		t.Fatalf("job names = %v, want %v", got, want)
 	}
 
-	shared := jobByName(t, jobs, "snap-http")
+	shared := jobByName(t, jobs, "snap:http")
 	if _, ok := shared["metric_relabel_configs"]; ok {
 		t.Error("the shared job must not inherit App Services' metric_relabel_configs")
 	}
@@ -150,7 +180,7 @@ func TestAppServiceGetsItsOwnJobWithMetricRelabel(t *testing.T) {
 		t.Error("the shared job should hold the couchbase SD target")
 	}
 
-	appsvc := jobByName(t, jobs, "snap-http-appservice")
+	appsvc := jobByName(t, jobs, "snap:http:appservice")
 	rules, ok := appsvc["metric_relabel_configs"].([]interface{})
 	if !ok || len(rules) != 1 {
 		t.Fatalf("appservice job metric_relabel_configs = %v", appsvc["metric_relabel_configs"])
