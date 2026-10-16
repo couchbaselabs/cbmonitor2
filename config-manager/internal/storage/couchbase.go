@@ -207,11 +207,7 @@ func (cs *CouchbaseStorage) UpdatePhase(snapshotID string, phase string, mode st
 		return fmt.Errorf("invalid mode: %s", mode)
 	}
 	err := cs.Update(snapshotID, func(md *models.SnapshotMetadata) error {
-		if mode == "start" {
-			md.Phases = append(md.Phases, models.Phase{Label: phase, TsStart: at})
-		} else if len(md.Phases) > 0 {
-			md.Phases[len(md.Phases)-1].TsEnd = at.Format(time.RFC3339Nano)
-		}
+		md.ApplyPhase(phase, mode, at)
 		return nil
 	})
 	if err != nil {

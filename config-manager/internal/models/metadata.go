@@ -51,6 +51,43 @@ type Phase struct {
 	TsEnd   string    `json:"ts_end,omitempty"`
 }
 
+// ApplyPhase records a phase starting or ending at at. Applying the same
+// event again changes nothing, so a write that is retried after it already
+// landed (an ambiguous timeout, or a restart before the queue recorded it as
+// done) leaves no duplicate. An end closes the latest open phase with its
+// label, or the latest phase when none has that label.
+func (md *SnapshotMetadata) ApplyPhase(label, mode string, at time.Time) {
+	switch mode {
+	case "start":
+		for _, p := range md.Phases {
+			if p.Label == label && p.TsStart.Equal(at) {
+				return
+			}
+		}
+		md.Phases = append(md.Phases, Phase{Label: label, TsStart: at})
+	case "end":
+		target := -1
+		for i := len(md.Phases) - 1; i >= 0; i-- {
+			p := md.Phases[i]
+			if p.Label != label {
+				continue
+			}
+			if end, err := time.Parse(time.RFC3339Nano, p.TsEnd); err == nil && end.Equal(at) {
+				return
+			}
+			if p.TsEnd == "" && target < 0 {
+				target = i
+			}
+		}
+		if target < 0 {
+			target = len(md.Phases) - 1
+		}
+		if target >= 0 {
+			md.Phases[target].TsEnd = at.Format(time.RFC3339Nano)
+		}
+	}
+}
+
 type PoolsDefault struct {
 	Nodes []NodeInfo `json:"nodes"`
 }

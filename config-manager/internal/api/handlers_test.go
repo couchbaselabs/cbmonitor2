@@ -100,14 +100,7 @@ func (m *memMetadata) Update(id string, fn func(*models.SnapshotMetadata) error)
 
 func (m *memMetadata) UpdatePhase(id, phase, mode string, at time.Time) error {
 	return m.Update(id, func(md *models.SnapshotMetadata) error {
-		switch mode {
-		case "start":
-			md.Phases = append(md.Phases, models.Phase{Label: phase, TsStart: at})
-		case "end":
-			if len(md.Phases) > 0 {
-				md.Phases[len(md.Phases)-1].TsEnd = at.Format(time.RFC3339Nano)
-			}
-		}
+		md.ApplyPhase(phase, mode, at)
 		return nil
 	})
 }

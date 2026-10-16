@@ -127,6 +127,53 @@ func TestConcurrentPhaseUpdatesAreNotLost(t *testing.T) {
 	}
 }
 
+// A queued phase write can be applied twice: the store may have taken it
+// before reporting a timeout, or the process may stop before the queue
+// records it as done. The second application changes nothing.
+func TestReplayedPhaseWritesChangeNothing(t *testing.T) {
+	cs, _ := newTestCouchbaseStorage(t)
+	seed(t, cs, "snap")
+	t0 := time.Date(2026, 10, 16, 9, 0, 0, 123456789, time.UTC)
+	t1 := t0.Add(time.Hour)
+	t2 := t1.Add(time.Minute)
+	writes := []struct {
+		phase, mode string
+		at          time.Time
+	}{
+		{"load", "start", t0},
+		{"load", "end", t1},
+		{"access", "start", t2},
+	}
+	for range 2 {
+		for _, w := range writes {
+			if err := cs.UpdatePhase("snap", w.phase, w.mode, w.at); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	md, _ := cs.GetMetadata("snap")
+	if len(md.Phases) != 2 {
+		t.Fatalf("phases = %+v, want load and access once each", md.Phases)
+	}
+	if md.Phases[0].Label != "load" || md.Phases[0].TsEnd != t1.Format(time.RFC3339Nano) {
+		t.Errorf("load = %+v, want it ended at %v", md.Phases[0], t1)
+	}
+	if md.Phases[1].Label != "access" || md.Phases[1].TsEnd != "" {
+		t.Errorf("access = %+v, want it still open: a replayed end closes its own phase", md.Phases[1])
+	}
+}
+
+func TestPhaseEndWithAnUnknownLabelClosesTheLatestPhase(t *testing.T) {
+	md := &models.SnapshotMetadata{}
+	t0 := time.Now()
+	md.ApplyPhase("load", "start", t0)
+	md.ApplyPhase("other", "end", t0.Add(time.Minute))
+	if md.Phases[0].TsEnd == "" {
+		t.Errorf("phases = %+v, want the latest phase closed", md.Phases)
+	}
+}
+
 func TestUpdateGivesUpOnAPersistentConflict(t *testing.T) {
 	cs, store := newTestCouchbaseStorage(t)
 	seed(t, cs, "snap")
