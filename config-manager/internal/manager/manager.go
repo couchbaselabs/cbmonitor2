@@ -157,6 +157,10 @@ func (s *Sweeper) Run(ctx context.Context) {
 // warning, so a configured 2m silently ran as 5m.
 func ValidateTimings(interval, minInterval, staleThreshold time.Duration) error {
 	const maxInterval, minStale, maxStale = 30 * time.Minute, 5 * time.Minute, 30 * time.Minute
+	if interval <= 0 {
+		// A zero interval with a zero minimum would sweep in a busy loop.
+		return fmt.Errorf("manager.interval %v must be positive", interval)
+	}
 	if interval < minInterval || interval > maxInterval {
 		return fmt.Errorf("manager.interval %v is outside %v to %v (manager.min_interval to 30m)", interval, minInterval, maxInterval)
 	}

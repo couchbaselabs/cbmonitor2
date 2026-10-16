@@ -230,6 +230,8 @@ func TestValidateTimings(t *testing.T) {
 		{"stale threshold below 5m", 5 * m, 5 * m, 2 * m, false},
 		{"stale threshold above 30m", 5 * m, 5 * m, 45 * m, false},
 		{"upper bounds", 30 * m, 5 * m, 30 * m, true},
+		{"zero interval with a zero minimum", 0, 0, 5 * m, false},
+		{"negative interval", -m, -2 * m, 5 * m, false},
 	}
 	for _, c := range cases {
 		err := ValidateTimings(c.interval, c.minimum, c.stale)
