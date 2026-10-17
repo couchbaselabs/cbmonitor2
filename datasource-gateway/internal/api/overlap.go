@@ -23,6 +23,7 @@ import (
 
 	"github.com/couchbase/datasource-gateway/internal/cbeval"
 	"github.com/couchbase/datasource-gateway/internal/logger"
+	"github.com/couchbase/datasource-gateway/internal/metrics"
 	"github.com/couchbase/datasource-gateway/internal/router"
 )
 
@@ -139,7 +140,10 @@ func fromCBResult(res *cbeval.Result) *promEnvelope {
 // discovery) read labels, and a single evaluation per snapshot avoids pulling the whole window as a matrix,
 // which for long snapshots exceeds the upstream's per-series point limit.
 func (h *Handler) serveOverlap(w http.ResponseWriter, r *http.Request, ids []string, instant bool) {
+	metrics.OverlapRequests.Inc()
+	metrics.OverlapSnapshots.Observe(float64(len(ids)))
 	if len(ids) > maxOverlapSnapshots {
+		metrics.OverlapTruncated.Inc()
 		ids = ids[:maxOverlapSnapshots]
 	}
 	query := r.Form.Get("query")
@@ -182,6 +186,7 @@ func (h *Handler) serveOverlap(w http.ResponseWriter, r *http.Request, ids []str
 			warnings = append(warnings, e)
 		}
 	}
+	metrics.OverlapLegFailures.Add(float64(len(warnings)))
 	merged := mergeEnvelopes(legs, warnings)
 	if merged == nil {
 		// No leg produced a result. Forwarding the multi-snapshot query to the

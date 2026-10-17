@@ -60,6 +60,32 @@ var (
 		Buckets: latencyBuckets[:12],
 	}, []string{"result"})
 
+	OverlapRequests = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "datasource_gateway_overlap_requests_total",
+		Help: "Queries that compare several snapshots.",
+	})
+	OverlapSnapshots = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "datasource_gateway_overlap_snapshots",
+		Help:    "Snapshots named by a comparison query, before the cap.",
+		Buckets: []float64{2, 3, 4, 5, 6},
+	})
+	OverlapLegFailures = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "datasource_gateway_overlap_leg_failures_total",
+		Help: "Snapshots dropped from a comparison because their query failed.",
+	})
+	OverlapTruncated = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "datasource_gateway_overlap_truncated_total",
+		Help: "Comparisons cut to the first six snapshots.",
+	})
+	WindowClamped = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "datasource_gateway_window_clamped_total",
+		Help: "Requests whose time range (range) or evaluation time (instant) was moved into the snapshot's window.",
+	}, []string{"kind"})
+	StepFloored = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "datasource_gateway_step_floored_total",
+		Help: "Range queries whose step was raised to stay within the per-series point limit.",
+	})
+
 	UpstreamRequests = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "datasource_gateway_upstream_requests_total",
 		Help: "Requests to a backend (mimir, couchbase) by result (ok, 4xx, 5xx, error).",
