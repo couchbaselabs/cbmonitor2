@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestReverseProxyForwardsToUpstream verifies the /api/v1 surface forwards
@@ -119,5 +120,34 @@ func TestReverseProxySendsEmbeddedCredentials(t *testing.T) {
 	}
 	if !gotOK || gotUser != "mimir" || gotPass != "s3cret" {
 		t.Errorf("upstream basic auth = (%q, %q, %v), want (mimir, s3cret, true)", gotUser, gotPass, gotOK)
+	}
+}
+
+// The passthrough proxy drives the transport directly, outside the client's
+// overall timeout, so an upstream that never answers must still be cut off.
+func TestReverseProxyGivesUpOnAnUnresponsiveUpstream(t *testing.T) {
+	release := make(chan struct{})
+	upstream := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { <-release }))
+	defer upstream.Close()
+	defer close(release)
+
+	saved := upstreamResponseTimeout
+	upstreamResponseTimeout = 50 * time.Millisecond
+	defer func() { upstreamResponseTimeout = saved }()
+	c := New(upstream.URL)
+
+	rec := httptest.NewRecorder()
+	done := make(chan struct{})
+	go func() {
+		c.ReverseProxy().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/query?query=1", nil))
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the proxy waited on an upstream that never answered")
+	}
+	if rec.Code != http.StatusBadGateway {
+		t.Errorf("status = %d, want 502", rec.Code)
 	}
 }

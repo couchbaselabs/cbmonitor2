@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/couchbase/datasource-gateway/internal/api"
 	"github.com/couchbase/datasource-gateway/internal/cbeval"
@@ -19,8 +18,6 @@ import (
 	"github.com/couchbase/datasource-gateway/internal/prometheus"
 	"github.com/couchbase/datasource-gateway/internal/router"
 )
-
-const shutdownTimeout = 10 * time.Second
 
 func main() {
 	var configPath string
@@ -96,11 +93,7 @@ func main() {
 	handler.Register(mux)
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	server := &http.Server{
-		Addr:              addr,
-		Handler:           mux,
-		ReadHeaderTimeout: 10 * time.Second,
-	}
+	server := newHTTPServer(addr, mux)
 
 	go func() {
 		logger.Info("Starting HTTP server", "address", addr)

@@ -14,6 +14,12 @@ import (
 	"time"
 )
 
+// upstreamResponseTimeout bounds how long the upstream may take to start
+// answering. It covers the passthrough proxy, which drives the transport
+// directly and so is outside the client's overall timeout. It matches
+// Grafana's own default datasource timeout.
+var upstreamResponseTimeout = 30 * time.Second
+
 // Client is a thin HTTP client for an upstream Prometheus-compatible store.
 // It backs the passthrough path; the connection-pooling (keep-alive)
 // transport keeps the added gateway hop's overhead negligible versus
@@ -39,6 +45,7 @@ func New(baseURL string) *Client {
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
+		ResponseHeaderTimeout: upstreamResponseTimeout,
 	}
 	trimmed := strings.TrimRight(baseURL, "/")
 	c := &Client{
