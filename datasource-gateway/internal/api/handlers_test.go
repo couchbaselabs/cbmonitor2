@@ -102,3 +102,17 @@ func TestClampedWindowsAndFlooredStepsAreCounted(t *testing.T) {
 		t.Errorf("clamped instants = %v, want 1", got)
 	}
 }
+
+// An instant comparison sends no step upstream, so it never floors one.
+func TestInstantComparisonDoesNotFloorTheStep(t *testing.T) {
+	md := map[string]*couchbase.Metadata{
+		"snap-1": {TSStart: "2024-01-01T00:00:00Z", TSEnd: "2024-01-04T00:00:00Z"},
+		"snap-2": {TSStart: "2024-02-01T00:00:00Z", TSEnd: "2024-02-04T00:00:00Z"},
+	}
+	h := newTestHandlerWithProm(&fakeCouchbase{enabled: true, mdByID: md}, &fakeProm{}, &fakeEvaluator{})
+	floored := testutil.ToFloat64(metrics.StepFloored)
+	postQuery(h, `up{job=~"snap-1|snap-2"}`, url.Values{"step": {"15"}})
+	if got := testutil.ToFloat64(metrics.StepFloored) - floored; got != 0 {
+		t.Errorf("an instant comparison of 72 h snapshots floored %v steps, want 0", got)
+	}
+}

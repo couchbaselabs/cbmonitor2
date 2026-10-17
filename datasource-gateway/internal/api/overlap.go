@@ -227,9 +227,10 @@ func (h *Handler) overlapLeg(ctx context.Context, query, id, step string, instan
 		return fromCBResult(res), route, ""
 	}
 
-	// Each leg spans its snapshot's whole window at the step the client chose
-	// for the shared axis; a long snapshot needs a coarser step.
-	if d, ok := parseStep(step); ok {
+	// Each range leg spans its snapshot's whole window at the step the client
+	// chose for the shared axis; a long snapshot needs a coarser step. An
+	// instant leg has no step.
+	if d, ok := parseStep(step); ok && !instant {
 		if floored := floorStep(route.Start, route.End, d); floored != d {
 			step = strconv.FormatInt(int64(floored/time.Second), 10)
 		}
