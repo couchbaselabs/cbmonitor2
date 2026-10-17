@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+
+	"github.com/couchbase/gocb/v2"
 )
 
 // fakeRows yields n identical rows.
@@ -38,14 +40,22 @@ func TestReadRowsStopsPastTheLimit(t *testing.T) {
 	}
 }
 
-// The row cap is the gateway's limit, not a Couchbase Server failure.
-func TestQueryResultLeavesTheRowCapOutOfBackendErrors(t *testing.T) {
+// Failures Couchbase Server answered are classified by their HTTP status,
+// failures without a response are errors, and the row cap is the gateway's
+// limit, not a backend failure.
+func TestQueryResultClassifiesFailures(t *testing.T) {
 	for _, c := range []struct {
 		err  error
 		want string
 	}{
 		{nil, "ok"},
 		{fmt.Errorf("%w: more than 10", ErrTooManyRows), "ok"},
+		// gocb returns *QueryError; executeQuery wraps it.
+		{wrapped{&gocb.QueryError{HTTPStatusCode: 400}}, "4xx"},
+		{wrapped{&gocb.QueryError{HTTPStatusCode: 503}}, "5xx"},
+		{wrapped{&gocb.QueryError{}}, "error"},
+		{wrapped{&gocb.QueryError{HTTPStatusCode: 200}}, "error"},
+		{fmt.Errorf("query error: %w", gocb.QueryError{HTTPStatusCode: 500}), "5xx"},
 		{errors.New("query error: timeout"), "error"},
 	} {
 		if got := queryResult(c.err); got != c.want {
@@ -53,3 +63,10 @@ func TestQueryResultLeavesTheRowCapOutOfBackendErrors(t *testing.T) {
 		}
 	}
 }
+
+// wrapped wraps an error the way fmt.Errorf("...: %w") does, for error values
+// vet will not let %w take.
+type wrapped struct{ err error }
+
+func (w wrapped) Error() string { return "execute query: " + w.err.Error() }
+func (w wrapped) Unwrap() error { return w.err }

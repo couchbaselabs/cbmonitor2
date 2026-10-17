@@ -212,14 +212,32 @@ func (c *Client) ExecuteQuery(ctx context.Context, query string, params map[stri
 	return rows, err
 }
 
-// queryResult is the upstream result for a SQL++ query. A query refused by
-// the gateway's own row cap was answered by Couchbase Server, so it is not a
-// backend error.
+// queryResult is the upstream result for a SQL++ query. A failure Couchbase
+// Server answered with an HTTP error status is classified by it; any other
+// failure got no usable response. A query refused by the gateway's own row
+// cap was answered by Couchbase Server, so it is not a backend error.
 func queryResult(err error) string {
 	if err == nil || errors.Is(err, ErrTooManyRows) {
 		return metrics.ResultOK
 	}
+	if status := queryHTTPStatus(err); status >= 400 {
+		return metrics.ResultForStatus(status)
+	}
 	return metrics.ResultError
+}
+
+// queryHTTPStatus returns the HTTP status of a gocb query error, or 0. gocb
+// returns *QueryError, though the type implements error on its value.
+func queryHTTPStatus(err error) int {
+	var ptr *gocb.QueryError
+	if errors.As(err, &ptr) {
+		return ptr.HTTPStatusCode
+	}
+	var val gocb.QueryError
+	if errors.As(err, &val) {
+		return val.HTTPStatusCode
+	}
+	return 0
 }
 
 func (c *Client) executeQuery(ctx context.Context, query string, params map[string]interface{}) ([]map[string]interface{}, error) {

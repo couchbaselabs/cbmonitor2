@@ -102,7 +102,7 @@ text.
 | `datasource_gateway_http_request_duration_seconds` | `route` | Request latency, up to 120 s for the Couchbase Server path. |
 | `datasource_gateway_route_decisions_total` | `store`, `reason` | How each query was routed. `lookup_failed` means the metadata read failed and the query ran without the snapshot's window, so the panel can show data outside it. `not_found` is a job that is not a snapshot; `live` is a running snapshot, looked up on every request; `cache_hit` and `resolved` are finished snapshots. |
 | `datasource_gateway_metadata_lookup_duration_seconds` | `result` | Metadata reads (`ok`, `not_found`, `error`). Concurrent requests for one snapshot share a read. |
-| `datasource_gateway_upstream_requests_total` | `backend`, `result` | Requests to `mimir` and `couchbase` by `ok`, `4xx`, `5xx` or `error` (no response; the proxy answers 502). |
+| `datasource_gateway_upstream_requests_total` | `backend`, `result` | Requests to `mimir` and `couchbase` by `ok`, `4xx`, `5xx` (the backend's HTTP status) or `error` (no usable response; for Mimir the proxy answers 502). |
 | `datasource_gateway_upstream_request_duration_seconds` | `backend` | Backend latency. |
 | `datasource_gateway_router_cache_entries` | | Finished snapshots' routes held in the cache. |
 | `datasource_gateway_couchbase_ready` | | 1 once both buckets answer. |
