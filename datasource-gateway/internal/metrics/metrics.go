@@ -154,14 +154,17 @@ func ResultForStatus(status int) string {
 }
 
 // Instrument wraps a route to count its requests and time them. route is a
-// fixed label.
+// fixed label. A request the reverse proxy aborts, by panicking with
+// http.ErrAbortHandler, is still recorded before the panic reaches net/http.
 func Instrument(route string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		start := time.Now()
+		defer func() {
+			HTTPDuration.WithLabelValues(route).Observe(time.Since(start).Seconds())
+			HTTPRequests.WithLabelValues(route, strconv.Itoa(rec.status)).Inc()
+		}()
 		next.ServeHTTP(rec, r)
-		HTTPDuration.WithLabelValues(route).Observe(time.Since(start).Seconds())
-		HTTPRequests.WithLabelValues(route, strconv.Itoa(rec.status)).Inc()
 	})
 }
 
@@ -171,7 +174,14 @@ type statusRecorder struct {
 	wroteHeader bool
 }
 
+// WriteHeader records the final status. Informational responses, which the
+// reverse proxy forwards ahead of the final one, are passed on without being
+// recorded; 101 Switching Protocols is final.
 func (r *statusRecorder) WriteHeader(code int) {
+	if code >= 100 && code < 200 && code != http.StatusSwitchingProtocols {
+		r.ResponseWriter.WriteHeader(code)
+		return
+	}
 	if !r.wroteHeader {
 		r.status = code
 		r.wroteHeader = true

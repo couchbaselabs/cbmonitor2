@@ -56,3 +56,40 @@ datasource_gateway_build_info{revision="abc1234",version="2.0.0"} 1
 		t.Error(err)
 	}
 }
+
+// An aborted proxy response panics with http.ErrAbortHandler; the request is
+// still counted, and the panic still reaches net/http.
+func TestInstrumentRecordsAnAbortedRequest(t *testing.T) {
+	counter := HTTPRequests.WithLabelValues("passthrough", "200")
+	before := testutil.ToFloat64(counter)
+	h := Instrument("passthrough", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		panic(http.ErrAbortHandler)
+	}))
+	func() {
+		defer func() {
+			if rec := recover(); rec != http.ErrAbortHandler {
+				t.Errorf("recovered %v, want the abort to propagate", rec)
+			}
+		}()
+		h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/v1/query", nil))
+	}()
+	if got := testutil.ToFloat64(counter) - before; got != 1 {
+		t.Errorf("counted %v aborted requests, want 1", got)
+	}
+}
+
+// An informational response ahead of the final one does not become the
+// recorded status.
+func TestInstrumentRecordsTheFinalStatus(t *testing.T) {
+	counter := HTTPRequests.WithLabelValues("passthrough", "500")
+	before := testutil.ToFloat64(counter)
+	h := Instrument("passthrough", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusEarlyHints)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/v1/query", nil))
+	if got := testutil.ToFloat64(counter) - before; got != 1 {
+		t.Errorf("counted %v requests as 500, want 1 (not 103)", got)
+	}
+}
