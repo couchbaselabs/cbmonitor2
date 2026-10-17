@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/couchbase/datasource-gateway/internal/cbeval"
+	"github.com/couchbase/datasource-gateway/internal/metrics"
 	"github.com/couchbase/datasource-gateway/internal/router"
 )
 
@@ -50,19 +51,21 @@ func NewHandler(couchbase couchbaseHealth, prometheus prometheusGateway, router 
 }
 
 // Register wires the handler's routes onto the given mux: the gateway's own
-// /healthz; the snapshot-routed query endpoints (/api/v1/query_range and
-// /api/v1/query, both overlap-aware); the label/series endpoints with the
-// snapshot window rewritten when derivable; and a catch-all /api/v1/
-// streaming reverse proxy for every other Prometheus-API endpoint.
+// /healthz and /metrics; the snapshot-routed query endpoints
+// (/api/v1/query_range and /api/v1/query, both overlap-aware); the
+// label/series endpoints with the snapshot window rewritten when derivable;
+// and a catch-all /api/v1/ streaming reverse proxy for every other
+// Prometheus-API endpoint. Every route but /metrics is counted and timed.
 func (h *Handler) Register(mux *http.ServeMux) {
-	mux.HandleFunc("/healthz", h.Health)
+	mux.Handle("/metrics", metrics.Handler())
+	mux.Handle("/healthz", metrics.Instrument("healthz", http.HandlerFunc(h.Health)))
 	if h.prometheus != nil {
-		mux.HandleFunc("/api/v1/query_range", h.handleQueryRange)
-		mux.HandleFunc("/api/v1/query", h.handleQuery)
-		mux.HandleFunc("/api/v1/labels", h.handleMetaEndpoint)
-		mux.HandleFunc("/api/v1/series", h.handleMetaEndpoint)
-		mux.HandleFunc("/api/v1/label/", h.handleMetaEndpoint)
-		mux.Handle("/api/v1/", h.prometheus.ReverseProxy())
+		mux.Handle("/api/v1/query_range", metrics.Instrument("query_range", http.HandlerFunc(h.handleQueryRange)))
+		mux.Handle("/api/v1/query", metrics.Instrument("query", http.HandlerFunc(h.handleQuery)))
+		mux.Handle("/api/v1/labels", metrics.Instrument("labels", http.HandlerFunc(h.handleMetaEndpoint)))
+		mux.Handle("/api/v1/series", metrics.Instrument("series", http.HandlerFunc(h.handleMetaEndpoint)))
+		mux.Handle("/api/v1/label/", metrics.Instrument("label_values", http.HandlerFunc(h.handleMetaEndpoint)))
+		mux.Handle("/api/v1/", metrics.Instrument("passthrough", h.prometheus.ReverseProxy()))
 	}
 }
 

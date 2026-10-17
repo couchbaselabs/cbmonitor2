@@ -11,6 +11,7 @@ import (
 	"github.com/couchbase/gocb/v2"
 
 	"github.com/couchbase/datasource-gateway/internal/logger"
+	"github.com/couchbase/datasource-gateway/internal/metrics"
 )
 
 const (
@@ -138,6 +139,9 @@ func (c *Client) Enabled() bool { return c.cfg.Enabled }
 // Ready reports whether the buckets have become reachable.
 func (c *Client) Ready() bool { return c.ready.Load() }
 
+// ErrSnapshotNotFound reports that a snapshot has no metadata document.
+var ErrSnapshotNotFound = errors.New("snapshot not found")
+
 // GetSnapshotMetadata fetches and parses the subset of a snapshot's metadata
 // document used for routing and time-window resolution.
 func (c *Client) GetSnapshotMetadata(ctx context.Context, snapshotID string) (*Metadata, error) {
@@ -147,7 +151,7 @@ func (c *Client) GetSnapshotMetadata(ctx context.Context, snapshotID string) (*M
 	res, err := c.metadataColl.Get(snapshotID, &gocb.GetOptions{Context: ctx, Timeout: queryTimeout})
 	if err != nil {
 		if errors.Is(err, gocb.ErrDocumentNotFound) {
-			return nil, fmt.Errorf("snapshot not found: %s", snapshotID)
+			return nil, fmt.Errorf("%w: %s", ErrSnapshotNotFound, snapshotID)
 		}
 		return nil, fmt.Errorf("fetch snapshot metadata: %w", err)
 	}
@@ -202,6 +206,17 @@ func (c *Client) ExecuteQuery(ctx context.Context, query string, params map[stri
 	if c.metricsScope == nil {
 		return nil, fmt.Errorf("couchbase metrics is unavailable")
 	}
+	start := time.Now()
+	rows, err := c.executeQuery(ctx, query, params)
+	result := metrics.ResultOK
+	if err != nil {
+		result = metrics.ResultError
+	}
+	metrics.ObserveUpstream("couchbase", result, time.Since(start))
+	return rows, err
+}
+
+func (c *Client) executeQuery(ctx context.Context, query string, params map[string]interface{}) ([]map[string]interface{}, error) {
 	results, err := c.metricsScope.Query(query, &gocb.QueryOptions{
 		Context:         ctx,
 		Timeout:         queryTimeout,

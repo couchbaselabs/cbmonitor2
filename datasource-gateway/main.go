@@ -15,6 +15,7 @@ import (
 	"github.com/couchbase/datasource-gateway/internal/config"
 	"github.com/couchbase/datasource-gateway/internal/couchbase"
 	"github.com/couchbase/datasource-gateway/internal/logger"
+	"github.com/couchbase/datasource-gateway/internal/metrics"
 	"github.com/couchbase/datasource-gateway/internal/prometheus"
 	"github.com/couchbase/datasource-gateway/internal/router"
 )
@@ -88,6 +89,7 @@ func main() {
 	evaluator := cbeval.NewEvaluator(cbClient, metricsKeyspace)
 
 	handler := api.NewHandler(cbClient, promClient, metricRouter, evaluator)
+	metrics.RegisterState(metricRouter.CachedRoutes, func() bool { return cbClient.Enabled() && cbClient.Ready() })
 
 	mux := http.NewServeMux()
 	handler.Register(mux)
