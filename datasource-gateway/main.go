@@ -9,18 +9,23 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/couchbase/datasource-gateway/internal/api"
 	"github.com/couchbase/datasource-gateway/internal/cbeval"
 	"github.com/couchbase/datasource-gateway/internal/config"
 	"github.com/couchbase/datasource-gateway/internal/couchbase"
 	"github.com/couchbase/datasource-gateway/internal/logger"
+	"github.com/couchbase/datasource-gateway/internal/metrics"
 	"github.com/couchbase/datasource-gateway/internal/prometheus"
 	"github.com/couchbase/datasource-gateway/internal/router"
 )
 
-const shutdownTimeout = 10 * time.Second
+// version and revision are stamped at build time with
+// -ldflags "-X main.version=... -X main.revision=...".
+var (
+	version  = "unknown"
+	revision = "unknown"
+)
 
 func main() {
 	var configPath string
@@ -47,7 +52,8 @@ func main() {
 
 	logger.InitLogger(cfg.Logging.Level)
 
-	logger.Info("datasource-gateway starting...")
+	logger.Info("datasource-gateway starting...", "version", version, "revision", revision)
+	metrics.RegisterBuildInfo(version, revision)
 	logger.Info("Configuration loaded",
 		"server_host", cfg.Server.Host,
 		"server_port", cfg.Server.Port,
@@ -91,16 +97,13 @@ func main() {
 	evaluator := cbeval.NewEvaluator(cbClient, metricsKeyspace)
 
 	handler := api.NewHandler(cbClient, promClient, metricRouter, evaluator)
+	metrics.RegisterState(metricRouter.CachedRoutes, func() bool { return cbClient.Enabled() && cbClient.Ready() })
 
 	mux := http.NewServeMux()
 	handler.Register(mux)
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	server := &http.Server{
-		Addr:              addr,
-		Handler:           mux,
-		ReadHeaderTimeout: 10 * time.Second,
-	}
+	server := newHTTPServer(addr, mux)
 
 	go func() {
 		logger.Info("Starting HTTP server", "address", addr)

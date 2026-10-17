@@ -10,10 +10,18 @@ build-cm:
 	@echo "Building config-manager service..."
 	@cd config-manager && CGO_ENABLED=0 go build -o ../bin/config-manager .
 
+# Version and commit stamped into the datasource-gateway binary. VERSION is the
+# release version kept in cbmonitor/package.json. The Docker build passes
+# GIT_COMMIT, since its context has no .git.
+VERSION ?= $(shell sed -n 's/^  "version": *"\([^"]*\)".*/\1/p' cbmonitor/package.json)
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+
 # Build the datasource-gateway service
 build-gateway:
-	@echo "Building datasource-gateway service..."
-	@cd datasource-gateway && CGO_ENABLED=0 go build -o ../bin/datasource-gateway .
+	@echo "Building datasource-gateway service $(VERSION) ($(GIT_COMMIT))..."
+	@cd datasource-gateway && CGO_ENABLED=0 go build \
+		-ldflags "-X main.version=$(VERSION) -X main.revision=$(GIT_COMMIT)" \
+		-o ../bin/datasource-gateway .
 
 # Build the datasource-gateway service docker image (standalone compose project)
 build-gateway-docker: build-gateway

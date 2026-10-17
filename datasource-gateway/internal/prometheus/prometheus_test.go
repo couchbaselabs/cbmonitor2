@@ -1,12 +1,18 @@
 package prometheus
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/prometheus/client_golang/prometheus/testutil"
+
+	"github.com/couchbase/datasource-gateway/internal/metrics"
 )
 
 // TestReverseProxyForwardsToUpstream verifies the /api/v1 surface forwards
@@ -119,5 +125,73 @@ func TestReverseProxySendsEmbeddedCredentials(t *testing.T) {
 	}
 	if !gotOK || gotUser != "mimir" || gotPass != "s3cret" {
 		t.Errorf("upstream basic auth = (%q, %q, %v), want (mimir, s3cret, true)", gotUser, gotPass, gotOK)
+	}
+}
+
+// The passthrough proxy drives the transport directly, outside the client's
+// overall timeout, so an upstream that never answers must still be cut off.
+func TestReverseProxyGivesUpOnAnUnresponsiveUpstream(t *testing.T) {
+	release := make(chan struct{})
+	upstream := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { <-release }))
+	defer upstream.Close()
+	defer close(release)
+
+	saved := upstreamResponseTimeout
+	upstreamResponseTimeout = 50 * time.Millisecond
+	defer func() { upstreamResponseTimeout = saved }()
+	c := New(upstream.URL)
+
+	rec := httptest.NewRecorder()
+	done := make(chan struct{})
+	go func() {
+		c.ReverseProxy().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/query?query=1", nil))
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the proxy waited on an upstream that never answered")
+	}
+	if rec.Code != http.StatusBadGateway {
+		t.Errorf("status = %d, want 502", rec.Code)
+	}
+}
+
+// Upstream traffic is counted by result, including requests that fail
+// without a response (which the proxy turns into 502s); the health probe is
+// not traffic and is left out.
+func TestUpstreamRequestsAreCountedByResult(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("query") == "bad" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		_, _ = io.WriteString(w, `{"status":"success","data":{"resultType":"scalar","result":[0,"1"]}}`)
+	}))
+	defer upstream.Close()
+	count := func(result string) float64 {
+		return testutil.ToFloat64(metrics.UpstreamRequests.WithLabelValues("mimir", result))
+	}
+	ok, bad, failed := count("ok"), count("4xx"), count("error")
+
+	c := New(upstream.URL)
+	c.ReverseProxy().ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/v1/query?query=up", nil))
+	c.ReverseProxy().ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/v1/query?query=bad", nil))
+	if _, _, err := c.Query(context.Background(), "up", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if !c.Reachable(context.Background()) {
+		t.Fatal("upstream should be reachable")
+	}
+	New("http://127.0.0.1:0").ReverseProxy().ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/v1/query?query=up", nil))
+
+	if got := count("ok") - ok; got != 2 {
+		t.Errorf("ok = %v, want 2 (one proxied, one client query; not the health probe)", got)
+	}
+	if got := count("4xx") - bad; got != 1 {
+		t.Errorf("4xx = %v, want 1", got)
+	}
+	if got := count("error") - failed; got != 1 {
+		t.Errorf("error = %v, want 1 for the unreachable upstream", got)
 	}
 }

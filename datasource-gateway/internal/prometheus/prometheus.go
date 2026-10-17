@@ -12,7 +12,15 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/couchbase/datasource-gateway/internal/metrics"
 )
+
+// upstreamResponseTimeout bounds how long the upstream may take to start
+// answering. It covers the passthrough proxy, which drives the transport
+// directly and so is outside the client's overall timeout. It matches
+// Grafana's own default datasource timeout.
+var upstreamResponseTimeout = 30 * time.Second
 
 // Client is a thin HTTP client for an upstream Prometheus-compatible store.
 // It backs the passthrough path; the connection-pooling (keep-alive)
@@ -21,7 +29,9 @@ import (
 type Client struct {
 	baseURL string
 	http    *http.Client
-	proxy   http.Handler
+	// probe serves the health check; it is not counted as upstream traffic.
+	probe *http.Client
+	proxy http.Handler
 }
 
 // New builds a client for the given upstream base URL with a keep-alive
@@ -39,16 +49,36 @@ func New(baseURL string) *Client {
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
+		ResponseHeaderTimeout: upstreamResponseTimeout,
 	}
+	counted := countedTransport{next: transport}
 	trimmed := strings.TrimRight(baseURL, "/")
 	c := &Client{
 		baseURL: trimmed,
-		http:    &http.Client{Transport: transport, Timeout: 30 * time.Second},
+		http:    &http.Client{Transport: counted, Timeout: 30 * time.Second},
+		probe:   &http.Client{Transport: transport, Timeout: 30 * time.Second},
 	}
 	if u, err := url.Parse(trimmed); err == nil && u.Scheme != "" && u.Host != "" {
-		c.proxy = newReverseProxy(u, transport)
+		c.proxy = newReverseProxy(u, counted)
 	}
 	return c
+}
+
+// countedTransport records every request to the upstream, whether proxied or
+// issued by the client, including those that fail without a response: the
+// proxy turns those into 502s, so this is what separates a slow upstream from
+// a slow gateway.
+type countedTransport struct{ next http.RoundTripper }
+
+func (t countedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	start := time.Now()
+	resp, err := t.next.RoundTrip(req)
+	status := 0
+	if err == nil {
+		status = resp.StatusCode
+	}
+	metrics.ObserveUpstream("mimir", metrics.ResultForStatus(status), time.Since(start))
+	return resp, err
 }
 
 // URL returns the upstream base URL with any embedded credentials redacted.
@@ -149,7 +179,7 @@ func (c *Client) Reachable(ctx context.Context) bool {
 	if err != nil {
 		return false
 	}
-	resp, err := c.http.Do(req)
+	resp, err := c.probe.Do(req)
 	if err != nil {
 		return false
 	}
@@ -160,6 +190,7 @@ func (c *Client) Reachable(ctx context.Context) bool {
 // Close releases idle connections.
 func (c *Client) Close() error {
 	c.http.CloseIdleConnections()
+	c.probe.CloseIdleConnections()
 	return nil
 }
 

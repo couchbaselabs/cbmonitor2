@@ -3,11 +3,17 @@ package router
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
+	dto "github.com/prometheus/client_model/go"
+
 	"github.com/couchbase/datasource-gateway/internal/couchbase"
+	"github.com/couchbase/datasource-gateway/internal/metrics"
 )
 
 type fakeSource struct {
@@ -223,4 +229,68 @@ func TestResolveSurvivesFirstCallerCancellation(t *testing.T) {
 			t.Errorf("%s: expected the resolved window", name)
 		}
 	}
+}
+
+// Every decision is counted with the reason it was made, so a lookup that
+// falls back without the snapshot's window shows up instead of passing
+// silently.
+func TestResolveCountsDecisionsByReason(t *testing.T) {
+	finished := &couchbase.Metadata{TSStart: "2024-01-02T00:00:00Z", TSEnd: "2024-01-02T01:00:00Z"}
+	cases := []struct {
+		name   string
+		src    *fakeSource
+		id     string
+		store  Store
+		reason string
+	}{
+		{"no snapshot", &fakeSource{enabled: true}, "", StorePrometheus, metrics.ReasonNoSnapshot},
+		{"metadata disabled", &fakeSource{enabled: false}, "snap", StorePrometheus, metrics.ReasonCouchbaseDisabled},
+		{"finished snapshot", &fakeSource{enabled: true, md: finished}, "snap", StorePrometheus, metrics.ReasonResolved},
+		{"running snapshot", &fakeSource{enabled: true, md: &couchbase.Metadata{TSStart: "2024-01-02T00:00:00Z", TSEnd: "now"}}, "snap", StorePrometheus, metrics.ReasonLive},
+		{"couchbase-backed", &fakeSource{enabled: true, md: &couchbase.Metadata{Store: "couchbase", TSStart: finished.TSStart, TSEnd: finished.TSEnd}}, "snap", StoreCouchbase, metrics.ReasonResolved},
+		{"not a snapshot", &fakeSource{enabled: true, err: fmt.Errorf("%w: vmagent", couchbase.ErrSnapshotNotFound)}, "vmagent", StorePrometheus, metrics.ReasonNotFound},
+		{"lookup failed", &fakeSource{enabled: true, err: errors.New("unambiguous timeout")}, "snap", StorePrometheus, metrics.ReasonLookupFailed},
+		{"no window", &fakeSource{enabled: true, md: &couchbase.Metadata{TSStart: "garbage"}}, "snap", StorePrometheus, metrics.ReasonNoWindow},
+	}
+	for _, c := range cases {
+		counter := metrics.RouteDecisions.WithLabelValues(string(c.store), c.reason)
+		before := testutil.ToFloat64(counter)
+		New(c.src).Resolve(context.Background(), c.id)
+		if got := testutil.ToFloat64(counter) - before; got != 1 {
+			t.Errorf("%s: counted %v decisions as %s/%s, want 1", c.name, got, c.store, c.reason)
+		}
+	}
+}
+
+func TestResolveCountsCacheHits(t *testing.T) {
+	r := New(&fakeSource{enabled: true, md: &couchbase.Metadata{TSStart: "2024-01-02T00:00:00Z", TSEnd: "2024-01-02T01:00:00Z"}})
+	r.Resolve(context.Background(), "snap")
+	hits := metrics.RouteDecisions.WithLabelValues(string(StorePrometheus), metrics.ReasonCacheHit)
+	before := testutil.ToFloat64(hits)
+	r.Resolve(context.Background(), "snap")
+	if got := testutil.ToFloat64(hits) - before; got != 1 {
+		t.Errorf("counted %v cache hits, want 1", got)
+	}
+	if r.CachedRoutes() != 1 {
+		t.Errorf("CachedRoutes() = %d, want 1", r.CachedRoutes())
+	}
+}
+
+func TestResolveTimesLookupsByResult(t *testing.T) {
+	notFound := &fakeSource{enabled: true, err: fmt.Errorf("%w: x", couchbase.ErrSnapshotNotFound)}
+	h := metrics.MetadataLookupDuration.WithLabelValues("not_found").(prometheus.Histogram)
+	before := histogramCount(t, h)
+	New(notFound).Resolve(context.Background(), "x")
+	if got := histogramCount(t, h) - before; got != 1 {
+		t.Errorf("timed %d lookups under result=not_found, want 1", got)
+	}
+}
+
+func histogramCount(t *testing.T, h prometheus.Histogram) uint64 {
+	t.Helper()
+	var m dto.Metric
+	if err := h.Write(&m); err != nil {
+		t.Fatal(err)
+	}
+	return m.GetHistogram().GetSampleCount()
 }

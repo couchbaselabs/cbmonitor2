@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/couchbase/datasource-gateway/internal/metrics"
 	"github.com/couchbase/datasource-gateway/internal/router"
 )
 
@@ -74,9 +75,19 @@ func confineRange(route router.Route, form url.Values) (time.Time, time.Time) {
 	reqStart, ok1 := parseUnixSeconds(form.Get("start"))
 	reqEnd, ok2 := parseUnixSeconds(form.Get("end"))
 	if !ok1 || !ok2 || !reqEnd.After(reqStart) {
+		metrics.WindowClamped.WithLabelValues("range").Inc()
 		return route.Start, route.End
 	}
+	start, end := clipRange(route, reqStart, reqEnd)
+	if !start.Equal(reqStart) || !end.Equal(reqEnd) {
+		metrics.WindowClamped.WithLabelValues("range").Inc()
+	}
+	return start, end
+}
 
+// clipRange clips [reqStart, reqEnd] to the snapshot's window, or returns the
+// whole window when the two do not overlap.
+func clipRange(route router.Route, reqStart, reqEnd time.Time) (time.Time, time.Time) {
 	start, end := reqStart, reqEnd
 	if start.Before(route.Start) {
 		start = route.Start
@@ -153,6 +164,7 @@ func (h *Handler) handleQuery(w http.ResponseWriter, r *http.Request) {
 func confineInstant(route router.Route, form url.Values) time.Time {
 	ts, ok := parseUnixSeconds(form.Get("time"))
 	if !ok || ts.Before(route.Start) || ts.After(route.End) {
+		metrics.WindowClamped.WithLabelValues("instant").Inc()
 		return route.End
 	}
 	return ts
@@ -271,6 +283,7 @@ func floorStep(start, end time.Time, step time.Duration) time.Duration {
 	if step <= 0 || window/step <= maxPointsPerSeries {
 		return step
 	}
+	metrics.StepFloored.Inc()
 	return time.Duration(math.Ceil(window.Seconds()/maxPointsPerSeries)) * time.Second
 }
 
