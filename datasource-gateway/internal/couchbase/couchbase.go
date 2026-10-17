@@ -226,10 +226,35 @@ func (c *Client) executeQuery(ctx context.Context, query string, params map[stri
 		return nil, fmt.Errorf("execute query: %w", err)
 	}
 	defer results.Close()
+	return readRows(results, maxQueryRows)
+}
 
+// maxQueryRows bounds the rows one query may return. Rows are held in memory
+// until the series are built, at roughly 1 KB each once decoded, and the
+// engine's sample limit is only checked afterwards; without this a wide
+// selector over a long snapshot could exhaust the container's memory and take
+// the gateway down for every user. 200,000 rows is about 140 series across a
+// six-hour snapshot at a 15-second interval.
+const maxQueryRows = 200_000
+
+// ErrTooManyRows reports a query that would return more than maxQueryRows.
+var ErrTooManyRows = errors.New("query returns too many samples")
+
+// rowIterator is the part of a gocb query result readRows consumes.
+type rowIterator interface {
+	Next() bool
+	Row(valuePtr interface{}) error
+	Err() error
+}
+
+// readRows decodes every row, failing once there are more than limit.
+func readRows(results rowIterator, limit int) ([]map[string]interface{}, error) {
 	var rows []map[string]interface{}
 	var decodeErrs int
 	for results.Next() {
+		if len(rows) == limit {
+			return nil, fmt.Errorf("%w: more than %d; narrow the selector or the time range", ErrTooManyRows, limit)
+		}
 		var row map[string]interface{}
 		if err := results.Row(&row); err != nil {
 			decodeErrs++
