@@ -3,8 +3,10 @@ package metrics
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 )
 
@@ -40,5 +42,17 @@ func TestResultForStatus(t *testing.T) {
 		if got := ResultForStatus(status); got != want {
 			t.Errorf("ResultForStatus(%d) = %q, want %q", status, got, want)
 		}
+	}
+}
+
+func TestBuildInfoCarriesVersionAndRevision(t *testing.T) {
+	RegisterBuildInfo("2.0.0", "abc1234")
+	const want = `
+# HELP datasource_gateway_build_info 1, labelled with the running build's version and revision.
+# TYPE datasource_gateway_build_info gauge
+datasource_gateway_build_info{revision="abc1234",version="2.0.0"} 1
+`
+	if err := testutil.GatherAndCompare(prometheus.DefaultGatherer, strings.NewReader(want), "datasource_gateway_build_info"); err != nil {
+		t.Error(err)
 	}
 }

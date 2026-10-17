@@ -71,6 +71,16 @@ var (
 	}, []string{"backend"})
 )
 
+// RegisterBuildInfo exports the running build's version and revision as a
+// constant 1, so a dashboard shows which build is live.
+func RegisterBuildInfo(version, revision string) {
+	promauto.NewGauge(prometheus.GaugeOpts{
+		Name:        "datasource_gateway_build_info",
+		Help:        "1, labelled with the running build's version and revision.",
+		ConstLabels: prometheus.Labels{"version": version, "revision": revision},
+	}).Set(1)
+}
+
 // RegisterState exports the router cache size and whether Couchbase Server is
 // ready, read from the running components at scrape time.
 func RegisterState(cacheEntries func() int, couchbaseReady func() bool) {

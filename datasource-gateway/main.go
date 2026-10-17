@@ -20,6 +20,13 @@ import (
 	"github.com/couchbase/datasource-gateway/internal/router"
 )
 
+// version and revision are stamped at build time with
+// -ldflags "-X main.version=... -X main.revision=...".
+var (
+	version  = "unknown"
+	revision = "unknown"
+)
+
 func main() {
 	var configPath string
 	flag.StringVar(&configPath, "config", "", "Path to the configuration file")
@@ -45,7 +52,8 @@ func main() {
 
 	logger.InitLogger(cfg.Logging.Level)
 
-	logger.Info("datasource-gateway starting...")
+	logger.Info("datasource-gateway starting...", "version", version, "revision", revision)
+	metrics.RegisterBuildInfo(version, revision)
 	logger.Info("Configuration loaded",
 		"server_host", cfg.Server.Host,
 		"server_port", cfg.Server.Port,
