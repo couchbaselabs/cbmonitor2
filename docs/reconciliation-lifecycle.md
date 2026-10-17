@@ -130,7 +130,7 @@ Available at `GET /config/datasources` in the `reconciliation` field.
 
 Available at `POST /admin/reconcile-dashboards` (response body) or stored in `App.dashboardReconcileState`.
 
-**`"disabled"` status** means the plugin's service-account token or app URL was unavailable. This happens when the plugin runs under a Grafana version or configuration that does not expose the token via `PluginAppClientSecret()`. Check the plugin's IAM permissions block in `plugin.json` and the Grafana version (requires ≥ 11.6.0 per `plugin.json` `grafanaDependency`).
+**`"disabled"` status** means the plugin's service-account token or app URL was unavailable. This happens when the plugin runs under a Grafana version or configuration that does not expose the token via `PluginAppClientSecret()`. Check the plugin's IAM permissions block in `plugin.json` and the Grafana version (requires ≥ 13.2.0 per `plugin.json` `grafanaDependency`).
 
 ## Lifecycle Diagram
 
