@@ -3,6 +3,7 @@ package couchbase
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -34,5 +35,21 @@ func TestReadRowsStopsPastTheLimit(t *testing.T) {
 	}
 	if src.read > 11 {
 		t.Errorf("read %d rows before failing, want to stop at the limit", src.read)
+	}
+}
+
+// The row cap is the gateway's limit, not a Couchbase Server failure.
+func TestQueryResultLeavesTheRowCapOutOfBackendErrors(t *testing.T) {
+	for _, c := range []struct {
+		err  error
+		want string
+	}{
+		{nil, "ok"},
+		{fmt.Errorf("%w: more than 10", ErrTooManyRows), "ok"},
+		{errors.New("query error: timeout"), "error"},
+	} {
+		if got := queryResult(c.err); got != c.want {
+			t.Errorf("queryResult(%v) = %q, want %q", c.err, got, c.want)
+		}
 	}
 }

@@ -208,12 +208,18 @@ func (c *Client) ExecuteQuery(ctx context.Context, query string, params map[stri
 	}
 	start := time.Now()
 	rows, err := c.executeQuery(ctx, query, params)
-	result := metrics.ResultOK
-	if err != nil {
-		result = metrics.ResultError
-	}
-	metrics.ObserveUpstream("couchbase", result, time.Since(start))
+	metrics.ObserveUpstream("couchbase", queryResult(err), time.Since(start))
 	return rows, err
+}
+
+// queryResult is the upstream result for a SQL++ query. A query refused by
+// the gateway's own row cap was answered by Couchbase Server, so it is not a
+// backend error.
+func queryResult(err error) string {
+	if err == nil || errors.Is(err, ErrTooManyRows) {
+		return metrics.ResultOK
+	}
+	return metrics.ResultError
 }
 
 func (c *Client) executeQuery(ctx context.Context, query string, params map[string]interface{}) ([]map[string]interface{}, error) {
