@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { css, cx } from '@emotion/css';
 import { GrafanaTheme2 } from '@grafana/data';
 import { useStyles2 } from '@grafana/ui';
@@ -27,10 +27,13 @@ export function PhasePills({
 }: PhasePillsProps) {
     const styles = useStyles2(getStyles);
     const [active, setActive] = useState<string | null>(initialActivePhase ?? null);
+    const [prevInitialActivePhase, setPrevInitialActivePhase] = useState(initialActivePhase);
 
-    useEffect(() => {
+    // A new initial phase from the parent replaces the selection.
+    if (initialActivePhase !== prevInitialActivePhase) {
+        setPrevInitialActivePhase(initialActivePhase);
         setActive(initialActivePhase ?? null);
-    }, [initialActivePhase]);
+    }
 
     if (!phases || phases.length === 0) {
         return <span className={styles.empty}>No phases</span>;

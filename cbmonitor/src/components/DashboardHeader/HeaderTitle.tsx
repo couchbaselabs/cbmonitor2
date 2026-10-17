@@ -26,12 +26,15 @@ export function HeaderTitle({ metadata }: HeaderTitleProps) {
     const styles = useStyles2(getStyles);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [liveMetadata, setLiveMetadata] = useState<SnapshotMetadata>(metadata);
+    const [prevMetadata, setPrevMetadata] = useState(metadata);
     const [copied, setCopied] = useState(false);
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    useEffect(() => {
+    // New metadata from the parent replaces any refreshed copy.
+    if (metadata !== prevMetadata) {
+        setPrevMetadata(metadata);
         setLiveMetadata(metadata);
-    }, [metadata]);
+    }
 
     useEffect(() => {
         const unsubscribe = snapshotService.onSnapshotRefreshed((id) => {

@@ -80,12 +80,14 @@ function CompareHeaderContainer(props: CompareHeaderContainerProps) {
 
     // If overlap support is absent but the mode was somehow left on, force it
     // off so tabs rebuild in side-by-side mode.
+    if (!overlapAvailable && overlap) {
+        setOverlap(false);
+    }
     React.useEffect(() => {
-        if (!overlapAvailable && overlap) {
-            setOverlap(false);
+        if (!overlapAvailable && isOverlapModeEnabled()) {
             setOverlapMode(false);
         }
-    }, [overlapAvailable, overlap]);
+    }, [overlapAvailable]);
 
     const compareSettingsDropdown = React.useMemo(() => new SettingsDropdown({
         snapshotId: '',
