@@ -85,6 +85,35 @@ docker compose -f deployments/docker/compose.yml up --build -d
 
 `/healthz` returns `200 {"status":"ok"}` once it's up.
 
+The Docker build has no `.git` in its context, so pass the commit for
+`datasource_gateway_build_info`:
+`docker build --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) ...`.
+Without it the revision reads `unknown`.
+
+## Monitoring
+
+`/metrics` serves Prometheus metrics on the gateway's own port, alongside the
+Go runtime and process collectors. No label carries a snapshot ID or query
+text.
+
+| Metric | Labels | Meaning |
+|---|---|---|
+| `datasource_gateway_http_requests_total` | `route`, `code` | Requests. `route` is `query_range`, `query`, `labels`, `series`, `label_values`, `passthrough` or `healthz`. |
+| `datasource_gateway_http_request_duration_seconds` | `route` | Request latency, up to 120 s for the Couchbase Server path. |
+| `datasource_gateway_route_decisions_total` | `store`, `reason` | How each query was routed. `lookup_failed` means the metadata read failed and the query ran without the snapshot's window, so the panel can show data outside it. `not_found` is a job that is not a snapshot; `live` is a running snapshot, looked up on every request; `cache_hit` and `resolved` are finished snapshots. |
+| `datasource_gateway_metadata_lookup_duration_seconds` | `result` | Metadata reads (`ok`, `not_found`, `error`). Concurrent requests for one snapshot share a read. |
+| `datasource_gateway_upstream_requests_total` | `backend`, `result` | Requests to `mimir` and `couchbase` by `ok`, `4xx`, `5xx` or `error` (no response; the proxy answers 502). |
+| `datasource_gateway_upstream_request_duration_seconds` | `backend` | Backend latency. |
+| `datasource_gateway_router_cache_entries` | | Finished snapshots' routes held in the cache. |
+| `datasource_gateway_couchbase_ready` | | 1 once both buckets answer. |
+| `datasource_gateway_build_info` | `version`, `revision` | 1 for the running build. |
+| `datasource_gateway_overlap_requests_total`, `_overlap_snapshots`, `_overlap_leg_failures_total`, `_overlap_truncated_total` | | Comparisons, their size, snapshots dropped from them, and those cut past six. |
+| `datasource_gateway_window_clamped_total` | `kind` | Requests whose `range` or `instant` time was moved into the snapshot's window. |
+| `datasource_gateway_step_floored_total` | | Range queries whose step was raised to stay within 11,000 points per series. |
+
+A Couchbase Server query that would return more than 200,000 rows fails with
+an error asking to narrow it, rather than being read whole into memory.
+
 ## Configuration
 
 Settings are layered, each level overriding the one before it: built-in
