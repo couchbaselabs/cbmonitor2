@@ -11,6 +11,7 @@ import (
 	"github.com/couchbase/gocb/v2"
 
 	"github.com/couchbase/datasource-gateway/internal/logger"
+	"github.com/couchbase/datasource-gateway/internal/metrics"
 )
 
 const (
@@ -138,6 +139,9 @@ func (c *Client) Enabled() bool { return c.cfg.Enabled }
 // Ready reports whether the buckets have become reachable.
 func (c *Client) Ready() bool { return c.ready.Load() }
 
+// ErrSnapshotNotFound reports that a snapshot has no metadata document.
+var ErrSnapshotNotFound = errors.New("snapshot not found")
+
 // GetSnapshotMetadata fetches and parses the subset of a snapshot's metadata
 // document used for routing and time-window resolution.
 func (c *Client) GetSnapshotMetadata(ctx context.Context, snapshotID string) (*Metadata, error) {
@@ -147,7 +151,7 @@ func (c *Client) GetSnapshotMetadata(ctx context.Context, snapshotID string) (*M
 	res, err := c.metadataColl.Get(snapshotID, &gocb.GetOptions{Context: ctx, Timeout: queryTimeout})
 	if err != nil {
 		if errors.Is(err, gocb.ErrDocumentNotFound) {
-			return nil, fmt.Errorf("snapshot not found: %s", snapshotID)
+			return nil, fmt.Errorf("%w: %s", ErrSnapshotNotFound, snapshotID)
 		}
 		return nil, fmt.Errorf("fetch snapshot metadata: %w", err)
 	}
@@ -202,6 +206,41 @@ func (c *Client) ExecuteQuery(ctx context.Context, query string, params map[stri
 	if c.metricsScope == nil {
 		return nil, fmt.Errorf("couchbase metrics is unavailable")
 	}
+	start := time.Now()
+	rows, err := c.executeQuery(ctx, query, params)
+	metrics.ObserveUpstream("couchbase", queryResult(err), time.Since(start))
+	return rows, err
+}
+
+// queryResult is the upstream result for a SQL++ query. A failure Couchbase
+// Server answered with an HTTP error status is classified by it; any other
+// failure got no usable response. A query refused by the gateway's own row
+// cap was answered by Couchbase Server, so it is not a backend error.
+func queryResult(err error) string {
+	if err == nil || errors.Is(err, ErrTooManyRows) {
+		return metrics.ResultOK
+	}
+	if status := queryHTTPStatus(err); status >= 400 {
+		return metrics.ResultForStatus(status)
+	}
+	return metrics.ResultError
+}
+
+// queryHTTPStatus returns the HTTP status of a gocb query error, or 0. gocb
+// returns *QueryError, though the type implements error on its value.
+func queryHTTPStatus(err error) int {
+	var ptr *gocb.QueryError
+	if errors.As(err, &ptr) {
+		return ptr.HTTPStatusCode
+	}
+	var val gocb.QueryError
+	if errors.As(err, &val) {
+		return val.HTTPStatusCode
+	}
+	return 0
+}
+
+func (c *Client) executeQuery(ctx context.Context, query string, params map[string]interface{}) ([]map[string]interface{}, error) {
 	results, err := c.metricsScope.Query(query, &gocb.QueryOptions{
 		Context:         ctx,
 		Timeout:         queryTimeout,
@@ -211,10 +250,35 @@ func (c *Client) ExecuteQuery(ctx context.Context, query string, params map[stri
 		return nil, fmt.Errorf("execute query: %w", err)
 	}
 	defer results.Close()
+	return readRows(results, maxQueryRows)
+}
 
+// maxQueryRows bounds the rows one query may return. Rows are held in memory
+// until the series are built, at roughly 1 KB each once decoded, and the
+// engine's sample limit is only checked afterwards; without this a wide
+// selector over a long snapshot could exhaust the container's memory and take
+// the gateway down for every user. 200,000 rows is about 140 series across a
+// six-hour snapshot at a 15-second interval.
+const maxQueryRows = 200_000
+
+// ErrTooManyRows reports a query that would return more than maxQueryRows.
+var ErrTooManyRows = errors.New("query returns too many samples")
+
+// rowIterator is the part of a gocb query result readRows consumes.
+type rowIterator interface {
+	Next() bool
+	Row(valuePtr interface{}) error
+	Err() error
+}
+
+// readRows decodes every row, failing once there are more than limit.
+func readRows(results rowIterator, limit int) ([]map[string]interface{}, error) {
 	var rows []map[string]interface{}
 	var decodeErrs int
 	for results.Next() {
+		if len(rows) == limit {
+			return nil, fmt.Errorf("%w: more than %d; narrow the selector or the time range", ErrTooManyRows, limit)
+		}
 		var row map[string]interface{}
 		if err := results.Row(&row); err != nil {
 			decodeErrs++

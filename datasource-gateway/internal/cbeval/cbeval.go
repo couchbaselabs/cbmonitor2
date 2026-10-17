@@ -25,9 +25,11 @@ import (
 	"github.com/couchbase/datasource-gateway/internal/querybuilder"
 )
 
+// QueryTimeout bounds one query's evaluation over Couchbase Server samples.
+const QueryTimeout = 2 * time.Minute
+
 const (
 	defaultMaxSamples = 50_000_000
-	defaultTimeout    = 2 * time.Minute
 	// defaultSubqueryStep is the evaluation interval used for a subquery that
 	// specifies no step of its own (e.g. `max_over_time(x[10m:])`), matching
 	// Prometheus' own default evaluation interval.
@@ -71,7 +73,7 @@ type Evaluator struct {
 func NewEvaluator(querier RowQuerier, keyspace string) *Evaluator {
 	engine := promql.NewEngine(promql.EngineOpts{
 		MaxSamples:           defaultMaxSamples,
-		Timeout:              defaultTimeout,
+		Timeout:              QueryTimeout,
 		EnableAtModifier:     true,
 		EnableNegativeOffset: true,
 		// The engine calls this unconditionally for a step-less subquery, from

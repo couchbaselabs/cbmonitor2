@@ -9,8 +9,11 @@ WORKDIR /app
 # Copy the entire project
 COPY . .
 
+# The build context excludes .git, so the commit comes in as a build argument.
+ARG GIT_COMMIT=unknown
+
 # Build the datasource-gateway service using the Makefile
-RUN make build-gateway
+RUN make build-gateway GIT_COMMIT=${GIT_COMMIT}
 
 FROM alpine:latest
 

@@ -2,6 +2,7 @@ package router
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"golang.org/x/sync/singleflight"
 
 	"github.com/couchbase/datasource-gateway/internal/couchbase"
+	"github.com/couchbase/datasource-gateway/internal/metrics"
 )
 
 // Store identifies which backend holds a snapshot's metrics.
@@ -63,55 +65,92 @@ func New(cb metadataSource) *Router {
 	}
 }
 
-// Resolve returns the routing decision for a snapshot. Queries with no snapshot
-// (empty id) or when Couchbase is disabled fall back to Prometheus passthrough.
-// A failed metadata lookup also falls back to Prometheus and is not cached, so
-// a transient error doesn't pin a wrong decision for the cache TTL.
+// Resolve returns the routing decision for a snapshot, and counts it by store
+// and reason. Queries with no snapshot (empty id) or when Couchbase is
+// disabled fall back to Prometheus passthrough. A failed metadata lookup also
+// falls back to Prometheus and is not cached, so a transient error doesn't pin
+// a wrong decision for the cache TTL.
 func (r *Router) Resolve(ctx context.Context, snapshotID string) Route {
-	if snapshotID == "" || r.cb == nil || !r.cb.Enabled() {
-		return Route{Snapshot: snapshotID, Store: StorePrometheus}
+	rt, reason := r.resolve(ctx, snapshotID)
+	metrics.RouteDecisions.WithLabelValues(string(rt.Store), reason).Inc()
+	return rt
+}
+
+// resolution is a route with the reason it was decided, shared by every
+// caller waiting on the same metadata fetch.
+type resolution struct {
+	route  Route
+	reason string
+}
+
+func (r *Router) resolve(ctx context.Context, snapshotID string) (Route, string) {
+	if snapshotID == "" {
+		return Route{Store: StorePrometheus}, metrics.ReasonNoSnapshot
+	}
+	if r.cb == nil || !r.cb.Enabled() {
+		return Route{Snapshot: snapshotID, Store: StorePrometheus}, metrics.ReasonCouchbaseDisabled
 	}
 	if rt, ok := r.cache.Get(snapshotID); ok {
-		return rt
+		return rt, metrics.ReasonCacheHit
 	}
 	v, _, _ := r.group.Do(snapshotID, func() (any, error) {
 		if rt, ok := r.cache.Get(snapshotID); ok {
-			return rt, nil
+			return resolution{rt, metrics.ReasonCacheHit}, nil
 		}
 		// The shared fetch must not inherit the first caller's cancellation:
 		// every waiter would then get the fallback route because one panel's
 		// request happened to be cancelled mid-flight.
 		fetchCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), metadataFetchTimeout)
 		defer cancel()
-		rt, cacheable := r.resolveUncached(fetchCtx, snapshotID)
-		if cacheable {
+		rt, reason := r.resolveUncached(fetchCtx, snapshotID)
+		if reason == metrics.ReasonResolved {
 			r.cache.Add(snapshotID, rt)
 		}
-		return rt, nil
+		return resolution{rt, reason}, nil
 	})
-	return v.(Route)
+	res := v.(resolution)
+	return res.route, res.reason
 }
 
-// resolveUncached fetches and interprets a snapshot's metadata. The bool
-// reports whether the result is safe to cache: a failed lookup is retried on
-// the next request, and a still-running snapshot's window keeps moving, so
+// CachedRoutes reports how many snapshot routes the cache holds.
+func (r *Router) CachedRoutes() int { return r.cache.Len() }
+
+// resolveUncached fetches and interprets a snapshot's metadata. Only a
+// ReasonResolved route is safe to cache: a failed lookup is retried on the
+// next request, and a still-running snapshot's window keeps moving, so
 // neither is pinned for the cache TTL.
-func (r *Router) resolveUncached(ctx context.Context, snapshotID string) (Route, bool) {
+func (r *Router) resolveUncached(ctx context.Context, snapshotID string) (Route, string) {
+	started := time.Now()
 	md, err := r.cb.GetSnapshotMetadata(ctx, snapshotID)
+	lookup := "ok"
+	switch {
+	case errors.Is(err, couchbase.ErrSnapshotNotFound):
+		lookup = "not_found"
+	case err != nil:
+		lookup = "error"
+	}
+	metrics.MetadataLookupDuration.WithLabelValues(lookup).Observe(time.Since(started).Seconds())
 	if err != nil {
-		// No metadata doc (or transient error): fall back to passthrough and
-		// don't cache, so the next request retries the lookup.
-		return Route{Snapshot: snapshotID, Store: StorePrometheus}, false
+		// Fall back to passthrough and don't cache, so the next request
+		// retries the lookup.
+		fallback := Route{Snapshot: snapshotID, Store: StorePrometheus}
+		if lookup == "not_found" {
+			return fallback, metrics.ReasonNotFound
+		}
+		return fallback, metrics.ReasonLookupFailed
 	}
 	rt := Route{Snapshot: snapshotID, Store: storeFromMetadata(md)}
 	start, end, live, ok := parseWindow(md)
 	if !ok {
 		// An unparseable window is usually a metadata doc still being written;
 		// retry rather than pinning a windowless route.
-		return rt, false
+		return rt, metrics.ReasonNoWindow
 	}
 	rt.Start, rt.End, rt.HasWindow, rt.Live = start, end, true, live
-	return rt, !live
+	if live {
+		return rt, metrics.ReasonLive
+	}
+	return rt, metrics.ReasonResolved
 }
 
 // storeFromMetadata honours an explicit `store` field; absent that, the
