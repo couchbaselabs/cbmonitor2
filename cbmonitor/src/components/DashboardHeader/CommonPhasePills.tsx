@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { css, cx } from '@emotion/css';
 import { GrafanaTheme2 } from '@grafana/data';
 import { useStyles2 } from '@grafana/ui';
@@ -22,12 +22,15 @@ export function CommonPhasePills({
 }: CommonPhasePillsProps) {
     const styles = useStyles2(getStyles);
     const [active, setActive] = useState<string | null>(null);
+    const [wasDisabled, setWasDisabled] = useState(disabled);
 
-    useEffect(() => {
+    // Disabling clears the selection.
+    if (disabled !== wasDisabled) {
+        setWasDisabled(disabled);
         if (disabled) {
             setActive(null);
         }
-    }, [disabled]);
+    }
 
     const noneActive = active === null;
 

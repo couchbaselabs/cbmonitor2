@@ -72,7 +72,7 @@ App plugins can let you create a custom out-of-the-box monitoring experience by 
    npm run server
 
    # If you wish to start a certain Grafana version. If not specified will use latest by default
-   GRAFANA_VERSION=11.3.0 npm run server
+   GRAFANA_VERSION=13.2.2 npm run server
 
    # Starts the tests
    npm run e2e

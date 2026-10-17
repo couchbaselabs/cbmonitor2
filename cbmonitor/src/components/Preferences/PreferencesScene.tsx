@@ -101,14 +101,14 @@ function CachedSnapshotsSection() {
     const [totalSize, setTotalSize] = useState<number>(0);
     const [confirmClearOpen, setConfirmClearOpen] = useState(false);
 
-    const reload = useCallback(async () => {
-        const [list, total] = await Promise.all([
-            snapshotCacheStore.list(),
-            snapshotCacheStore.totalSizeBytes(),
-        ]);
-        setEntries(list);
-        setTotalSize(total);
-    }, []);
+    const reload = useCallback(
+        () =>
+            Promise.all([snapshotCacheStore.list(), snapshotCacheStore.totalSizeBytes()]).then(([list, total]) => {
+                setEntries(list);
+                setTotalSize(total);
+            }),
+        []
+    );
 
     useEffect(() => {
         void reload();

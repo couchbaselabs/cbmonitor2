@@ -265,32 +265,32 @@ const AppConfig = ({ plugin }: AppConfigProps) => {
     });
   };
 
-  const toggleSnapshots = (e: React.FormEvent<HTMLInputElement>) => {
+  const toggleSnapshots = (e: ChangeEvent<HTMLInputElement>) => {
     setState({ ...state, snapshots: { ...state.snapshots, enabled: e.currentTarget.checked } });
   };
-  const toggleCouchbaseDs = (e: React.FormEvent<HTMLInputElement>) => {
+  const toggleCouchbaseDs = (e: ChangeEvent<HTMLInputElement>) => {
     setState({ ...state, couchbaseDatasource: { ...state.couchbaseDatasource, enabled: e.currentTarget.checked } });
   };
-  const togglePromDs = (e: React.FormEvent<HTMLInputElement>) => {
+  const togglePromDs = (e: ChangeEvent<HTMLInputElement>) => {
     setState({ ...state, prometheusDatasource: { ...state.prometheusDatasource, enabled: e.currentTarget.checked } });
   };
-  const togglePromDefault = (e: React.FormEvent<HTMLInputElement>) => {
+  const togglePromDefault = (e: ChangeEvent<HTMLInputElement>) => {
     setState({ ...state, prometheusDatasource: { ...state.prometheusDatasource, isDefault: e.currentTarget.checked } });
   };
   const onChangePromUrl = (event: ChangeEvent<HTMLInputElement>) => {
     setState({ ...state, prometheusDatasource: { ...state.prometheusDatasource, url: event.target.value.trim() } });
   };
-  const toggleGateway = (e: React.FormEvent<HTMLInputElement>) => {
+  const toggleGateway = (e: ChangeEvent<HTMLInputElement>) => {
     setState({ ...state, gateway: { ...state.gateway, enabled: e.currentTarget.checked } });
   };
-  const toggleGatewayOverlap = (e: React.FormEvent<HTMLInputElement>) => {
+  const toggleGatewayOverlap = (e: ChangeEvent<HTMLInputElement>) => {
     setState({ ...state, gateway: { ...state.gateway, overlap: e.currentTarget.checked } });
   };
   const onChangeGatewayUrl = (event: ChangeEvent<HTMLInputElement>) => {
     setState({ ...state, gateway: { ...state.gateway, url: event.target.value.trim() } });
   };
 
-  const onSubmit = (event: React.FormEvent) => {
+  const onSubmit = (event: React.SyntheticEvent) => {
     event.preventDefault();
     if (isSubmitDisabled) {
       return;
