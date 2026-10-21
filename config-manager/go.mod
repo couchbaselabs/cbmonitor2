@@ -1,6 +1,6 @@
 module github.com/couchbase/config-manager
 
-go 1.27.0
+go 1.27.3
 
 require (
 	github.com/couchbase/gocb/v2 v2.12.5

@@ -23,7 +23,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.27'
+          go-version-file: cbmonitor/go.mod
 
       - name: Install mage
         run: go install github.com/magefile/mage@latest
@@ -80,7 +80,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.27'
+          go-version-file: config-manager/go.mod
 
       - name: Build
         env:
@@ -117,7 +117,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.27'
+          go-version-file: datasource-gateway/go.mod
 
       - name: Build
         env:
