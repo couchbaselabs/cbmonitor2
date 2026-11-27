@@ -98,27 +98,6 @@ func (m *memMetadata) Update(id string, fn func(*models.SnapshotMetadata) error)
 	return nil
 }
 
-func (m *memMetadata) UpdatePhase(id, phase, mode string, at time.Time) error {
-	return m.Update(id, func(md *models.SnapshotMetadata) error {
-		md.ApplyPhase(phase, mode, at)
-		return nil
-	})
-}
-
-func (m *memMetadata) UpdateServices(id string, services []string) error {
-	return m.Update(id, func(md *models.SnapshotMetadata) error {
-		md.Services = append(md.Services, services...)
-		return nil
-	})
-}
-
-func (m *memMetadata) EoLSnapshot(id string, at time.Time) error {
-	return m.Update(id, func(md *models.SnapshotMetadata) error {
-		md.TsEnd = at.Format(time.RFC3339Nano)
-		return nil
-	})
-}
-
 func (m *memMetadata) doc(t *testing.T, id string) *models.SnapshotMetadata {
 	t.Helper()
 	m.mu.Lock()
@@ -137,7 +116,6 @@ func (m *memMetadata) Ping() error {
 }
 
 func (m *memMetadata) Close() error { return nil }
-func (m *memMetadata) Type() string { return "memory" }
 
 var _ storage.MetadataStorage = (*memMetadata)(nil)
 
@@ -703,8 +681,8 @@ func TestPutReopensASweptSnapshot(t *testing.T) {
 	started := h.metadata.doc(t, id).TsStart
 
 	// The manager loop sweeps it: end of life recorded, file removed.
-	if err := h.metadata.EoLSnapshot(id, time.Now()); err != nil {
-		t.Fatal(err)
+	if !h.handler.EndSnapshot(id, time.Now()) {
+		t.Fatal("end of life was not recorded")
 	}
 	if err := os.Remove(h.scrapeFile(id)); err != nil {
 		t.Fatal(err)

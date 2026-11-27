@@ -90,12 +90,16 @@ func TestUpdateKeepsAConcurrentWritersChange(t *testing.T) {
 			return
 		}
 		fired = true
-		if err := cs.UpdatePhase("snap", "load", "start", time.Now()); err != nil {
-			t.Errorf("competing UpdatePhase: %v", err)
+		if err := applyPhase(cs, "snap", "load", "start", time.Now()); err != nil {
+			t.Errorf("competing phase write: %v", err)
 		}
 	}
-	if err := cs.UpdateServices("snap", []string{"kv"}); err != nil {
-		t.Fatalf("UpdateServices: %v", err)
+	err := cs.Update("snap", func(md *models.SnapshotMetadata) error {
+		md.MergeServices([]string{"kv"})
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("services write: %v", err)
 	}
 
 	md, _ := cs.GetMetadata("snap")
@@ -114,8 +118,8 @@ func TestConcurrentPhaseUpdatesAreNotLost(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			if err := cs.UpdatePhase("snap", fmt.Sprintf("phase-%d", i), "start", time.Now()); err != nil {
-				t.Errorf("UpdatePhase %d: %v", i, err)
+			if err := applyPhase(cs, "snap", fmt.Sprintf("phase-%d", i), "start", time.Now()); err != nil {
+				t.Errorf("phase write %d: %v", i, err)
 			}
 		}(i)
 	}
@@ -151,7 +155,7 @@ func TestReplayedPhaseWritesChangeNothing(t *testing.T) {
 	}
 	for range 2 {
 		for _, w := range writes {
-			if err := cs.UpdatePhase("snap", w.phase, w.mode, w.at); err != nil {
+			if err := applyPhase(cs, "snap", w.phase, w.mode, w.at); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -196,7 +200,10 @@ func TestUpdateGivesUpOnAPersistentConflict(t *testing.T) {
 		_ = store.upsert("snap", &models.SnapshotMetadata{SnapshotID: "snap"})
 	}
 
-	err := cs.EoLSnapshot("snap", time.Now())
+	err := cs.Update("snap", func(md *models.SnapshotMetadata) error {
+		md.TsEnd = time.Now().Format(time.RFC3339Nano)
+		return nil
+	})
 	if !errors.Is(err, errCASMismatch) {
 		t.Fatalf("err = %v, want a CAS mismatch after retrying", err)
 	}
@@ -214,13 +221,10 @@ func TestUpdateOnAMissingDocumentDoesNotCallFn(t *testing.T) {
 	}
 }
 
-func TestUpdatePhaseRejectsAnUnknownModeWithoutReading(t *testing.T) {
-	cs, store := newTestCouchbaseStorage(t)
-	seed(t, cs, "snap")
-	if err := cs.UpdatePhase("snap", "load", "pause", time.Now()); err == nil {
-		t.Fatal("expected an error for mode \"pause\"")
-	}
-	if store.replaces != 0 {
-		t.Error("an invalid mode must not write the document")
-	}
+// applyPhase records a phase event through Update, the way a queued write does.
+func applyPhase(cs *CouchbaseStorage, id, phase, mode string, at time.Time) error {
+	return cs.Update(id, func(md *models.SnapshotMetadata) error {
+		md.ApplyPhase(phase, mode, at)
+		return nil
+	})
 }

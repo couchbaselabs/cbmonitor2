@@ -21,7 +21,7 @@ func TestReconnectingStorageFailsUntilConnectedThenDelegates(t *testing.T) {
 	defer rs.Close()
 
 	// Writes fail rather than report success, so they queue.
-	if err := rs.EoLSnapshot("snap", time.Now()); !errors.Is(err, ErrMetadataUnavailable) {
+	if err := endOfLife(rs, "snap"); !errors.Is(err, ErrMetadataUnavailable) {
 		t.Fatalf("before connecting: err = %v, want ErrMetadataUnavailable", err)
 	}
 	if err := rs.Ping(); err == nil {
@@ -40,7 +40,7 @@ func TestReconnectingStorageFailsUntilConnectedThenDelegates(t *testing.T) {
 	if err := rs.SaveMetadata(&models.SnapshotMetadata{SnapshotID: "snap", TsEnd: "now"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := rs.EoLSnapshot("snap", time.Now()); err != nil {
+	if err := endOfLife(rs, "snap"); err != nil {
 		t.Fatalf("after connecting: %v", err)
 	}
 	if md, _ := rs.GetMetadata("snap"); md == nil || md.TsEnd == "now" {
@@ -61,4 +61,12 @@ func TestReconnectingStorageStopsRetryingOnClose(t *testing.T) {
 	if attempts.Load() > after+1 {
 		t.Errorf("kept retrying after Close: %d then %d attempts", after, attempts.Load())
 	}
+}
+
+// endOfLife records an end of life through s, the way a queued write does.
+func endOfLife(s MetadataStorage, id string) error {
+	return s.Update(id, func(md *models.SnapshotMetadata) error {
+		md.TsEnd = time.Now().Format(time.RFC3339Nano)
+		return nil
+	})
 }

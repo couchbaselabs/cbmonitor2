@@ -77,23 +77,29 @@ func (w *metadataWrites) enqueue(id string, ops []storage.PendingOp) {
 }
 
 func (w *metadataWrites) apply(id string, op storage.PendingOp) error {
+	var change func(*models.SnapshotMetadata)
 	switch op.Op {
 	case storage.OpPhase:
-		return w.storage.UpdatePhase(id, op.Phase, op.Mode, op.At)
+		change = func(md *models.SnapshotMetadata) { md.ApplyPhase(op.Phase, op.Mode, op.At) }
 	case storage.OpServices:
-		return w.storage.UpdateServices(id, op.Services)
+		change = func(md *models.SnapshotMetadata) { md.MergeServices(op.Services) }
 	case storage.OpEnd:
-		return w.storage.EoLSnapshot(id, op.At)
+		change = func(md *models.SnapshotMetadata) { md.TsEnd = op.At.Format(time.RFC3339Nano) }
 	case storage.OpReopen:
-		return w.storage.Update(id, func(md *models.SnapshotMetadata) error {
-			md.TsEnd = "now"
-			return nil
-		})
+		change = func(md *models.SnapshotMetadata) { md.TsEnd = "now" }
 	default:
 		// Unknown ops cannot become applicable; applying nothing drops them.
 		logger.Warn("Dropping unknown queued metadata write", "snapshot", id, "op", op.Op)
 		return nil
 	}
+	err := w.storage.Update(id, func(md *models.SnapshotMetadata) error {
+		change(md)
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("apply %s: %w", op.Op, err)
+	}
+	return nil
 }
 
 // drain retries every snapshot's queued writes once, stopping between

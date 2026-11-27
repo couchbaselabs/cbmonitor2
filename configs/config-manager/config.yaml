@@ -17,7 +17,6 @@ manager:
 
 # Metadata configuration for storing cluster metadata in Couchbase
 metadata:
-  enabled: true
   host: "localhost"
   bucket: "metadata"
   timeout: 30s

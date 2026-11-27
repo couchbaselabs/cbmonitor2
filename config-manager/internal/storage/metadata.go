@@ -1,96 +1,19 @@
 package storage
 
 import (
-	"errors"
-	"time"
-
-	"github.com/couchbase/config-manager/internal/config"
-	"github.com/couchbase/config-manager/internal/logger"
 	"github.com/couchbase/config-manager/internal/models"
 )
 
-// MetadataStorage defines the interface for storing and retrieving metadata
+// MetadataStorage stores snapshot metadata documents. CouchbaseStorage is the
+// store; ReconnectingStorage stands in for it until Couchbase Server is
+// reachable.
 type MetadataStorage interface {
 	SaveMetadata(metadata *models.SnapshotMetadata) error
 	GetMetadata(snapshotID string) (*models.SnapshotMetadata, error)
-	// UpdatePhase and EoLSnapshot record at, the moment the client reported the
-	// event, so a write retried later still carries the right time.
-	UpdatePhase(snapshotID string, phase string, mode string, at time.Time) error
-	UpdateServices(snapshotID string, services []string) error
-	EoLSnapshot(snapshotID string, at time.Time) error
 	// Update applies fn to the current document and writes it back without
 	// overwriting a concurrent change; see CouchbaseStorage.Update.
 	Update(snapshotID string, fn func(*models.SnapshotMetadata) error) error
 	// Ping reports whether the store can be reached.
 	Ping() error
 	Close() error
-	Type() string
-}
-
-// NewMetadataStorage creates the appropriate metadata storage based on configuration
-func NewMetadataStorage(cfg *config.Config) (MetadataStorage, error) {
-	if cfg.Metadata.Enabled {
-		return NewCouchbaseStorage(cfg)
-	}
-
-	// Fallback to file storage if metadata is disabled
-	logger.Info("Metadata storage is disabled. Storing metadata in file.", "directory", cfg.Agent.Directory)
-	return NewFileMetadataStorage(cfg.Agent.Directory), nil
-}
-
-// All of these methods are fall-back, they are supposed to have implementations for physical files 
-// Since metadata is enabled, they theoretically should not be used
-// FileMetadataStorage implements MetadataStorage using files (fallback)
-type FileMetadataStorage struct {
-	baseDirectory string
-}
-
-// NewFileMetadataStorage creates a file-based metadata storage
-func NewFileMetadataStorage(baseDirectory string) *FileMetadataStorage {
-	return &FileMetadataStorage{
-		baseDirectory: baseDirectory,
-	}
-}
-
-// SaveMetadata saves metadata to a file (fallback implementation)
-func (fs *FileMetadataStorage) SaveMetadata(metadata *models.SnapshotMetadata) error {
-	// This is a no-op fallback - metadata collection is disabled
-	return nil
-}
-
-// GetMetadata retrieves metadata from a file (fallback implementation)
-func (fs *FileMetadataStorage) GetMetadata(snapshotID string) (*models.SnapshotMetadata, error) {
-	// This is a no-op fallback - metadata collection is disabled
-	return nil, nil
-}
-
-// Ping reports that metadata is not being recorded at all.
-func (fs *FileMetadataStorage) Ping() error {
-	return errors.New("metadata is not recorded: file storage is a no-op fallback")
-}
-
-// Close closes the file storage (no-op for file storage)
-func (fs *FileMetadataStorage) Close() error {
-	return nil
-}
-
-// Type returns the type of the metadata storage
-func (fs *FileMetadataStorage) Type() string {
-	return "file"
-}
-
-func (fs *FileMetadataStorage) UpdatePhase(snapshotID string, phase string, mode string, at time.Time) error {
-	return nil	
-}
-
-func (fs *FileMetadataStorage) UpdateServices(snapshotID string, services []string) error {
-	return nil
-}
-
-func (fs *FileMetadataStorage) Update(snapshotID string, fn func(*models.SnapshotMetadata) error) error {
-	return nil
-}
-
-func (fs *FileMetadataStorage) EoLSnapshot(snapshotID string, at time.Time) error {
-	return nil	
 }

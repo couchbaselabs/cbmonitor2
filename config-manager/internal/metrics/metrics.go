@@ -80,12 +80,6 @@ var (
 		Name: "config_manager_pending_metadata_writes",
 		Help: "Metadata writes currently queued for retry.",
 	})
-	// MetadataStorageInfo is 1 for the storage in use. "file" means metadata
-	// recording is turned off in the configuration.
-	MetadataStorageInfo = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "config_manager_metadata_storage_info",
-		Help: "1 for the metadata storage in use; \"file\" records nothing.",
-	}, []string{"type"})
 )
 
 // Instrument wraps an API route to count its requests and time them. route

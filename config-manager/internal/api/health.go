@@ -80,7 +80,7 @@ func (hc *Health) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		resp.Checks["sweep"] = sweep
 	}
 
-	store := healthCheck{OK: true, Detail: map[string]interface{}{"type": hc.Storage.Type()}}
+	store := healthCheck{OK: true}
 	if err := hc.Storage.Ping(); err != nil {
 		store.OK, store.Error = false, err.Error()
 		fail("metadata_store", store, false)

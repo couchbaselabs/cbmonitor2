@@ -94,6 +94,21 @@ func (md *SnapshotMetadata) ApplyPhase(label, mode string, at time.Time) {
 	}
 }
 
+// MergeServices appends the services not already recorded, keeping order, so
+// applying the same list again changes nothing.
+func (md *SnapshotMetadata) MergeServices(services []string) {
+	seen := make(map[string]bool, len(md.Services)+len(services))
+	for _, s := range md.Services {
+		seen[s] = true
+	}
+	for _, s := range services {
+		if !seen[s] {
+			md.Services = append(md.Services, s)
+			seen[s] = true
+		}
+	}
+}
+
 type PoolsDefault struct {
 	Nodes []NodeInfo `json:"nodes"`
 }

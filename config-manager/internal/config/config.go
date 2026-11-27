@@ -29,7 +29,6 @@ type Config struct {
 		StaleThreshold time.Duration   `yaml:"stale_threshold"`
 	} `yaml:"manager"`
 	Metadata struct {
-		Enabled     bool   `yaml:"enabled"`
 		Host        string `yaml:"host"`
 		Username    string `yaml:"username"`
 		Password    string `yaml:"password"`
@@ -51,7 +50,6 @@ var envOverrides = map[string]string{
 	"CM_MANAGER_INTERVAL":        "manager.interval",
 	"CM_MANAGER_MIN_INTERVAL":    "manager.min_interval",
 	"CM_MANAGER_STALE_THRESHOLD": "manager.stale_threshold",
-	"CM_METADATA_ENABLED":        "metadata.enabled",
 	"CM_METADATA_HOST":           "metadata.host",
 	"CM_METADATA_USERNAME":       "metadata.username",
 	"CM_METADATA_PASSWORD":       "metadata.password",
@@ -238,7 +236,6 @@ func setDefaults(config *Config) {
 	config.Manager.MinInterval = 5 * time.Minute
 
 	// Metadata defaults
-	config.Metadata.Enabled = true
 	config.Metadata.Host = "localhost"
 	config.Metadata.Username = "Administrator"
 	config.Metadata.Password = "password"

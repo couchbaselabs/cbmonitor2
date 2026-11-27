@@ -64,7 +64,6 @@ func main() {
 		"manager_interval", cfg.Manager.Interval,
 		"manager_min_interval", cfg.Manager.MinInterval,
 		"manager_stale_threshold", cfg.Manager.StaleThreshold,
-		"metadata_enabled", cfg.Metadata.Enabled,
 		"metadata_host", cfg.Metadata.Host,
 		"metadata_bucket", cfg.Metadata.Bucket,
 	)
@@ -90,18 +89,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize metadata storage
-	metadataStorage, err := storage.NewMetadataStorage(cfg)
-	if err != nil {
-		// Only an enabled metadata store that cannot reach Couchbase Server
-		// errors here. Keep trying in the background; metadata writes queue
-		// until it connects.
+	// Connect to the metadata store. If Couchbase Server is unreachable, keep
+	// trying in the background; metadata writes queue until it connects.
+	var metadataStorage storage.MetadataStorage
+	if cs, err := storage.NewCouchbaseStorage(cfg); err != nil {
 		logger.Error("Metadata store unreachable at startup; retrying in the background, metadata writes queue until it connects", "error", err)
 		metadataStorage = storage.NewReconnectingStorage(cfg, 15*time.Second)
 	} else {
-		logger.Info("Metadata storage initialized", "type", metadataStorage.Type())
+		metadataStorage = cs
 	}
-	metrics.MetadataStorageInfo.WithLabelValues(metadataStorage.Type()).Set(1)
 
 	// Metadata writes that fail are queued on disk and retried in the background.
 	pending, err := storage.NewPendingQueue(cfg.Agent.Directory)

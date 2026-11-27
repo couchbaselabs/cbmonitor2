@@ -358,7 +358,7 @@ Reports whether config-manager can do its job. Unlike the API routes it is not u
   "checks": {
     "snapshot_directory": {"ok": true},
     "sweep": {"ok": true, "detail": {"last_success": "2026-09-30T10:15:02Z"}},
-    "metadata_store": {"ok": false, "error": "unambiguous timeout", "detail": {"type": "couchbase"}}
+    "metadata_store": {"ok": false, "error": "unambiguous timeout"}
   },
   "pending_metadata_writes": 3
 }
@@ -431,7 +431,7 @@ Settings are layered, each overriding the one before: built-in defaults, the con
 | `agent.type`, `agent.directory` | `CM_AGENT_TYPE`, `CM_AGENT_DIRECTORY` |
 | `logging.level` | `CM_LOG_LEVEL` |
 | `manager.interval`, `manager.min_interval`, `manager.stale_threshold` | `CM_MANAGER_INTERVAL`, `CM_MANAGER_MIN_INTERVAL`, `CM_MANAGER_STALE_THRESHOLD` |
-| `metadata.enabled`, `metadata.host`, `metadata.bucket`, `metadata.timeout` | `CM_METADATA_ENABLED`, `CM_METADATA_HOST`, `CM_METADATA_BUCKET`, `CM_METADATA_TIMEOUT` |
+| `metadata.host`, `metadata.bucket`, `metadata.timeout` | `CM_METADATA_HOST`, `CM_METADATA_BUCKET`, `CM_METADATA_TIMEOUT` |
 | `metadata.username`, `metadata.password` | `CM_METADATA_USERNAME`, `CM_METADATA_PASSWORD` |
 
 **Configuration Notes:**

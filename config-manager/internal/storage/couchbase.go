@@ -79,10 +79,6 @@ var casBackoff = func(attempt int) time.Duration {
 
 // NewCouchbaseStorage creates a new Couchbase storage instance
 func NewCouchbaseStorage(cfg *config.Config) (*CouchbaseStorage, error) {
-	if !cfg.Metadata.Enabled {
-		return nil, fmt.Errorf("metadata storage is disabled")
-	}
-
 	// Build connection string. If the configured host already includes a
 	// URI scheme, use it as-is; otherwise default to plaintext couchbase://
 	connectionString := cfg.Metadata.Host
@@ -195,60 +191,4 @@ func (cs *CouchbaseStorage) Close() error {
 		return cs.cluster.Close(nil)
 	}
 	return nil
-}
-
-// Type returns the type of the metadata storage
-func (cs *CouchbaseStorage) Type() string {
-	return "couchbase"
-}
-
-func (cs *CouchbaseStorage) UpdatePhase(snapshotID string, phase string, mode string, at time.Time) error {
-	if mode != "start" && mode != "end" {
-		return fmt.Errorf("invalid mode: %s", mode)
-	}
-	err := cs.Update(snapshotID, func(md *models.SnapshotMetadata) error {
-		md.ApplyPhase(phase, mode, at)
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update phase: %w", err)
-	}
-	return nil
-}
-
-func (cs *CouchbaseStorage) UpdateServices(snapshotID string, services []string) error {
-	err := cs.Update(snapshotID, func(md *models.SnapshotMetadata) error {
-		md.Services = mergeServices(md.Services, services)
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update services: %w", err)
-	}
-	return nil
-}
-
-func (cs *CouchbaseStorage) EoLSnapshot(snapshotID string, at time.Time) error {
-	err := cs.Update(snapshotID, func(md *models.SnapshotMetadata) error {
-		md.TsEnd = at.Format(time.RFC3339Nano)
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to record end of life: %w", err)
-	}
-	return nil
-}
-
-// mergeServices appends the services not already present, keeping order.
-func mergeServices(existing, add []string) []string {
-	seen := make(map[string]bool, len(existing)+len(add))
-	for _, s := range existing {
-		seen[s] = true
-	}
-	for _, s := range add {
-		if !seen[s] {
-			existing = append(existing, s)
-			seen[s] = true
-		}
-	}
-	return existing
 }

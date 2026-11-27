@@ -16,9 +16,7 @@ var ErrMetadataUnavailable = errors.New("metadata store is not connected yet")
 // ReconnectingStorage stands in for the metadata storage when Couchbase
 // Server could not be reached at startup. It keeps trying in the background
 // and, until it connects, fails every operation with ErrMetadataUnavailable,
-// so writes queue and are applied once it is up. Falling back to the no-op
-// file storage instead would report those writes as done and silently discard
-// them, along with any backlog queued before a restart.
+// so writes queue and are applied once it is up.
 type ReconnectingStorage struct {
 	connect func() (*CouchbaseStorage, error)
 	retry   time.Duration
@@ -87,30 +85,6 @@ func (s *ReconnectingStorage) GetMetadata(id string) (*models.SnapshotMetadata, 
 	return cs.GetMetadata(id)
 }
 
-func (s *ReconnectingStorage) UpdatePhase(id, phase, mode string, at time.Time) error {
-	cs, err := s.current()
-	if err != nil {
-		return err
-	}
-	return cs.UpdatePhase(id, phase, mode, at)
-}
-
-func (s *ReconnectingStorage) UpdateServices(id string, services []string) error {
-	cs, err := s.current()
-	if err != nil {
-		return err
-	}
-	return cs.UpdateServices(id, services)
-}
-
-func (s *ReconnectingStorage) EoLSnapshot(id string, at time.Time) error {
-	cs, err := s.current()
-	if err != nil {
-		return err
-	}
-	return cs.EoLSnapshot(id, at)
-}
-
 func (s *ReconnectingStorage) Update(id string, fn func(*models.SnapshotMetadata) error) error {
 	cs, err := s.current()
 	if err != nil {
@@ -135,6 +109,3 @@ func (s *ReconnectingStorage) Close() error {
 	}
 	return nil
 }
-
-// Type is "couchbase": that is the store in use, connected or not.
-func (s *ReconnectingStorage) Type() string { return "couchbase" }
