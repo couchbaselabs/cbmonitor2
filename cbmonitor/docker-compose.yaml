@@ -9,6 +9,6 @@ services:
     # installed when DEVELOPMENT is true, for delve and in-container mage builds.
     build:
       args:
-        GO_VERSION: ${GO_VERSION:-1.27.3}
+        GO_VERSION: ${GO_VERSION:-1.27.4}
     env_file:
       - .env
