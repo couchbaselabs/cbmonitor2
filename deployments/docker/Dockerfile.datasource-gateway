@@ -1,4 +1,7 @@
-FROM golang:1.27.4-alpine AS builder
+# The golang image sets GOTOOLCHAIN=local. With auto, the build switches to
+# the toolchain the module's go.mod asks for when this image is older.
+FROM golang:1.27-alpine AS builder
+ENV GOTOOLCHAIN=auto
 
 # Install make for building
 RUN apk add --no-cache make

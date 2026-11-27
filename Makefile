@@ -1,4 +1,4 @@
-.PHONY: build clean test lint help
+.PHONY: build clean test lint help go-version
 
 # Default target: Build all services
 build: build-cm build-gateway
@@ -56,6 +56,18 @@ reload-plugin: build-plugin
 	@echo "Restarting cbmonitor container to load plugin changes..."
 	@docker restart cbmonitor
 
+# The go directive in these modules sets the Go toolchain for every build: the
+# release workflow reads it, and the Docker builds switch to it.
+GO_MODULES := cbmonitor config-manager datasource-gateway
+
+# Move every Go module to one Go release, e.g. make go-version GO=1.27.5
+go-version:
+	@test -n "$(GO)" || { echo "usage: make go-version GO=<version>, e.g. GO=1.27.5"; exit 1; }
+	@for m in $(GO_MODULES); do \
+		echo "$$m: go $(GO)"; \
+		(cd $$m && go get go@$(GO) toolchain@none) || exit 1; \
+	done
+
 # Clean build artifacts
 clean-cm:
 	@echo "Cleaning config-manager service build artifacts..."
@@ -84,6 +96,7 @@ help:
 	@echo "  build-plugin-docker 	- Build cbmonitor grafana-app plugin docker image"
 	@echo "  reload-plugin      - Rebuild plugin and restart container"
 	@echo "  test-cm     		- Run config-manager tests"
+	@echo "  go-version GO=x.y.z 	- Set the Go version of every Go module"
 	@echo "  clean       		- Clean all build artifacts"
 	@echo "  clean-cm    		- Clean config-manager service build artifacts"
 	@echo "  clean-plugin  		- Clean cbmonitor grafana-app plugin build artifacts"

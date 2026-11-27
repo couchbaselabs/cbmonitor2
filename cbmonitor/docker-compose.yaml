@@ -7,6 +7,8 @@ services:
     # version, so it needs a full major.minor.patch. Setting it here keeps the
     # pin in a file the Grafana plugin scaffolding does not rewrite. Go is only
     # installed when DEVELOPMENT is true, for delve and in-container mage builds.
+    # Those builds switch to the toolchain go.mod asks for (GOTOOLCHAIN=auto),
+    # so this does not have to follow go.mod's patch version.
     build:
       args:
         GO_VERSION: ${GO_VERSION:-1.27.4}
