@@ -94,6 +94,25 @@ func (md *SnapshotMetadata) ApplyPhase(label, mode string, at time.Time) {
 	}
 }
 
+// MergeCollected merges cluster metadata collected after create into the
+// document, keeping services a PATCH recorded meanwhile and any clusters and
+// server version already set. Applying it again changes nothing.
+func (md *SnapshotMetadata) MergeCollected(c *SnapshotMetadata) {
+	md.MergeServices(c.Services)
+	if len(md.Clusters) == 0 {
+		md.Clusters = c.Clusters
+	}
+	if md.Server == "" {
+		md.Server = c.Server
+	}
+	for k, v := range c.Extras {
+		if md.Extras == nil {
+			md.Extras = map[string]interface{}{}
+		}
+		md.Extras[k] = v
+	}
+}
+
 // MergeServices appends the services not already recorded, keeping order, so
 // applying the same list again changes nothing.
 func (md *SnapshotMetadata) MergeServices(services []string) {

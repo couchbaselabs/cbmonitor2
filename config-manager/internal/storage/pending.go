@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/couchbase/config-manager/internal/models"
 )
 
 // PendingOp is a metadata write that could not be applied when the client
@@ -18,17 +20,25 @@ import (
 // time.
 type PendingOp struct {
 	Seq      uint64    `json:"seq"`
-	Op       string    `json:"op"` // OpPhase, OpServices, OpEnd or OpReopen
+	Op       string    `json:"op"` // one of the Op constants
 	Phase    string    `json:"phase,omitempty"`
 	Mode     string    `json:"mode,omitempty"`
 	Services []string  `json:"services,omitempty"`
 	At       time.Time `json:"at"`
+	// Doc is the document OpCreate writes, or the metadata OpCollected merges.
+	Doc *models.SnapshotMetadata `json:"doc,omitempty"`
 }
 
 const (
-	OpPhase    = "phase"
-	OpServices = "services"
-	OpEnd      = "end"
+	// OpCreate writes a new snapshot's base document unless one exists. It is
+	// the first write for a snapshot, so the writes queued behind it apply to
+	// the document it creates.
+	OpCreate = "create"
+	// OpCollected merges cluster metadata collected after create.
+	OpCollected = "collected"
+	OpPhase     = "phase"
+	OpServices  = "services"
+	OpEnd       = "end"
 	// OpReopen marks a swept snapshot as running again when its client
 	// re-registers it.
 	OpReopen = "reopen"

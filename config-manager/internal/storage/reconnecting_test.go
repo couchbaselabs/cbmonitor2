@@ -37,7 +37,7 @@ func TestReconnectingStorageFailsUntilConnectedThenDelegates(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 
-	if err := rs.SaveMetadata(&models.SnapshotMetadata{SnapshotID: "snap", TsEnd: "now"}); err != nil {
+	if err := rs.Create(&models.SnapshotMetadata{SnapshotID: "snap", TsEnd: "now"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := endOfLife(rs, "snap"); err != nil {

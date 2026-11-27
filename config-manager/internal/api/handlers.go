@@ -34,12 +34,24 @@ type Handler struct {
 // NewHandler creates the API handler. Metadata writes that fail are queued in
 // pending and retried in the background until Shutdown.
 func NewHandler(fs *storage.FileStorage, metadataStorage storage.MetadataStorage, agentType string, pending *storage.PendingQueue) *Handler {
-	return &Handler{
+	h := &Handler{
 		storage:         fs,
 		metadataStorage: metadataStorage,
 		agentType:       agentType,
-		collector:       newMetadataCollector(metadataStorage),
 		writes:          newMetadataWrites(metadataStorage, pending),
+	}
+	h.collector = newMetadataCollector(h.recordCollected)
+	return h
+}
+
+// recordCollected merges cluster metadata collected after create into id's
+// document. It goes through the write queue like every other write, so it
+// lands after the create it depends on, even when the store was down.
+func (h *Handler) recordCollected(id string, collected *models.SnapshotMetadata) {
+	defer h.locks.lock(id)()
+	if h.writes.writeOrQueue(id, storage.PendingOp{Op: storage.OpCollected, Doc: collected, At: time.Now()}) {
+		logger.Info("Stored collected metadata", "snapshot", id,
+			"clusters", len(collected.Clusters), "services", len(collected.Services))
 	}
 }
 
@@ -84,7 +96,9 @@ func (h *Handler) CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	metrics.SnapshotsCreated.Inc()
+	unlock := h.locks.lock(id)
 	h.startMetadata(id, req)
+	unlock()
 	writeSnapshotResponse(w, http.StatusCreated, id)
 }
 
@@ -150,18 +164,22 @@ func (h *Handler) PutSnapshot(w http.ResponseWriter, r *http.Request, id string)
 		// from before the sweep, such as its end of life.
 		h.writes.writeOrQueue(id, storage.PendingOp{Op: storage.OpReopen, At: time.Now()})
 		if len(existing.Clusters) == 0 {
-			h.collector.collect(existing, req)
+			h.collector.collect(id, req)
 		}
 		writeSnapshotResponse(w, http.StatusOK, id)
 	case err == nil || errors.Is(err, storage.ErrMetadataNotFound):
 		h.startMetadata(id, req)
 		writeSnapshotResponse(w, http.StatusCreated, id)
 	default:
-		// The store cannot say whether the snapshot existed. Queue a reopen in
-		// case it did; collection writes the whole document if it did not.
+		// The store cannot say whether the snapshot existed. The create
+		// writes the base document if it did not and leaves it alone if it
+		// did; the reopen then marks an existing one as running again.
 		logger.Warn("Cannot read metadata for a re-registered snapshot", "id", id, "error", err)
-		h.writes.writeOrQueue(id, storage.PendingOp{Op: storage.OpReopen, At: time.Now()})
-		h.collector.collect(newBaseMetadata(id, req), req)
+		base := newBaseMetadata(id, req)
+		h.writes.writeOrQueue(id,
+			storage.PendingOp{Op: storage.OpCreate, Doc: base, At: base.TsStart},
+			storage.PendingOp{Op: storage.OpReopen, At: time.Now()})
+		h.collector.collect(id, req)
 		writeSnapshotResponse(w, http.StatusCreated, id)
 	}
 }
@@ -187,16 +205,14 @@ func (h *Handler) decodeSnapshotRequest(w http.ResponseWriter, r *http.Request) 
 // startMetadata writes a new snapshot's base document and starts collecting
 // its cluster metadata. The base document is written before responding: the
 // gateway resolves a snapshot's time window from ts_start, so it has to exist
-// as soon as the client starts querying. Cluster details take one or more
-// round trips per host and are merged in when they arrive.
+// as soon as the client starts querying. If the store cannot take it now, it
+// is queued, and every later write for the snapshot queues behind it. Cluster
+// details take one or more round trips per host and are merged in when they
+// arrive. The caller holds the snapshot's lock.
 func (h *Handler) startMetadata(id string, req *models.SnapshotRequest) {
 	base := newBaseMetadata(id, req)
-	if err := h.metadataStorage.SaveMetadata(base); err != nil {
-		logger.Warn("Warning: Failed to save metadata", "error", err)
-	} else {
-		logger.Info("Successfully saved metadata for snapshot", "id", id, "customPanels", len(base.CustomPanels))
-	}
-	h.collector.collect(base, req)
+	h.writes.writeOrQueue(id, storage.PendingOp{Op: storage.OpCreate, Doc: base, At: base.TsStart})
+	h.collector.collect(id, req)
 }
 
 func newBaseMetadata(id string, req *models.SnapshotRequest) *models.SnapshotMetadata {

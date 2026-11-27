@@ -28,13 +28,18 @@ var ErrMetadataNotFound = errors.New("metadata not found")
 // errCASMismatch reports that a document changed between read and write.
 var errCASMismatch = errors.New("metadata document changed concurrently")
 
+// errDocumentExists reports an insert of a document that already exists.
+var errDocumentExists = errors.New("metadata document already exists")
+
 // docStore is the key-value surface CouchbaseStorage needs from a collection.
 // replace succeeds only if the document still carries cas, returning
 // errCASMismatch otherwise, which is what makes read-modify-write safe.
 type docStore interface {
 	get(id string) (*models.SnapshotMetadata, gocb.Cas, error)
 	replace(id string, md *models.SnapshotMetadata, cas gocb.Cas) error
-	upsert(id string, md *models.SnapshotMetadata) error
+	// insert writes md only if id has no document, returning
+	// errDocumentExists otherwise.
+	insert(id string, md *models.SnapshotMetadata) error
 }
 
 type collectionStore struct{ c *gocb.Collection }
@@ -62,8 +67,11 @@ func (s collectionStore) replace(id string, md *models.SnapshotMetadata, cas goc
 	return err
 }
 
-func (s collectionStore) upsert(id string, md *models.SnapshotMetadata) error {
-	_, err := s.c.Upsert(id, md, nil)
+func (s collectionStore) insert(id string, md *models.SnapshotMetadata) error {
+	_, err := s.c.Insert(id, md, nil)
+	if errors.Is(err, gocb.ErrDocumentExists) {
+		return errDocumentExists
+	}
 	return err
 }
 
@@ -127,14 +135,16 @@ func NewCouchbaseStorage(cfg *config.Config) (*CouchbaseStorage, error) {
 	}, nil
 }
 
-// SaveMetadata writes a snapshot's metadata document, replacing any existing one.
-func (cs *CouchbaseStorage) SaveMetadata(metadata *models.SnapshotMetadata) error {
-	if err := cs.store.upsert(metadata.SnapshotID, metadata); err != nil {
-		return fmt.Errorf("failed to save metadata to Couchbase Server: %w", err)
+// Create writes a snapshot's metadata document unless one exists.
+func (cs *CouchbaseStorage) Create(metadata *models.SnapshotMetadata) error {
+	err := cs.store.insert(metadata.SnapshotID, metadata)
+	if errors.Is(err, errDocumentExists) {
+		return nil
 	}
-
-	logger.Info("Successfully saved metadata to Couchbase", "id", metadata.SnapshotID)
-
+	if err != nil {
+		return fmt.Errorf("failed to create metadata in Couchbase Server: %w", err)
+	}
+	logger.Info("Created metadata document", "id", metadata.SnapshotID)
 	return nil
 }
 

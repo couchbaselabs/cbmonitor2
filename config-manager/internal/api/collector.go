@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -11,7 +10,6 @@ import (
 	"github.com/couchbase/config-manager/internal/metrics"
 	"github.com/couchbase/config-manager/internal/models"
 	"github.com/couchbase/config-manager/internal/products"
-	"github.com/couchbase/config-manager/internal/storage"
 )
 
 const (
@@ -27,9 +25,9 @@ const (
 // metadataCollector gathers cluster metadata for new snapshots after create
 // has responded. Create only needs the scrape file and the base metadata
 // document; services, clusters and the server version arrive a few seconds
-// later and are merged into the document.
+// later and are handed to record, which merges them into the document.
 type metadataCollector struct {
-	storage     storage.MetadataStorage
+	record      func(id string, collected *models.SnapshotMetadata)
 	hostTimeout time.Duration
 
 	sem    chan struct{}
@@ -38,10 +36,10 @@ type metadataCollector struct {
 	cancel context.CancelFunc
 }
 
-func newMetadataCollector(md storage.MetadataStorage) *metadataCollector {
+func newMetadataCollector(record func(id string, collected *models.SnapshotMetadata)) *metadataCollector {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &metadataCollector{
-		storage:     md,
+		record:      record,
 		hostTimeout: defaultHostTimeout,
 		sem:         make(chan struct{}, maxConcurrentCollections),
 		ctx:         ctx,
@@ -49,9 +47,9 @@ func newMetadataCollector(md storage.MetadataStorage) *metadataCollector {
 	}
 }
 
-// collect starts background collection for a snapshot whose base document was
-// built from base. It returns immediately.
-func (c *metadataCollector) collect(base *models.SnapshotMetadata, req *models.SnapshotRequest) {
+// collect starts background collection for snapshot id from the hosts in req.
+// It returns immediately.
+func (c *metadataCollector) collect(id string, req *models.SnapshotRequest) {
 	c.wg.Add(1)
 	go func() {
 		defer c.wg.Done()
@@ -61,7 +59,7 @@ func (c *metadataCollector) collect(base *models.SnapshotMetadata, req *models.S
 		case <-c.ctx.Done():
 			return
 		}
-		c.run(base, req)
+		c.run(id, req)
 	}()
 }
 
@@ -89,7 +87,7 @@ type hostResult struct {
 	metadata *products.Metadata
 }
 
-func (c *metadataCollector) run(base *models.SnapshotMetadata, req *models.SnapshotRequest) {
+func (c *metadataCollector) run(id string, req *models.SnapshotRequest) {
 	type job struct {
 		product  *products.Product
 		config   models.ConfigObject
@@ -121,7 +119,7 @@ func (c *metadataCollector) run(base *models.SnapshotMetadata, req *models.Snaps
 				req.Credentials.Username, req.Credentials.Password)
 			if err != nil {
 				metrics.MetadataCollectionFailures.Inc()
-				logger.Warn("Failed to collect product metadata", "snapshot", base.SnapshotID,
+				logger.Warn("Failed to collect product metadata", "snapshot", id,
 					"product", j.config.Product, "host", j.hostname, "error", err)
 				return
 			}
@@ -135,38 +133,14 @@ func (c *metadataCollector) run(base *models.SnapshotMetadata, req *models.Snaps
 		return
 	}
 
-	err := c.storage.Update(base.SnapshotID, func(doc *models.SnapshotMetadata) error {
-		applyCollected(doc, collected)
-		return nil
-	})
-	if errors.Is(err, storage.ErrMetadataNotFound) {
-		// The base document write failed during create. Nothing can have
-		// recorded a phase against a missing document, so writing it whole now
-		// loses nothing and gives the snapshot its metadata after all.
-		doc := *base
-		applyCollected(&doc, collected)
-		err = c.storage.SaveMetadata(&doc)
-	}
-	if err != nil {
-		logger.Warn("Failed to store collected metadata", "snapshot", base.SnapshotID, "error", err)
-		return
-	}
-	logger.Info("Stored collected metadata", "snapshot", base.SnapshotID,
-		"clusters", len(collected.clusters), "services", len(collected.services))
+	c.record(id, collected)
 }
 
-// collectedMetadata is the merged result across a snapshot's hosts.
-type collectedMetadata struct {
-	services []string
-	clusters []models.Cluster
-	server   string
-	extras   map[string]interface{}
-}
-
-// mergeHostMetadata combines per-host results, or returns nil when no host
-// reported anything.
-func mergeHostMetadata(results []hostResult) *collectedMetadata {
-	out := &collectedMetadata{}
+// mergeHostMetadata combines per-host results into the services, clusters,
+// server version and extras to merge into the snapshot's document, or returns
+// nil when no host reported anything.
+func mergeHostMetadata(results []hostResult) *models.SnapshotMetadata {
+	out := &models.SnapshotMetadata{}
 	seenService := map[string]bool{}
 	clusterIndex := map[string]int{}
 	any := false
@@ -180,7 +154,7 @@ func mergeHostMetadata(results []hostResult) *collectedMetadata {
 		for _, s := range md.Services {
 			if !seenService[s] {
 				seenService[s] = true
-				out.services = append(out.services, s)
+				out.Services = append(out.Services, s)
 			}
 		}
 		for _, cluster := range md.Clusters {
@@ -189,7 +163,7 @@ func mergeHostMetadata(results []hostResult) *collectedMetadata {
 				key = "name|" + cluster.Name
 			}
 			if i, ok := clusterIndex[key]; ok {
-				existing := &out.clusters[i]
+				existing := &out.Clusters[i]
 				if existing.Name == "" && cluster.Name != "" {
 					existing.Name = cluster.Name
 				}
@@ -198,56 +172,29 @@ func mergeHostMetadata(results []hostResult) *collectedMetadata {
 				}
 				continue
 			}
-			clusterIndex[key] = len(out.clusters)
-			out.clusters = append(out.clusters, cluster)
+			clusterIndex[key] = len(out.Clusters)
+			out.Clusters = append(out.Clusters, cluster)
 		}
-		if out.server == "" {
-			out.server = md.Server
+		if out.Server == "" {
+			out.Server = md.Server
 		}
 		// Free-form per-product blob. Last-write-wins per key; the convention
 		// is to namespace keys (e.g. `couchbase_version`, `sgw_version`) so
 		// distinct products don't collide.
 		for k, v := range md.Extras {
-			if out.extras == nil {
-				out.extras = map[string]interface{}{}
+			if out.Extras == nil {
+				out.Extras = map[string]interface{}{}
 			}
-			out.extras[k] = v
+			out.Extras[k] = v
 		}
 	}
 	if !any {
 		return nil
 	}
-	for i := range out.clusters {
-		if out.clusters[i].Name == "" {
-			out.clusters[i].Name = fmt.Sprintf("cluster%d", i+1)
+	for i := range out.Clusters {
+		if out.Clusters[i].Name == "" {
+			out.Clusters[i].Name = fmt.Sprintf("cluster%d", i+1)
 		}
 	}
 	return out
-}
-
-// applyCollected merges collected metadata into a document that may already
-// carry services reported by a PATCH.
-func applyCollected(doc *models.SnapshotMetadata, c *collectedMetadata) {
-	seen := map[string]bool{}
-	for _, s := range doc.Services {
-		seen[s] = true
-	}
-	for _, s := range c.services {
-		if !seen[s] {
-			seen[s] = true
-			doc.Services = append(doc.Services, s)
-		}
-	}
-	if len(doc.Clusters) == 0 {
-		doc.Clusters = c.clusters
-	}
-	if doc.Server == "" {
-		doc.Server = c.server
-	}
-	for k, v := range c.extras {
-		if doc.Extras == nil {
-			doc.Extras = map[string]interface{}{}
-		}
-		doc.Extras[k] = v
-	}
 }

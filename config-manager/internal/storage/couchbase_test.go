@@ -54,9 +54,12 @@ func (f *fakeStore) replace(id string, md *models.SnapshotMetadata, cas gocb.Cas
 	return nil
 }
 
-func (f *fakeStore) upsert(id string, md *models.SnapshotMetadata) error {
+func (f *fakeStore) insert(id string, md *models.SnapshotMetadata) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if _, ok := f.docs[id]; ok {
+		return errDocumentExists
+	}
 	f.docs[id] = *md
 	f.cas[id]++
 	return nil
@@ -73,7 +76,7 @@ func newTestCouchbaseStorage(t *testing.T) (*CouchbaseStorage, *fakeStore) {
 
 func seed(t *testing.T, cs *CouchbaseStorage, id string) {
 	t.Helper()
-	if err := cs.SaveMetadata(&models.SnapshotMetadata{SnapshotID: id, TsStart: time.Now(), TsEnd: "now"}); err != nil {
+	if err := cs.Create(&models.SnapshotMetadata{SnapshotID: id, TsStart: time.Now(), TsEnd: "now"}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -197,7 +200,9 @@ func TestUpdateGivesUpOnAPersistentConflict(t *testing.T) {
 	seed(t, cs, "snap")
 	store.beforeReplace = func() {
 		// Another writer wins every race.
-		_ = store.upsert("snap", &models.SnapshotMetadata{SnapshotID: "snap"})
+		store.mu.Lock()
+		store.cas["snap"]++
+		store.mu.Unlock()
 	}
 
 	err := cs.Update("snap", func(md *models.SnapshotMetadata) error {
@@ -227,4 +232,21 @@ func applyPhase(cs *CouchbaseStorage, id, phase, mode string, at time.Time) erro
 		md.ApplyPhase(phase, mode, at)
 		return nil
 	})
+}
+
+// A create replayed after later writes landed leaves the document as they made
+// it.
+func TestCreateLeavesAnExistingDocumentAlone(t *testing.T) {
+	cs, _ := newTestCouchbaseStorage(t)
+	seed(t, cs, "snap")
+	if err := applyPhase(cs, "snap", "load", "start", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := cs.Create(&models.SnapshotMetadata{SnapshotID: "snap", TsEnd: "now"}); err != nil {
+		t.Fatalf("create over an existing document: %v", err)
+	}
+	if md, _ := cs.GetMetadata("snap"); len(md.Phases) != 1 {
+		t.Errorf("phases = %+v, want the phase recorded after the first create", md.Phases)
+	}
 }

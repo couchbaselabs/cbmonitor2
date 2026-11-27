@@ -95,7 +95,7 @@ curl -X POST http://localhost:8085/api/v1/snapshot \
 </details>
 
 **Notes:**
-- The response is sent once the scrape configuration and the snapshot's base metadata (start time, label, products) are written. Cluster metadata (version, services, clusters) is collected in the background and appears on the snapshot a few seconds later.
+- The response is sent once the scrape configuration and the snapshot's base metadata (start time, label, products) are written. If the metadata store is unavailable, the base metadata is queued instead (see [Queued metadata writes](#queued-metadata-writes-202-accepted)) and the response is still `201`. Cluster metadata (version, services, clusters) is collected in the background and appears on the snapshot a few seconds later, or after the base metadata once it was queued.
 - A retried `POST` creates a second snapshot. Clients that retry should use [`PUT /cm/api/v1/snapshot/{id}`](#create-or-return-a-snapshot-by-id) instead.
 - Configuration files are saved with the naming convention: `{uuid}.yml` in the directory specified by the agent configuration.
 - The provided credentials are used for metrics scraping, services discovery and cluster metadata collection.
@@ -398,9 +398,9 @@ A metadata store that is slow or unavailable does not produce a 500; see below.
 
 ### Queued metadata writes (202 Accepted)
 
-When a phase, services or end-of-life update cannot be written to the metadata store, because the store is unavailable or the snapshot's metadata does not exist yet, the request still succeeds with `202 Accepted`. The update is queued on disk, survives a restart, and is retried every few seconds for up to 24 hours. It is applied with the time the client sent it, so a phase recorded late still shows when it really started.
+When a phase, services or end-of-life update cannot be written to the metadata store, because the store is unavailable or the snapshot's base metadata is itself still queued, the request still succeeds with `202 Accepted`. The update is queued on disk, survives a restart, and is retried every few seconds for up to 24 hours. It is applied with the time the client sent it, so a phase recorded late still shows when it really started.
 
-Updates for one snapshot apply in the order they were sent. While a snapshot has anything queued, later updates for it queue behind and also return `202`.
+Updates for one snapshot apply in the order they were sent, starting with the base metadata written at registration. While a snapshot has anything queued, later updates for it queue behind and also return `202`.
 
 Clients should treat `202` like `200`.
 

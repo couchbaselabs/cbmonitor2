@@ -77,29 +77,42 @@ func (w *metadataWrites) enqueue(id string, ops []storage.PendingOp) {
 }
 
 func (w *metadataWrites) apply(id string, op storage.PendingOp) error {
-	var change func(*models.SnapshotMetadata)
+	if (op.Op == storage.OpCreate || op.Op == storage.OpCollected) && op.Doc == nil {
+		// Malformed ops cannot become applicable; applying nothing drops them.
+		logger.Warn("Dropping a queued metadata write without its document", "snapshot", id, "op", op.Op)
+		return nil
+	}
+	var err error
 	switch op.Op {
+	case storage.OpCreate:
+		err = w.storage.Create(op.Doc)
+	case storage.OpCollected:
+		err = w.update(id, func(md *models.SnapshotMetadata) { md.MergeCollected(op.Doc) })
 	case storage.OpPhase:
-		change = func(md *models.SnapshotMetadata) { md.ApplyPhase(op.Phase, op.Mode, op.At) }
+		err = w.update(id, func(md *models.SnapshotMetadata) { md.ApplyPhase(op.Phase, op.Mode, op.At) })
 	case storage.OpServices:
-		change = func(md *models.SnapshotMetadata) { md.MergeServices(op.Services) }
+		err = w.update(id, func(md *models.SnapshotMetadata) { md.MergeServices(op.Services) })
 	case storage.OpEnd:
-		change = func(md *models.SnapshotMetadata) { md.TsEnd = op.At.Format(time.RFC3339Nano) }
+		err = w.update(id, func(md *models.SnapshotMetadata) { md.TsEnd = op.At.Format(time.RFC3339Nano) })
 	case storage.OpReopen:
-		change = func(md *models.SnapshotMetadata) { md.TsEnd = "now" }
+		err = w.update(id, func(md *models.SnapshotMetadata) { md.TsEnd = "now" })
 	default:
-		// Unknown ops cannot become applicable; applying nothing drops them.
 		logger.Warn("Dropping unknown queued metadata write", "snapshot", id, "op", op.Op)
 		return nil
 	}
-	err := w.storage.Update(id, func(md *models.SnapshotMetadata) error {
-		change(md)
-		return nil
-	})
 	if err != nil {
 		return fmt.Errorf("apply %s: %w", op.Op, err)
 	}
 	return nil
+}
+
+// update applies change to id's document through the store's
+// read-modify-write.
+func (w *metadataWrites) update(id string, change func(*models.SnapshotMetadata)) error {
+	return w.storage.Update(id, func(md *models.SnapshotMetadata) error {
+		change(md)
+		return nil
+	})
 }
 
 // drain retries every snapshot's queued writes once, stopping between

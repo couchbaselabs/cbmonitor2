@@ -69,12 +69,12 @@ func (s *ReconnectingStorage) current() (*CouchbaseStorage, error) {
 	return s.inner, nil
 }
 
-func (s *ReconnectingStorage) SaveMetadata(md *models.SnapshotMetadata) error {
+func (s *ReconnectingStorage) Create(md *models.SnapshotMetadata) error {
 	cs, err := s.current()
 	if err != nil {
 		return err
 	}
-	return cs.SaveMetadata(md)
+	return cs.Create(md)
 }
 
 func (s *ReconnectingStorage) GetMetadata(id string) (*models.SnapshotMetadata, error) {

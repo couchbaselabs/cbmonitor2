@@ -42,11 +42,17 @@ func newMemMetadata() *memMetadata {
 	return &memMetadata{docs: map[string]*models.SnapshotMetadata{}}
 }
 
-func (m *memMetadata) SaveMetadata(md *models.SnapshotMetadata) error {
+func (m *memMetadata) Create(md *models.SnapshotMetadata) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.getErr != nil {
+		return m.getErr
+	}
 	if m.saveErr != nil {
 		return m.saveErr
+	}
+	if _, ok := m.docs[md.SnapshotID]; ok {
+		return nil
 	}
 	cp := *md
 	m.docs[md.SnapshotID] = &cp
@@ -584,9 +590,10 @@ func TestCollectionGivesUpOnAHangingCluster(t *testing.T) {
 	}
 }
 
-// When the metadata store is down at create but back by the time collection
-// finishes, the snapshot still gets its document.
-func TestCollectionWritesTheWholeDocumentWhenTheBaseWriteFailed(t *testing.T) {
+// When the base document cannot be written at create, it is queued, and the
+// cluster details collected afterwards queue behind it: the next drain writes
+// the document and then merges them in.
+func TestCollectedMetadataQueuesBehindAFailedCreate(t *testing.T) {
 	h := newHarness(t)
 	cluster := newFakeCluster(t)
 	cluster.poolsDelay = 300 * time.Millisecond
@@ -600,9 +607,45 @@ func TestCollectionWritesTheWholeDocumentWhenTheBaseWriteFailed(t *testing.T) {
 	h.metadata.mu.Unlock()
 
 	h.handler.collector.wait()
+	if got := h.handler.writes.pending.Len(); got != 2 {
+		t.Fatalf("%d writes queued, want the create and the collected metadata", got)
+	}
+	h.handler.writes.drain(time.Now())
 	md := h.metadata.doc(t, id)
 	if md.TsStart.IsZero() || md.TsEnd != "now" || len(md.Clusters) != 1 || md.Label == "" {
 		t.Errorf("document = %+v, want base fields and collected clusters", md)
+	}
+}
+
+// A snapshot registered while the metadata store is down gets its whole
+// document once the store is back: the base fields, the phases its client
+// recorded meanwhile and the collected cluster details, in that order.
+func TestSnapshotCreatedDuringAnOutageGetsItsMetadata(t *testing.T) {
+	h := newHarness(t)
+	cluster := newFakeCluster(t)
+	const id = "jenkins-outage-1"
+
+	h.setStoreDown(true)
+	if rec := h.put(id, cluster); rec.Code != http.StatusCreated {
+		t.Fatalf("PUT during the outage: status %d, want 201", rec.Code)
+	}
+	if rec := h.do(http.MethodPatch, "/api/v1/snapshot/"+id, map[string]string{"phase": "load", "mode": "start"}); rec.Code != http.StatusAccepted {
+		t.Fatalf("phase start during the outage: status %d, want 202", rec.Code)
+	}
+	h.handler.collector.wait()
+
+	h.setStoreDown(false)
+	h.handler.writes.drain(time.Now())
+
+	md := h.metadata.doc(t, id)
+	if md.TsStart.IsZero() || md.Label == "" || md.TsEnd != "now" {
+		t.Errorf("document = %+v, want the base fields", md)
+	}
+	if len(md.Phases) != 1 || len(md.Clusters) != 1 {
+		t.Errorf("phases %v clusters %v, want the queued phase and the collected cluster", md.Phases, md.Clusters)
+	}
+	if got := h.handler.writes.pending.Len(); got != 0 {
+		t.Errorf("%d writes still queued after the store came back", got)
 	}
 }
 
